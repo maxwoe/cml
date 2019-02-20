@@ -26,5 +26,6 @@ Export-Package: at.ac.univie.swa.parser.antlr,
  at.ac.univie.swa.parser.antlr.internal,
  at.ac.univie.swa.services,
  at.ac.univie.swa.serializer,
- at.ac.univie.swa.cml.util
+ at.ac.univie.swa.cml.util,
+ at.ac.univie.swa.parser.antlr.lexer
 Import-Package: org.apache.log4j

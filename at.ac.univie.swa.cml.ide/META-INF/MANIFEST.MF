@@ -12,4 +12,5 @@ Require-Bundle: at.ac.univie.swa.cml,
  org.antlr.runtime;bundle-version="[3.2.0,3.2.1)"
 Bundle-RequiredExecutionEnvironment: JavaSE-1.8
 Export-Package: at.ac.univie.swa.ide.contentassist.antlr.internal,
- at.ac.univie.swa.ide.contentassist.antlr
+ at.ac.univie.swa.ide.contentassist.antlr,
+ at.ac.univie.swa.ide.contentassist.antlr.lexer

@@ -18,7 +18,6 @@ import at.ac.univie.swa.cml.EntityType
 import at.ac.univie.swa.cml.Equality
 import at.ac.univie.swa.cml.Event
 import at.ac.univie.swa.cml.Expression
-import at.ac.univie.swa.cml.Feature
 import at.ac.univie.swa.cml.IntegerConstant
 import at.ac.univie.swa.cml.IntegerType
 import at.ac.univie.swa.cml.MulOrDiv
@@ -33,8 +32,6 @@ import at.ac.univie.swa.cml.StringConstant
 import at.ac.univie.swa.cml.StringType
 import at.ac.univie.swa.cml.Unary
 import java.util.List
-import java.util.Map
-import java.util.Set
 import org.eclipse.emf.ecore.resource.Resource
 import org.eclipse.xtext.generator.AbstractGenerator
 import org.eclipse.xtext.generator.IFileSystemAccess2
@@ -47,7 +44,9 @@ import org.eclipse.xtext.generator.IGeneratorContext
  */
 class CmlGenerator extends AbstractGenerator {
 	 
-    override void doGenerate(Resource resource, IFileSystemAccess2 fsa, IGeneratorContext context) {            
+	int index
+    override void doGenerate(Resource resource, IFileSystemAccess2 fsa, IGeneratorContext context) {    
+    	index = 0        
         for (e : resource.allContents.toIterable.filter(Contract)) {		
             fsa.generateFile(resource.URI.trimFileExtension + ".sol", e.compile)         
         }
@@ -61,8 +60,8 @@ class CmlGenerator extends AbstractGenerator {
 		/*
 		 *  Structs
 		 */
-		«FOR f : c.features»
-			«IF f instanceof Entity»«(f as Entity).compile»«ENDIF»
+		«FOR e : c.entities»
+			«e.compile»
 		«ENDFOR»
 		/*
 		 *  State variables
@@ -72,8 +71,8 @@ class CmlGenerator extends AbstractGenerator {
 		     address «p.name»;
         «ENDFOR»
 		uint creationTime;
-		«FOR f : c.features»
-		   	«IF f instanceof Attribute»«(f as Attribute).compile»;«ENDIF»
+		«FOR a : c.attributes»
+		   	«a.compile»;
 		«ENDFOR»
 		
 		/*
@@ -95,8 +94,8 @@ class CmlGenerator extends AbstractGenerator {
 		}
 		
 		«FOR p : c.parties»
-			«FOR a : p.actions»
-				«a.compile»
+			«FOR f : p.features»
+				«IF f instanceof Action»«(f as Action).compile»«ENDIF»
 		    «ENDFOR»
 		«ENDFOR»
 		«FOR e : c.events»
@@ -140,7 +139,7 @@ class CmlGenerator extends AbstractGenerator {
   
     def compile(Entity e) '''
         struct «e.name.toFirstUpper» {
-        	«FOR f : e.features»
+        	«FOR f : e.attributes»
         		«f.compile»;
         	«ENDFOR»
         }
@@ -149,6 +148,13 @@ class CmlGenerator extends AbstractGenerator {
         
     def compile(Action a) '''	
 	function «a.name»(«a.args.compile») public {
+		// TODO: Implement code to «a.name» «FOR arg : a.args SEPARATOR ', '»«arg.name»«ENDFOR»
+	}
+	
+	'''
+	
+	def compile(Action a, List<String> modifiers) '''	
+	function «a.name»(«a.args.compile») public «FOR m : modifiers SEPARATOR ' '»«m»() «ENDFOR» {
 		// TODO: Implement code to «a.name» «FOR arg : a.args SEPARATOR ', '»«arg.name»«ENDFOR»
 	}
 	
@@ -175,7 +181,7 @@ class CmlGenerator extends AbstractGenerator {
 		}
 	}
 	
-	int index
+	
 	def compile(Antecedent a) '''
 	/// @notice modifier for function «(a.eContainer as Clause).name»
 	modifier guard«index++»() {
@@ -224,7 +230,7 @@ class CmlGenerator extends AbstractGenerator {
 				val left = exp.left.compile
 				val right = exp.right.compile
 				if (exp.op == '*')
-					'''«left» * «right»''' // left * right
+					'''«left» * «right»''' 
 				else
 					'''«left» / «right»'''
 			}
@@ -245,23 +251,12 @@ class CmlGenerator extends AbstractGenerator {
 			BooleanConstant: '''«exp.value»'''
 			StringConstant: '''"«exp.value»"'''
 			Reference: {
-				if(exp.value instanceof Feature)
-					'''«(exp.value as Feature).name»'''
+				if(exp.value instanceof Attribute)
+					'''«(exp.value as Attribute).name»'''
 				else if(exp.value instanceof Clause)
 					'''«(exp.value as Clause).name»'''
 			}
 		}
-	}
-	
-	def <T> index(Iterable<T> i) {
-		val Map<Integer, T> map = <Integer, T>newHashMap()
-		var counter = 0
-		for (T e : i) {
-			map.put(counter, e)
-			counter = counter++
-		}
-		val Set<Map.Entry<Integer, T>> res = map.entrySet
-		res
 	}
 	
 }

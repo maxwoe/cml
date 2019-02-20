@@ -3,7 +3,7 @@
 <plugin>
 	<extension point="org.eclipse.emf.ecore.generated_package">
 		<package 
-			uri = "http://www.ac.at/univie/swa/Cml"
+			uri = "http://swa.univie.ac.at/Cml"
 			class = "at.ac.univie.swa.cml.CmlPackage"
 			genModel = "model/generated/Cml.genmodel" />
 	</extension>
