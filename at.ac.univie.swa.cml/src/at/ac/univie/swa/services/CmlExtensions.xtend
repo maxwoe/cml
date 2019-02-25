@@ -2,7 +2,6 @@ package at.ac.univie.swa.services
 
 import at.ac.univie.swa.cml.Attribute
 import at.ac.univie.swa.cml.Entity
-import at.ac.univie.swa.cml.Reference
 
 /**
  * Extensions for model elements of a domain model.

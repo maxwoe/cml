@@ -26,7 +26,6 @@ import at.ac.univie.swa.cml.Or
 import at.ac.univie.swa.cml.PlusOrMinus
 import at.ac.univie.swa.cml.Postfix
 import at.ac.univie.swa.cml.PrimitiveType
-import at.ac.univie.swa.cml.Reference
 import at.ac.univie.swa.cml.Relation
 import at.ac.univie.swa.cml.StringConstant
 import at.ac.univie.swa.cml.StringType
@@ -43,221 +42,225 @@ import org.eclipse.xtext.generator.IGeneratorContext
  * See https://www.eclipse.org/Xtext/documentation/303_runtime_concepts.html#code-generation
  */
 class CmlGenerator extends AbstractGenerator {
-	 
-	int index
-    override void doGenerate(Resource resource, IFileSystemAccess2 fsa, IGeneratorContext context) {    
-    	index = 0        
-        for (e : resource.allContents.toIterable.filter(Contract)) {		
-            fsa.generateFile(resource.URI.trimFileExtension + ".sol", e.compile)         
-        }
-    }
- 
-    def compile(Contract c) '''
-	pragma solidity ^0.5.0;
 	
-	contract «c.name» {
+	override doGenerate(Resource input, IFileSystemAccess2 fsa, IGeneratorContext context) {
 		
-		/*
-		 *  Structs
-		 */
-		«FOR e : c.entities»
-			«e.compile»
-		«ENDFOR»
-		/*
-		 *  State variables
-		 */	
-		address owner;
-		«FOR p : c.parties»
-		     address «p.name»;
-        «ENDFOR»
-		uint creationTime;
-		«FOR a : c.attributes»
-		   	«a.compile»;
-		«ENDFOR»
-		
-		/*
-	 	 *  Events
-	 	 */
-		«FOR e : c.events»
-			«e.compile»;
-		«ENDFOR»
-		
-		/*
-		 *  Constructor
-		 */
-		constructor(«FOR p : c.parties SEPARATOR ', '»address _«p.name»«ENDFOR») public {
-			owner = msg.sender;
-			«FOR p : c.parties»
-				«p.name»= _«p.name»;
-			«ENDFOR»
-			creationTime = now;
-		}
-		
-		«FOR p : c.parties»
-			«FOR f : p.features»
-				«IF f instanceof Action»«(f as Action).compile»«ENDIF»
-		    «ENDFOR»
-		«ENDFOR»
-		«FOR e : c.events»
-			«e.compileEventAsFunction»
-		«ENDFOR»
-		function changeOwner(address _newOwner) public onlyBy(owner) {
-			owner = _newOwner;
-		}
-		
-		/// Fallback function
-		function() external payable { }
-		
-		/* 	 
-		 *  Modifiers
-	 	 */
-	 	«FOR cl : c.clauses»
-	 		«IF cl.antecedent.general !== null»«cl.antecedent.compile»«ENDIF»
-		«ENDFOR»
-		modifier onlyBy(address _account) { 
-			require(msg.sender == _account, "Sender not authorized."); _;
-		}
-		
-		modifier onlyAfter(uint _time) {
-			require(now >= _time, "Function called too early."); _;
-		}
-		
-		modifier onlyBefore(uint _time) {
-			require(now < _time, "Function called too late."); _;
-		}
-	}
-    '''
-        
-    def compile(List<Attribute> attributes) '''
-    	«FOR arg : attributes SEPARATOR ', '»«arg.compile»«ENDFOR»'''
-    
-    def compile(Attribute a) '''
-    	«IF a.type instanceof PrimitiveType»«(a.type as PrimitiveType).compilePrimitiveType» « a.name»«ENDIF»«IF a.type instanceof EntityType»«(a.type as EntityType).reference.name.toFirstUpper» « a.name»«ENDIF»'''
-    
-    def compile(PrimitiveType pt) '''
-		«IF pt instanceof IntegerType»uint«ENDIF»«IF pt instanceof BooleanType»bool«ENDIF»«IF pt instanceof StringType»bytes32«ENDIF»'''
-  
-    def compile(Entity e) '''
-        struct «e.name.toFirstUpper» {
-        	«FOR f : e.attributes»
-        		«f.compile»;
-        	«ENDFOR»
-        }
-        
-        ''' 
-        
-    def compile(Action a) '''	
-	function «a.name»(«a.args.compile») public {
-		// TODO: Implement code to «a.name» «FOR arg : a.args SEPARATOR ', '»«arg.name»«ENDFOR»
 	}
 	
-	'''
-	
-	def compile(Action a, List<String> modifiers) '''	
-	function «a.name»(«a.args.compile») public «FOR m : modifiers SEPARATOR ' '»«m»() «ENDFOR» {
-		// TODO: Implement code to «a.name» «FOR arg : a.args SEPARATOR ', '»«arg.name»«ENDFOR»
-	}
-	
-	'''
-	
-	def compile(Event e) '''
-	event «e.name.toFirstUpper»()'''
-	
-	def compileEventAsFunction(Event e) '''	
-	/// @notice trigger event «e.name»
-	function «e.name»() public {
-		emit «e.name.toFirstUpper»();
-	}
-	
-	'''
-	
-    def String compilePrimitiveType(PrimitiveType pt) {
-		switch (pt) {
-			IntegerType: "uint"
-			BooleanType: "bool"
-			StringType: "bytes32"
-			DateType: "uint"
-			default: "???"//throw new IllegalArgumentException("not handled" + pt)
-		}
-	}
-	
-	
-	def compile(Antecedent a) '''
-	/// @notice modifier for function «(a.eContainer as Clause).name»
-	modifier guard«index++»() {
-		require(«a.general.expression.compile»); _;
-	}
-	
-	'''
-	
-	def String compile(Expression exp) {
-		
-		switch (exp) {
-			Assignment: 
-				'''«(exp.left.compile)» = «(exp.right.compile)»'''
-			Or: {
-				'''«(exp.left.compile)» || «(exp.right.compile)»'''
-			}
-			And: {
-				'''«(exp.left.compile)» && «(exp.right.compile)»'''
-			}
-			Equality: {
-				if (exp.op == '==')
-					'''«(exp.left.compile)» == «(exp.right.compile)»'''
-				else
-					'''«(exp.left.compile)» != «(exp.right.compile)»'''
-			}
-			Relation: {
-				val left = exp.left.compile
-				val right = exp.right.compile
+//	int index
+//    override void doGenerate(Resource resource, IFileSystemAccess2 fsa, IGeneratorContext context) {    
+//    	index = 0        
+//        for (e : resource.allContents.toIterable.filter(Contract)) {		
+//            fsa.generateFile(resource.URI.trimFileExtension + ".sol", e.compile)         
+//        }
+//    }
+// 
+//    def compile(Contract c) '''
+//	pragma solidity ^0.5.0;
+//	
+//	contract «c.name» {
+//		
+//		/*
+//		 *  Structs
+//		 */
+//		«FOR e : c.entities»
+//			«e.compile»
+//		«ENDFOR»
+//		/*
+//		 *  State variables
+//		 */	
+//		address owner;
+//		«FOR p : c.parties»
+//		     address «p.name»;
+//        «ENDFOR»
+//		uint creationTime;
+//		«FOR a : c.attributes»
+//		   	«a.compile»;
+//		«ENDFOR»
+//		
+//		/*
+//	 	 *  Events
+//	 	 */
+//		«FOR e : c.events»
+//			«e.compile»;
+//		«ENDFOR»
+//		
+//		/*
+//		 *  Constructor
+//		 */
+//		constructor(«FOR p : c.parties SEPARATOR ', '»address _«p.name»«ENDFOR») public {
+//			owner = msg.sender;
+//			«FOR p : c.parties»
+//				«p.name»= _«p.name»;
+//			«ENDFOR»
+//			creationTime = now;
+//		}
+//		
+//		«FOR p : c.parties»
+//			«FOR f : p.features»
+//				«IF f instanceof Action»«(f as Action).compile»«ENDIF»
+//		    «ENDFOR»
+//		«ENDFOR»
+//		«FOR e : c.events»
+//			«e.compileEventAsFunction»
+//		«ENDFOR»
+//		function changeOwner(address _newOwner) public onlyBy(owner) {
+//			owner = _newOwner;
+//		}
+//		
+//		/// Fallback function
+//		function() external payable { }
+//		
+//		/* 	 
+//		 *  Modifiers
+//	 	 */
+//	 	«FOR cl : c.clauses»
+//	 		«IF cl.antecedent.general !== null»«cl.antecedent.compile»«ENDIF»
+//		«ENDFOR»
+//		modifier onlyBy(address _account) { 
+//			require(msg.sender == _account, "Sender not authorized."); _;
+//		}
+//		
+//		modifier onlyAfter(uint _time) {
+//			require(now >= _time, "Function called too early."); _;
+//		}
+//		
+//		modifier onlyBefore(uint _time) {
+//			require(now < _time, "Function called too late."); _;
+//		}
+//	}
+//    '''
+//        
+//    def compile(List<Attribute> attributes) '''
+//    	«FOR arg : attributes SEPARATOR ', '»«arg.compile»«ENDFOR»'''
+//    
+//    def compile(Attribute a) '''
+//    	«IF a.type instanceof PrimitiveType»«(a.type as PrimitiveType).compilePrimitiveType» « a.name»«ENDIF»«IF a.type instanceof EntityType»«(a.type as EntityType).reference.name.toFirstUpper» « a.name»«ENDIF»'''
+//    
+//    def compile(PrimitiveType pt) '''
+//		«IF pt instanceof IntegerType»uint«ENDIF»«IF pt instanceof BooleanType»bool«ENDIF»«IF pt instanceof StringType»bytes32«ENDIF»'''
+//  
+//    def compile(Entity e) '''
+//        struct «e.name.toFirstUpper» {
+//        	«FOR f : e.attributes»
+//        		«f.compile»;
+//        	«ENDFOR»
+//        }
+//        
+//        ''' 
+//        
+//    def compile(Action a) '''	
+//	function «a.name»(«a.args.compile») public {
+//		// TODO: Implement code to «a.name» «FOR arg : a.args SEPARATOR ', '»«arg.name»«ENDFOR»
+//	}
+//	
+//	'''
+//	
+//	def compile(Action a, List<String> modifiers) '''	
+//	function «a.name»(«a.args.compile») public «FOR m : modifiers SEPARATOR ' '»«m»() «ENDFOR» {
+//		// TODO: Implement code to «a.name» «FOR arg : a.args SEPARATOR ', '»«arg.name»«ENDFOR»
+//	}
+//	
+//	'''
+//	
+//	def compile(Event e) '''
+//	event «e.name.toFirstUpper»()'''
+//	
+//	def compileEventAsFunction(Event e) '''	
+//	/// @notice trigger event «e.name»
+//	function «e.name»() public {
+//		emit «e.name.toFirstUpper»();
+//	}
+//	
+//	'''
+//	
+//    def String compilePrimitiveType(PrimitiveType pt) {
+//		switch (pt) {
+//			IntegerType: "uint"
+//			BooleanType: "bool"
+//			StringType: "bytes32"
+//			DateType: "uint"
+//			default: "???"//throw new IllegalArgumentException("not handled" + pt)
+//		}
+//	}
+//	
+//	
+//	def compile(Antecedent a) '''
+//	/// @notice modifier for function «(a.eContainer as Clause).name»
+//	modifier guard«index++»() {
+//		require(«a.general.expression.compile»); _;
+//	}
+//	
+//	'''
+//	
+//	def String compile(Expression exp) {
+//		
+//		switch (exp) {
+//			Assignment: 
+//				'''«(exp.left.compile)» = «(exp.right.compile)»'''
+//			Or: {
+//				'''«(exp.left.compile)» || «(exp.right.compile)»'''
+//			}
+//			And: {
+//				'''«(exp.left.compile)» && «(exp.right.compile)»'''
+//			}
+//			Equality: {
+//				if (exp.op == '==')
+//					'''«(exp.left.compile)» == «(exp.right.compile)»'''
+//				else
+//					'''«(exp.left.compile)» != «(exp.right.compile)»'''
+//			}
+//			Relation: {
+//				val left = exp.left.compile
+//				val right = exp.right.compile
+//
+//				switch (exp.op) {
+//					case '<': '''«left» < «right»'''
+//					case '>': '''«left» > «right»'''
+//					case '>=': '''«left» >= «right»'''
+//					case '<=': '''«left» <= «right»'''
+//					default:
+//						""
+//				}
+//			}
+//			PlusOrMinus: {
+//				if (exp.op == '+')
+//					'''«(exp.left.compile)» + «(exp.right.compile)»'''
+//				else
+//					'''«(exp.left.compile)» - «(exp.right.compile)»'''
+//			}
+//			MulOrDiv: {
+//				val left = exp.left.compile
+//				val right = exp.right.compile
+//				if (exp.op == '*')
+//					'''«left» * «right»''' 
+//				else
+//					'''«left» / «right»'''
+//			}
+//			Unary: {
+//				if (exp.op == '+')
+//					''' +«(exp.right.compile)»'''
+//				else
+//					''' -«(exp.right.compile)»'''
+//			}
+//			Postfix: {
+//				if (exp.op == '++')
+//					'''«(exp.left.compile)»++'''
+//				else
+//					'''«(exp.left.compile)»--'''
+//			}
+//			Not: '''!«(exp.expression.compile)»'''
+//			IntegerConstant: '''«exp.value»'''
+//			BooleanConstant: '''«exp.value»'''
+//			StringConstant: '''"«exp.value»"'''
+//			Reference: {
+//				if(exp.value instanceof Attribute)
+//					'''«(exp.value as Attribute).name»'''
+//				else if(exp.value instanceof Clause)
+//					'''«(exp.value as Clause).name»'''
+//			}
+//		}
+//	}
 
-				switch (exp.op) {
-					case '<': '''«left» < «right»'''
-					case '>': '''«left» > «right»'''
-					case '>=': '''«left» >= «right»'''
-					case '<=': '''«left» <= «right»'''
-					default:
-						""
-				}
-			}
-			PlusOrMinus: {
-				if (exp.op == '+')
-					'''«(exp.left.compile)» + «(exp.right.compile)»'''
-				else
-					'''«(exp.left.compile)» - «(exp.right.compile)»'''
-			}
-			MulOrDiv: {
-				val left = exp.left.compile
-				val right = exp.right.compile
-				if (exp.op == '*')
-					'''«left» * «right»''' 
-				else
-					'''«left» / «right»'''
-			}
-			Unary: {
-				if (exp.op == '+')
-					''' +«(exp.right.compile)»'''
-				else
-					''' -«(exp.right.compile)»'''
-			}
-			Postfix: {
-				if (exp.op == '++')
-					'''«(exp.left.compile)»++'''
-				else
-					'''«(exp.left.compile)»--'''
-			}
-			Not: '''!«(exp.expression.compile)»'''
-			IntegerConstant: '''«exp.value»'''
-			BooleanConstant: '''«exp.value»'''
-			StringConstant: '''"«exp.value»"'''
-			Reference: {
-				if(exp.value instanceof Attribute)
-					'''«(exp.value as Attribute).name»'''
-				else if(exp.value instanceof Clause)
-					'''«(exp.value as Clause).name»'''
-			}
-		}
-	}
-	
 }
 

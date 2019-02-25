@@ -11,33 +11,18 @@ Contract:
 		 attributes+=Attribute |
 		 entities+=Entity |
 		 events+=Event |
-		 clauses+=Clause|
-		 usages+=Usage)*
+		 clauses+=Clause)*
 	END;
 
-/*
 Party:
 	'party' name=ID
 	BEGIN
-		(features+=Attribute | 
+		(attributes+=Attribute | 
 		 actions+=Action)*
 	END;
-*/
-
-Usage:
-    "use" DotExpression;
-
-Party:
-	'party' name=ID
-	BEGIN
-		features+=Feature*
-	END;
-
-Feature:
-    Attribute | Action;
 
 Action:
-	/*visibility=Visibility?*/ name=ID '(' (args+=Attribute (',' args+=Attribute)*)? ')';
+	/*visibility=Visibility? returnType=[PrimitiveType]?*/ name=ID '(' (args+=Attribute (',' args+=Attribute)*)? ')';
 	
 AbstractType:
 	PrimitiveType | EntityType;
@@ -46,7 +31,7 @@ PrimitiveType:
 	{IntegerType} "integer" | {BooleanType} "boolean" | {StringType} "string" | {DateType} "date";
 
 EntityType:
-	reference=[Entity|ID];
+	ref=[Entity|ID];
 
 Entity:
 	'entity' name=ID /*('extends' superType=[Entity|ID])?*/
@@ -55,7 +40,7 @@ Entity:
 	END;
 
 Attribute:
-	name=ID (((":" (many?='many')? type=AbstractType)? "=" expr=Expression) | (":" type=AbstractType));
+	(many?='many')? name=ID (((":" type=AbstractType)? "=" expr=Expression) | (":" type=AbstractType));
 
 Event:
 	'event' name=ID;
@@ -72,6 +57,9 @@ Clause:
 Antecedent:
 	{Antecedent} temporal=TemporalConstraint? general=Constraint?;
 
+TemporalConstraint:
+	'due' constraint=TimeConstraint;
+	
 Constraint:
 	'given' expression=Expression;
 
@@ -82,43 +70,53 @@ enum Deontic:
 	MUST='must' | MAY='may' | MUST_NOT= 'must_not';
 
 DeonticAction:
-	deontic=Deontic action=[Action|ID]'(' (args+=Attribute (',' args+=Attribute)*)? ')';
+	deontic=Deontic action=[Action|ID]'(' (args+=[Attribute] (',' args+=[Attribute])*)? ')';
 
 Reparation:
 	'otherwise' referTo=[Clause|ID];
-
-TemporalConstraint:
-	'due' constraint=TimeConstraint;
 
 TimeConstraint:
 	OpenTimeConstraint | => ClosedTimeConstraint;
 
 OpenTimeConstraint:
-	precedence=TemporalPrecedence reference=TimeQuery;
-
+	precedence=TemporalPrecedence reference=(AbsoluteTime | DotExpression);
+	
 ClosedTimeConstraint:
-	closed?='within'? timeframe=TimeFrame precedence=TemporalPrecedence reference=TimeQuery;
+	closed?='within'? timeframe=(RelativeTime | DotExpression) precedence=('before' | 'after') reference=(AbsoluteTime | DotExpression);
 
 enum TemporalPrecedence:
 	BEFORE='before' | AFTER='after';
 
-TimeFrame:
-	{TimeFrame} (weeks=INT 'weeks')? (days=INT 'days')? (hours=INT 'hours')? (minutes=INT 'minutes')? (seconds=INT 'seconds')?;
-	
-TimeQuery:
-	AbstractTimeQuery | GlobalTimeQuery;
+//TimeQuery:
+//	/*ClauseQuery | EventQuery |*/ AbstractTimeQuery | GlobalTimeQuery | DotExpression;
 
-AbstractTimeQuery:
-	reference=[TimeQuerySource|FQN];
+/*
+ClauseQuery:
+	ref=[Clause] 'fulfilled';
+
+EventQuery:
+	ref=[Event] 'occurred';*/
+
+TimeQuery:
+	ref=[TimeQuerySource|ID] 'done';
 	
 TimeQuerySource:
-	Action | Attribute | Clause | Event;
+	Clause | Event | Action;
+	
+Time:
+	AbsoluteTime | RelativeTime;
 
-GlobalTimeQuery:
-	reference=GlobalTime;
+AbsoluteTime:
+	TimeQuery | globalTimeRef=GlobalTimeReference;
+	
+RelativeTime:
+	TimeFrame;
 
-enum GlobalTime:
+enum GlobalTimeReference:
 	NOW='now' | CONTRACT_START='contractStart';
+	
+TimeFrame:
+	{Weeks} (weeks=INT 'weeks') | {Days} (days=INT 'days') | {Hours} (hours=INT 'hours') | {Minutes} (minutes=INT 'minutes') | {Seconds} (seconds=INT 'seconds');
 	
 Expression:
 	Assignment;
@@ -158,32 +156,36 @@ Primary returns Expression:
 	'(' Expression ')' | {Not} op=('!' | 'not') expression=Primary | Atomic;
 
 Atomic returns Expression:
-	{IntegerConstant} value=INT | {StringConstant} value=STRING | {BooleanConstant} value=('true' | 'false') | {Reference} value=[ReferenceSource|FQN];
+	{IntegerConstant} value=INT | 
+	{StringConstant} value=STRING | 
+	{BooleanConstant} value=('true' | 'false')/* | 
+	{TimeExpression} value=TimeFrame  | 
+	{ClauseRef} value=[Clause] 'fulfilled'| */
+	|DotExpression
+	|Time;
 
-ReferenceSource:
-	Attribute | Clause | DotExpression;
- 
 FQN:
 	ID ('.' ID)*;
 
+DotExpression returns Ref:
+    DotExpressionStart ({DotExpression.head=current} "." tail=[Attribute])*;
+ 
+DotExpressionStart returns Ref:
+    {DotExpressionStart} ref=[Reference];
+
+Reference:
+	Party | Attribute;
+	 
 //terminal BOOL returns ecore::EBoolean:
 //	'true' | 'false';
 
 //terminal NUMBER returns ecore::EBigDecimal:
 //	/*("-")?*/ ('0'..'9')* ('.' ('0'..'9')+)?;
 
-DotExpression returns Ref:
-    DotExpressionStart ({DotExpression.ref=current} ":" tail=[Attribute])*;
- 
-DotExpressionStart returns Ref:
-    {DotExpressionStart} ref=[Entity];
-
-//PathExpression: entity=[Entity] ( '/' pathElements+=[Feature] )+;
-
 @Override 
 terminal SL_COMMENT:
 	'#' !('\n' | '\r')* ('\r'? '\n')?;
-
+	
 // The following synthetic tokens are used for the indentation-aware blocks
 terminal BEGIN: 'synthetic:BEGIN';  // increase indentation
 terminal END: 'synthetic:END';      // decrease indentation

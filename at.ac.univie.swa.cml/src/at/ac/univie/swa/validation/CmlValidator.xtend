@@ -3,6 +3,9 @@
  */
 package at.ac.univie.swa.validation
 
+import at.ac.univie.swa.cml.Entity
+import at.ac.univie.swa.cml.CmlPackage
+import org.eclipse.xtext.validation.Check
 
 /**
  * This class contains custom validation rules. 
@@ -21,5 +24,13 @@ class CmlValidator extends AbstractCmlValidator {
 //					INVALID_NAME)
 //		}
 //	}
-	
+
+    @Check
+    def void checkNameStartsWithCapital(Entity entity) {
+        if (!Character.isUpperCase(entity.name.charAt(0))) {
+            warning("Name should start with a capital", 
+                CmlPackage.Literals.ENTITY__NAME)
+        }
+    }
+    
 }

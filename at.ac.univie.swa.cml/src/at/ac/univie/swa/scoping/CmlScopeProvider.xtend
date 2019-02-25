@@ -3,18 +3,22 @@
  */
 package at.ac.univie.swa.scoping
 
+import at.ac.univie.swa.cml.Action
 import at.ac.univie.swa.cml.Attribute
+import at.ac.univie.swa.cml.Clause
 import at.ac.univie.swa.cml.CmlPackage
+import at.ac.univie.swa.cml.DeonticAction
 import at.ac.univie.swa.cml.DotExpression
 import at.ac.univie.swa.cml.DotExpressionStart
 import at.ac.univie.swa.cml.Entity
-import at.ac.univie.swa.cml.Usage
+import at.ac.univie.swa.cml.EntityType
+import at.ac.univie.swa.cml.Party
+import at.ac.univie.swa.cml.PrimitiveType
 import org.eclipse.emf.ecore.EObject
 import org.eclipse.emf.ecore.EReference
+import org.eclipse.xtext.EcoreUtil2
 import org.eclipse.xtext.scoping.IScope
 import org.eclipse.xtext.scoping.Scopes
-import at.ac.univie.swa.cml.PrimitiveType
-import at.ac.univie.swa.cml.EntityType
 
 /**
  * This class contains custom scoping description.
@@ -26,121 +30,58 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 
 	// private static final Logger logger = Logger.getLogger(CmlScopeProvider.getName());
 	// @Inject extension CmlExtensions
-	
 	override getScope(EObject context, EReference reference) {
 
-		/*if (context instanceof DeonticAction && reference == CmlPackage.Literals.DEONTIC_ACTION__ACTION) {
-		 * 	// println(context + " " + reference)
-		 * 	val clause = EcoreUtil2.getContainerOfType(context, Clause)
-		 * 	if (clause !== null && clause.actor !== null && clause.actor.party !== null) {
-		 * 		val candidates = EcoreUtil2.getAllContentsOfType(clause.actor.party, Action)
-		 * 		return Scopes.scopeFor(candidates);
-		 * 	}
-		 } else */
-		// println("context: " + context + " ref: " + reference.name)
-		/*if (context instanceof Usage /*&& reference == CmlPackage.Literals.ENTITY_REF*) {		
+		if (reference == CmlPackage.Literals.DEONTIC_ACTION__ACTION) {
+			if(context instanceof DeonticAction) {
+				val clause = EcoreUtil2.getContainerOfType(context, Clause)
+				if (clause !== null && clause.actor !== null && clause.actor.party !== null) {
+					val candidates = EcoreUtil2.getAllContentsOfType(clause.actor.party, Action)
+					return Scopes.scopeFor(candidates);
+				}
+			}
+		}
 
-		 *   		val usage = EcoreUtil2.getContainerOfType(context, Usage)
-		 *   		val candidates = EcoreUtil2.getAllContentsOfType((usage.dotExpression as EntityRef).entity, Attribute)
-		 *   		return Scopes.scopeFor(candidates);
-		 * 	
-		 }*/
-		if (context instanceof DotExpressionStart) {
-			println("instanceof EntityRef")
-		}
-		if (context instanceof Usage) {
-			println("instanceof Usage")
-		}
-		if (context instanceof DotExpression) {
-			println("instanceof DotExpression")
-		}
-		if (reference == CmlPackage.Literals.DOT_EXPRESSION_START__REF) {
-			println("DOT_EXPRESSION_START__REF")
-			/*if (context instanceof EntityRef) {
-				val entity = (context as EntityRef).entity
-				val candidates = EcoreUtil2.getAllContentsOfType(entity, Attribute)
-				return Scopes.scopeFor(candidates);
-			}*/
-		}
-		if (reference == CmlPackage.Literals.DOT_EXPRESSION__REF) {
-			println("DOT_EXPRESSION__REF")
-		}
-		if (reference == CmlPackage.Literals.DOT_EXPRESSION__TAIL) {
-			println("DOT_EXPRESSION__TAIL")
+		if (reference == CmlPackage.Literals.DEONTIC_ACTION__ARGS) {
+			if (context instanceof DeonticAction) {
+				val da = EcoreUtil2.getContainerOfType(context, DeonticAction)
+				if (da !== null && da.action !== null) {
+					val args = EcoreUtil2.getAllContentsOfType(da.action, Attribute)
+					return Scopes.scopeFor(args);
+				}
+			}
 		}
 		
-//		if (context instanceof DotExpression /*&& reference == CmlPackage.Literals.DOT_EXPRESSION__TAIL*/) {
-//			println("instanceof DotExpression")
-//			println("context: " + context + " ref: " + reference.name)
-//			val dotExpression = context as DotExpression
-//			val head = dotExpression.head;
-//			println("head: " + head)
-//			switch (head) {
-//				EntityRef: {
-//					println("EntityRef")
-//					val ret = EcoreUtil2.getAllContentsOfType(head.entity, Attribute)
-//					return Scopes.scopeFor(head.entity.eContents)
-//				}
-//				DotExpression: {
-//					println("DotExpression")
-//					val type = head.tail.type
-//					println("type: " + type)
-//					switch (type) {
-//						PrimitiveType: {
-//							println("PrimitiveType")
-//							return Scopes::scopeFor(type.eContents)
-//						}
-//						EntityType: {
-//							println("EntityType")
-//							return Scopes.scopeFor(type.reference.attributes)
-//						}
-//						default: {
-//							println("default type: " + type)
-//							return IScope.NULLSCOPE
-//						}
-//					}
-//				}
-//				default: {
-//					println("default head:" + head)
-//					return IScope.NULLSCOPE
-//				}
-//			}
-//
-//		}
-
 		if (reference == CmlPackage.Literals.DOT_EXPRESSION__TAIL) {
-
 			if (context instanceof DotExpression) {
-				val head = context.ref;
+				val head = context.head;
 				switch (head) {
 					DotExpressionStart:
-						if (head.ref instanceof Entity) {
-							return Scopes::scopeFor((head.ref as Entity).attributes)
-						} else {
-							return IScope.NULLSCOPE
+						switch (head.ref) {
+							Entity:
+								return Scopes::scopeFor((head.ref as Entity).attributes)
+							Party:
+								return Scopes::scopeFor((head.ref as Party).attributes)
+							default:
+								return IScope::NULLSCOPE
 						}
 					DotExpression: {
 						val tail = head.tail
 						switch (tail) {
 							Attribute: {
-								val type = head.tail.type
+								val type = (head.tail as Attribute).type
 								switch (type) {
 									PrimitiveType: {
-										println("PrimitiveType")
 										return Scopes::scopeFor(type.eContents)
 									}
 									EntityType: {
-										println("EntityType")
-										return Scopes.scopeFor(type.reference.attributes)
+										return Scopes.scopeFor(type.ref.attributes)
 									}
 									default: {
-										println("default type: " + type)
 										return IScope.NULLSCOPE
 									}
 								}
 							}
-							Entity:
-								return IScope::NULLSCOPE
 							default:
 								return IScope::NULLSCOPE
 						}
@@ -150,6 +91,7 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 				}
 			}
 		}
+
 		super.getScope(context, reference)
 	}
 }
