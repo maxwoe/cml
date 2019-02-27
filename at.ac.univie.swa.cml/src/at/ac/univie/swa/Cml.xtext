@@ -4,51 +4,76 @@ import 'http://www.eclipse.org/emf/2002/Ecore' as ecore
 
 generate cml 'http://swa.univie.ac.at/Cml'
 
+ 
 Contract:
 	'contract' name=ID
 	BEGIN
-		(parties+=Party |
-		 attributes+=Attribute |
+		(attributes+=Attribute |
 		 entities+=Entity |
 		 events+=Event |
 		 clauses+=Clause)*
 	END;
 
-Party:
-	'party' multiple?='multiple'?  name=ID ':' type=EntityType;
+/* 
+Contract:
+	'contract' name=ID
+	BEGIN
+		elements+=AbstractElement*
+	END;
+	
+AbstractElement:
+	Attribute | Entity | Event | Clause | TypedElement;*/
 
+Classifier:
+	TypedElement | Entity | /*Party |*/ Event | Clause;
+	
+TypedElement:
+	Feature;
+
+TypedElementWithoutFeature returns TypedElement: 
+	Entity;
+
+/*TypedElement:
+	Feature | Entity;
+	
+TypedElementWithoutAction returns TypedElement: 
+	Action;*/
+	
 Action:
-	visibility=Visibility? name=ID '(' (args+=Attribute (',' args+=Attribute)*)? ')' (':' returnType=AbstractType)?;
+	visibility=Visibility? name=ID '(' (args+=Attribute (',' args+=Attribute)*)? ')' (':' returnType=Type)?;
 
 enum Visibility:
 	PUBLIC='public' | PRIVATE='private' | PROTECTED='protected';
-	
-AbstractElement:
-	Entity;
-	
-AbstractType:
+		
+Type:
 	PrimitiveType | EntityType;
 	
 PrimitiveType:
 	{IntegerType} 'integer' | {BooleanType} 'boolean' | {StringType} 'string' | {DateType} 'date';
 
-EntityType returns Entity:
-	ref=[RefA|ID];
-	
-RefA:
-	Entity | Party;
+EntityType:
+	ref=[Entity|ID];
 	
 Entity:
-	('entity' name=ID) /*('extends' superType=[Entity|ID])?*/ 
+	('entity' name=ID /*'extends' superType=[Entity|ID]*/| 'party' multiple?='multiple'? name=ID)
 	BEGIN
-		(features+=Feature)* 
+		//features+=Feature* 
+		(attributes+=Attribute |
+		 actions+=Action	
+		)*
 	END;
- 
+
 Feature:
     Attribute | Action;
-    
+
+FeatureWithoutAttribute returns Feature: 
+	Action;
+	
+FeatureWithoutAction returns Feature: 
+	Attribute;
+	  
 Attribute:
-	name=ID ':' many?='many'? type=AbstractType ('=' expr=Expression)?;
+	name=ID ':' many?='many'? type=Type ('=' expr=Expression)?;
 
 Event:
 	'event' name=ID;
@@ -72,7 +97,7 @@ Constraint:
 	'given' expression=Expression;
 
 Actor:
-	'party' party=[Party|ID];
+	'party' party=[Entity|ID];
 
 enum Deontic:
 	MUST='must' | MAY='may' | MUST_NOT= 'must_not';
@@ -93,12 +118,14 @@ AndAction returns CompoundAction:
 	AtomicAction ({AndAction.left=current} op=('and') right=AtomicAction)*;
 
 AtomicAction returns CompoundAction:
-	actionRef=[Action|ID] '(' (argsRef+=[Attribute] (',' argsRef+=[Attribute])*)? ')'
-	/*BEGIN
+	'(' CompoundAction ')' | ClauseAction;
+
+ClauseAction:
+	actionRef=[Action|FQN] '(' (argsRef+=[Attribute] (',' argsRef+=[Attribute])*)? ')'
+	(BEGIN
 		'pre' preCondition=Expression?
 		'post' postCondition=Expression?
-	END*/ | 
-	'(' CompoundAction ')';
+	END)?;
 	
 Reparation:
 	'otherwise' referTo=[Clause|ID];
@@ -126,8 +153,7 @@ TimeQuery:
 	ref=[TimeQuerySource|ID] 'done';
 	
 TimeQuerySource:
-	//Clause | Event | Action
-	Clause;
+	Clause | Event | Action;
 	
 Time:
 	AbsoluteTime | RelativeTime;
@@ -196,14 +222,14 @@ Atomic returns Expression:
 FQN:
 	ID ('.' ID)*;
 
-DotExpression returns Attribute:
+DotExpression returns Ref:
     DotExpressionStart ({DotExpression.head=current} '.' tail=[Attribute])*;
  
-DotExpressionStart returns Attribute:
-    {DotExpressionStart} ref=[RefA];
+DotExpressionStart returns Ref:
+    {DotExpressionStart} ref=[DotReference];
 
-//Reference:
-//	Party | Attribute;
+DotReference:
+	Entity | Attribute;
 	 
 //terminal BOOL returns ecore::EBoolean:
 //	'true' | 'false';

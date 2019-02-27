@@ -25,12 +25,12 @@ class CmlValidator extends AbstractCmlValidator {
 //		}
 //	}
 
-    @Check
-    def void checkNameStartsWithCapital(Entity entity) {
-        if (!Character.isUpperCase(entity.name.charAt(0))) {
-            warning("Name should start with a capital", 
-                CmlPackage.Literals.ENTITY__NAME)
-        }
-    }
+//    @Check
+//    def void checkNameStartsWithCapital(Entity entity) {
+//        if (!Character.isUpperCase(entity.name.charAt(0))) {
+//            warning("Name should start with a capital", 
+//                CmlPackage.Literals.ENTITY__NAME)
+//        }
+//    }
     
 }

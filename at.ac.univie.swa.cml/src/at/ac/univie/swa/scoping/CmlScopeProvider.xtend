@@ -3,22 +3,8 @@
  */
 package at.ac.univie.swa.scoping
 
-import at.ac.univie.swa.cml.Action
-import at.ac.univie.swa.cml.Attribute
-import at.ac.univie.swa.cml.Clause
-import at.ac.univie.swa.cml.CmlPackage
-import at.ac.univie.swa.cml.DeonticAction
-import at.ac.univie.swa.cml.DotExpression
-import at.ac.univie.swa.cml.DotExpressionStart
-import at.ac.univie.swa.cml.Entity
-import at.ac.univie.swa.cml.EntityType
-import at.ac.univie.swa.cml.Party
-import at.ac.univie.swa.cml.PrimitiveType
 import org.eclipse.emf.ecore.EObject
 import org.eclipse.emf.ecore.EReference
-import org.eclipse.xtext.EcoreUtil2
-import org.eclipse.xtext.scoping.IScope
-import org.eclipse.xtext.scoping.Scopes
 
 /**
  * This class contains custom scoping description.

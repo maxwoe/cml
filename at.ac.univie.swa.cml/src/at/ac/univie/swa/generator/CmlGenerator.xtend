@@ -3,34 +3,6 @@
  */
 package at.ac.univie.swa.generator
 
-import at.ac.univie.swa.cml.Action
-import at.ac.univie.swa.cml.And
-import at.ac.univie.swa.cml.Antecedent
-import at.ac.univie.swa.cml.Assignment
-import at.ac.univie.swa.cml.Attribute
-import at.ac.univie.swa.cml.BooleanConstant
-import at.ac.univie.swa.cml.BooleanType
-import at.ac.univie.swa.cml.Clause
-import at.ac.univie.swa.cml.Contract
-import at.ac.univie.swa.cml.DateType
-import at.ac.univie.swa.cml.Entity
-import at.ac.univie.swa.cml.EntityType
-import at.ac.univie.swa.cml.Equality
-import at.ac.univie.swa.cml.Event
-import at.ac.univie.swa.cml.Expression
-import at.ac.univie.swa.cml.IntegerConstant
-import at.ac.univie.swa.cml.IntegerType
-import at.ac.univie.swa.cml.MulOrDiv
-import at.ac.univie.swa.cml.Not
-import at.ac.univie.swa.cml.Or
-import at.ac.univie.swa.cml.PlusOrMinus
-import at.ac.univie.swa.cml.Postfix
-import at.ac.univie.swa.cml.PrimitiveType
-import at.ac.univie.swa.cml.Relation
-import at.ac.univie.swa.cml.StringConstant
-import at.ac.univie.swa.cml.StringType
-import at.ac.univie.swa.cml.Unary
-import java.util.List
 import org.eclipse.emf.ecore.resource.Resource
 import org.eclipse.xtext.generator.AbstractGenerator
 import org.eclipse.xtext.generator.IFileSystemAccess2
