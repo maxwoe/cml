@@ -32,7 +32,7 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 	// @Inject extension CmlExtensions
 	override getScope(EObject context, EReference reference) {
 
-		if (reference == CmlPackage.Literals.DEONTIC_ACTION__ACTION) {
+		/*if (reference == CmlPackage.Literals.DEONTIC_ACTION__ACTION) {
 			if(context instanceof DeonticAction) {
 				val clause = EcoreUtil2.getContainerOfType(context, Clause)
 				if (clause !== null && clause.actor !== null && clause.actor.party !== null) {
@@ -90,7 +90,7 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 						return IScope::NULLSCOPE
 				}
 			}
-		}
+		}*/
 
 		super.getScope(context, reference)
 	}
