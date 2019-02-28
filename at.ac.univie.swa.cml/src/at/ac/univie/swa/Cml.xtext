@@ -4,41 +4,25 @@ import 'http://www.eclipse.org/emf/2002/Ecore' as ecore
 
 generate cml 'http://swa.univie.ac.at/Cml'
 
- 
 Contract:
 	'contract' name=ID
 	BEGIN
-		(attributes+=Attribute |
-		 types+=ComplexType |
+		(parties+=Party |
 		 events+=Event |
+		 attributes+=Attribute |
+		 types+=ComplexType |
 		 clauses+=Clause)*
 	END;
 
-/* 
-Contract:
-	'contract' name=ID
-	BEGIN
-		elements+=AbstractElement*
-	END;
-	
-AbstractElement:
-	Attribute | Entity | Event | Clause | TypedElement;*/
-
 Classifier:
-	TypedElement | Record | Entity | /*Party |*/ Event | Clause;
+	Feature | Record | Entity | Party | Event | Clause;
 	
-TypedElement:
-	Feature;
+Feature:
+    Attribute | Action;
+	
+Party:
+	'party' name=ID ':' many?='many'?  type=[Entity|ID];
 
-TypedElementWithoutFeature returns TypedElement: 
-	Entity;
-
-/*TypedElement:
-	Feature | Entity;
-	
-TypedElementWithoutAction returns TypedElement: 
-	Action;*/
-	
 Action:
 	visibility=Visibility? name=ID '(' (args+=Attribute (',' args+=Attribute)*)? ')' (':' returnType=AttributeType)?;
 
@@ -46,8 +30,7 @@ enum Visibility:
 	PUBLIC='public' | PRIVATE='private' | PROTECTED='protected';
 		
 AttributeType:
-	//(collection = Collection)? type=Type (array ?='[' (length=INT)? ']')?;
-	many?='many'? type=Type;
+	/*(collection = Collection)?*/ many?='many'? type=Type (array ?='[' (length=INT)? ']')?;
 
 Collection:
 	{Set} 'set' | {Bag} 'bag';
@@ -57,19 +40,19 @@ Type:
 	
 SimpleType:
 	{IntegerType} 'integer' | {BooleanType} 'boolean' | {StringType} 'string' | {DateType} 'date';
-	//name=('integer' | 'boolean' | 'string' | 'date');
 
 ComplexType:
 	Record | Entity;
 	
 ComplexTypeRef:
 	ref=[ComplexType|ID];
-	
+
 Entity:
 	'entity' name=ID ('extends' superType=[Entity|ID])?
 	BEGIN
 		//features+=Feature* 
 		(attributes+=Attribute |
+		 types+=ComplexType |
 		 actions+=Action)*
 	END;
 	
@@ -78,21 +61,12 @@ Record:
 	BEGIN
 		attributes+=Attribute+
 	END;
-
-Feature:
-    Attribute | Action;
-
-FeatureWithoutAttribute returns Feature: 
-	Action;
-	
-FeatureWithoutAction returns Feature: 
-	Attribute;
 	  
 Attribute:
 	name=ID ':' type=AttributeType ('=' expr=Expression)?;
 
 Event:
-	'event' name=ID;
+	'event' name=ID '(' (args+=Attribute (',' args+=Attribute)*)? ')';
 
 Clause:
 	'clause' name=ID
@@ -113,7 +87,7 @@ Constraint:
 	'given' expression=Expression;
 
 Actor:
-	'party' party=[Entity|ID];
+	'party' party=[Party|ID];
 
 enum Deontic:
 	MUST='must' | MAY='may' | MUST_NOT= 'must_not';
@@ -137,10 +111,10 @@ AtomicAction returns CompoundAction:
 	'(' CompoundAction ')' | ClauseAction;
 
 ClauseAction:
-	actionRef=[Action|FQN] '(' (argsRef+=[Attribute] (',' argsRef+=[Attribute])*)? ')'
+	actionRef=[Action|ID] '(' (argsRef+=[Attribute] (',' argsRef+=[Attribute])*)? ')'
 	(BEGIN
-		'pre' preCondition=Expression?
-		'post' postCondition=Expression?
+		'when' preCondition=Expression?
+		'then' postCondition=Expression?
 	END)?;
 	
 Reparation:
@@ -159,17 +133,17 @@ enum TemporalPrecedence:
 	//AFTER_OR_EQUALS='after or at the same time as' |
 	AFTER='after';
 
-//ClauseQuery:
-//	ref=[Clause] 'fulfilled';
-//
-//EventQuery:
-//	ref=[Event] 'occurred';
+ClauseQuery:
+	'clause' ref=[Clause] 'fulfilled';
 
-TimeQuery:
-	ref=[TimeQuerySource|ID] 'done';
+EventQuery:
+	'event' ref=[Event] 'occurred';
 	
-TimeQuerySource:
-	Clause | Event | Action;
+ActionQuery:
+	partyRef=[Party] multiplicity=('all'|'any'|'current')? query=('finished') actionRef=[Action];
+	
+TimeQuery:
+	ClauseQuery | EventQuery | ActionQuery;
 	
 Time:
 	AbsoluteTime | RelativeTime;
@@ -181,7 +155,7 @@ RelativeTime:
 	TimeFrame;
 
 enum GlobalTimeReference:
-	NOW='now' | CONTRACT_START='contractStart' | CONTRACT_END='contractEnd';
+	NOW='$now' | CONTRACT_START='$contractStart' | CONTRACT_END='$contractEnd';
 	
 TimeFrame:
 	{TimeFrame} (weeks=INT 'weeks') | {TimeFrame} (days=INT 'days') | {TimeFrame} (hours=INT 'hours') | {TimeFrame} (minutes=INT 'minutes') | {TimeFrame} (seconds=INT 'seconds');
@@ -196,8 +170,8 @@ Implies returns Expression:
 	Conditional ({Implies.left=current} op=('=>' | 'implies') right=Conditional)*; 
 
 Conditional returns Expression:
-	Or ({Conditional.left=current} '?' trueCase=Or ':' falseCase=Or)? |
-	'if' Or ({Conditional.left=current} 'then' trueCase=Or 'else' falseCase=Or)? ;
+	Or ({Conditional.left=current} '?' trueCase=Or ':' falseCase=Or)?;// |
+	//'if' Or ({Conditional.left=current} 'then' trueCase=Or 'else' falseCase=Or)? ;
   
 Or returns Expression:
 	And ({Or.left=current} op=('||' | 'or') right=And)*;
@@ -229,23 +203,30 @@ Primary returns Expression:
 Atomic returns Expression:
 	{IntegerConstant} value=INT | 
 	{StringConstant} value=STRING | 
-	{BooleanConstant} value=('true' | 'false')/* | 
-	{TimeExpression} value=TimeFrame  | 
-	{ClauseRef} value=[Clause] 'fulfilled'| */
-	|DotExpression
-	|Time;
+	{BooleanConstant} value=('true' | 'false') |
+	DotExpression;
 
-FQN:
-	ID ('.' ID)*;
+/*FeatureCall:
+  OperationCall |
+  (type=Type) |
+  CollectionExpression |
+TypeSelectExpression;
 
-DotExpression returns Ref:
+OperationCall:
+	actionRef=[Action|ID] '(' (argsRef+=[Attribute] (',' argsRef+=[Attribute])*)? ')';
+
+CollectionExpression:
+  name=('collect'|'select'|'selectFirst'|'reject'|'exists'|'notExists'|'sortBy'|'forAll')
+'(' (var=Identifier '|')? exp=Expression ')';*/
+
+DotExpression returns Attribute:
     DotExpressionStart ({DotExpression.head=current} '.' tail=[Attribute])*;
  
-DotExpressionStart returns Ref:
+DotExpressionStart returns Attribute:
     {DotExpressionStart} ref=[DotReference];
 
 DotReference:
-	Entity | Attribute;
+	Party | Attribute;
 	 
 //terminal BOOL returns ecore::EBoolean:
 //	'true' | 'false';
