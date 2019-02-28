@@ -9,7 +9,7 @@ Contract:
 	'contract' name=ID
 	BEGIN
 		(attributes+=Attribute |
-		 entities+=Entity |
+		 types+=ComplexType |
 		 events+=Event |
 		 clauses+=Clause)*
 	END;
@@ -25,7 +25,7 @@ AbstractElement:
 	Attribute | Entity | Event | Clause | TypedElement;*/
 
 Classifier:
-	TypedElement | Entity | /*Party |*/ Event | Clause;
+	TypedElement | Record | Entity | /*Party |*/ Event | Clause;
 	
 TypedElement:
 	Feature;
@@ -40,27 +40,43 @@ TypedElementWithoutAction returns TypedElement:
 	Action;*/
 	
 Action:
-	visibility=Visibility? name=ID '(' (args+=Attribute (',' args+=Attribute)*)? ')' (':' returnType=Type)?;
+	visibility=Visibility? name=ID '(' (args+=Attribute (',' args+=Attribute)*)? ')' (':' returnType=AttributeType)?;
 
 enum Visibility:
 	PUBLIC='public' | PRIVATE='private' | PROTECTED='protected';
 		
-Type:
-	PrimitiveType | EntityType;
-	
-PrimitiveType:
-	{IntegerType} 'integer' | {BooleanType} 'boolean' | {StringType} 'string' | {DateType} 'date';
+AttributeType:
+	//(collection = Collection)? type=Type (array ?='[' (length=INT)? ']')?;
+	many?='many'? type=Type;
 
-EntityType:
-	ref=[Entity|ID];
+Collection:
+	{Set} 'set' | {Bag} 'bag';
+	
+Type:
+	SimpleType | ComplexTypeRef;
+	
+SimpleType:
+	{IntegerType} 'integer' | {BooleanType} 'boolean' | {StringType} 'string' | {DateType} 'date';
+	//name=('integer' | 'boolean' | 'string' | 'date');
+
+ComplexType:
+	Record | Entity;
+	
+ComplexTypeRef:
+	ref=[ComplexType|ID];
 	
 Entity:
-	('entity' name=ID /*'extends' superType=[Entity|ID]*/| 'party' multiple?='multiple'? name=ID)
+	'entity' name=ID ('extends' superType=[Entity|ID])?
 	BEGIN
 		//features+=Feature* 
 		(attributes+=Attribute |
-		 actions+=Action	
-		)*
+		 actions+=Action)*
+	END;
+	
+Record:
+	'record' name=ID
+	BEGIN
+		attributes+=Attribute+
 	END;
 
 Feature:
@@ -73,7 +89,7 @@ FeatureWithoutAction returns Feature:
 	Attribute;
 	  
 Attribute:
-	name=ID ':' many?='many'? type=Type ('=' expr=Expression)?;
+	name=ID ':' type=AttributeType ('=' expr=Expression)?;
 
 Event:
 	'event' name=ID;
