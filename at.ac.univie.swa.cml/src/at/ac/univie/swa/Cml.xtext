@@ -112,10 +112,13 @@ AtomicCompoundAction returns CompoundAction:
 AtomicAction:
 	action=[Action|FQN] '(' (args+=[Attribute|FQN] (',' args+=[Attribute|FQN])*)? ')'
 	(BEGIN
-		'when' preCondition=[Attribute]
+		'when' preCondition=Expression
 		('then' postCondition=Expression)?
 	END)?
 	;
+	
+Expr:
+	ref=[Attribute];
 	
 Reparation:
 	'otherwise' referTo=[Clause|FQN];
@@ -204,7 +207,7 @@ Atomic returns Expression:
 	{IntegerConstant} value=INT | 
 	{StringConstant} value=STRING | 
 	{BooleanConstant} value=('true' | 'false') |
-	ref=[Attribute];
+	DotExpression;
 	
 DotExpression returns Ref:
     DotExpressionStart ({DotExpression.head=current} '.' tail=[Attribute])*;

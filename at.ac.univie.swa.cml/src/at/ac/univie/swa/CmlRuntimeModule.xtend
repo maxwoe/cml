@@ -34,9 +34,9 @@ class CmlRuntimeModule extends AbstractCmlRuntimeModule {
 
     }*/
     
-    override bindIQualifiedNameProvider() {
+    /*override bindIQualifiedNameProvider() {
 		CmlQualifiedNameProvider
-	}
+	}*/
 
 
 	/*override configureIScopeProviderDelegate(Binder binder) {
