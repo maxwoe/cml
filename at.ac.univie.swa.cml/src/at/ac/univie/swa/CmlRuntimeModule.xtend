@@ -3,9 +3,45 @@
  */
 package at.ac.univie.swa
 
+import com.google.inject.Binder
+import com.google.inject.name.Names
+import org.eclipse.xtext.scoping.IScopeProvider
+import org.eclipse.xtext.scoping.impl.AbstractDeclarativeScopeProvider
+import org.eclipse.xtext.scoping.impl.SimpleLocalScopeProvider
+import org.eclipse.xtext.scoping.impl.ImportUriGlobalScopeProvider
+import org.eclipse.xtext.scoping.impl.ResourceSetGlobalScopeProvider
 
 /**
  * Use this class to register components to be used at runtime / without the Equinox extension registry.
  */
 class CmlRuntimeModule extends AbstractCmlRuntimeModule {
+	
+	/*override configureIScopeProviderDelegate(Binder binder) {
+		binder.bind(IScopeProvider)
+		.annotatedWith(Names.named(AbstractDeclarativeScopeProvider.NAMED_DELEGATE))
+		.to(ImportedNamespaceAwareLocalScopeProvider);
+	}*/
+	
+	/*override bindIGlobalScopeProvider() {
+        //ImportUriGlobalScopeProvider
+        ResourceSetGlobalScopeProvider
+    }
+    
+
+    override configureIScopeProviderDelegate(Binder binder) {
+        binder.bind(IScopeProvider).annotatedWith(Names.named(AbstractDeclarativeScopeProvider.NAMED_DELEGATE))
+            .to(SimpleLocalScopeProvider);
+
+    }*/
+    
+    override bindIQualifiedNameProvider() {
+		CmlQualifiedNameProvider
+	}
+
+
+	/*override configureIScopeProviderDelegate(Binder binder) {
+		binder.bind(IScopeProvider).annotatedWith(Names.named(AbstractDeclarativeScopeProvider.NAMED_DELEGATE))
+		.to(MyDslImportedNamespaceAwareLocalScopeProvider) 
+
+	}*/
 }

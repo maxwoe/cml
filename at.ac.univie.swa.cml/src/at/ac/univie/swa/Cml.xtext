@@ -21,7 +21,7 @@ Feature:
     Attribute | Action;
 	
 Party:
-	'party' name=ID ':' many?='many'?  type=[Entity|ID];
+	'party' name=ID ':' many?='many'?  type=[Entity|FQN];
 
 Action:
 	visibility=Visibility? name=ID '(' (args+=Attribute (',' args+=Attribute)*)? ')' (':' returnType=AttributeType)?;
@@ -45,28 +45,27 @@ ComplexType:
 	Record | Entity;
 	
 ComplexTypeRef:
-	ref=[ComplexType|ID];
+	ref=[ComplexType|FQN];
 
 Entity:
-	'entity' name=ID ('extends' superType=[Entity|ID])?
+	'entity' name=ID ('extends' superType=[Entity|FQN])?
 	BEGIN
-		//features+=Feature* 
 		(attributes+=Attribute |
 		 types+=ComplexType |
 		 actions+=Action)*
 	END;
 	
 Record:
-	'record' name=ID
+	'datatype' name=ID
 	BEGIN
 		attributes+=Attribute+
 	END;
 	  
 Attribute:
-	name=ID ':' type=AttributeType ('=' expr=Expression)?;
+	name=ID ':' typeDef=AttributeType ('=' expr=Expression)?;
 
 Event:
-	'event' name=ID '(' (args+=Attribute (',' args+=Attribute)*)? ')';
+	'event' name=ID ('(' (args+=Attribute (',' args+=Attribute)*)? ')')?;
 
 Clause:
 	'clause' name=ID
@@ -87,7 +86,7 @@ Constraint:
 	'given' expression=Expression;
 
 Actor:
-	'party' party=[Party|ID];
+	'party' party=[Party|FQN];
 
 enum Deontic:
 	MUST='must' | MAY='may' | MUST_NOT= 'must_not';
@@ -96,29 +95,30 @@ DeonticAction:
 	deontic=Deontic compoundAction=CompoundAction;
 
 CompoundAction:
-	OrAction;
+	OrCompoundAction;
 
-OrAction returns CompoundAction:
-	SeqAction ({OrAction.left=current} op=('or') right=SeqAction)*;
+OrCompoundAction returns CompoundAction:
+	SeqCompoundAction ({OrCompoundAction.left=current} op=('or') right=SeqCompoundAction)*;
 
-SeqAction returns CompoundAction:
-	AndAction ({SeqAction.left=current} op=('then') right=AndAction)*;
+SeqCompoundAction returns CompoundAction:
+	AndCompoundAction ({SeqCompoundAction.left=current} op=('then') right=AndCompoundAction)*;
 	
-AndAction returns CompoundAction:
-	AtomicAction ({AndAction.left=current} op=('and') right=AtomicAction)*;
+AndCompoundAction returns CompoundAction:
+	AtomicCompoundAction ({AndCompoundAction.left=current} op=('and') right=AtomicCompoundAction)*;
 
-AtomicAction returns CompoundAction:
-	'(' CompoundAction ')' | ClauseAction;
+AtomicCompoundAction returns CompoundAction:
+	'(' CompoundAction ')' | AtomicAction;
 
-ClauseAction:
-	actionRef=[Action|ID] '(' (argsRef+=[Attribute] (',' argsRef+=[Attribute])*)? ')'
+AtomicAction:
+	action=[Action|FQN] '(' (args+=[Attribute|FQN] (',' args+=[Attribute|FQN])*)? ')'
 	(BEGIN
-		'when' preCondition=Expression?
-		'then' postCondition=Expression?
-	END)?;
+		'when' preCondition=[Attribute]
+		('then' postCondition=Expression)?
+	END)?
+	;
 	
 Reparation:
-	'otherwise' referTo=[Clause|ID];
+	'otherwise' referTo=[Clause|FQN];
 
 TimeConstraint:
 	closed?='within'? timeframe=(RelativeTime | DotExpression)? period=PeriodicTime? precedence=TemporalPrecedence reference=(AbsoluteTime | DotExpression);
@@ -134,13 +134,13 @@ enum TemporalPrecedence:
 	AFTER='after';
 
 ClauseQuery:
-	'clause' ref=[Clause] 'fulfilled';
+	'clause' ref=[Clause|FQN] 'fulfilled';
 
 EventQuery:
-	'event' ref=[Event] 'occurred';
+	'event' ref=[Event|FQN] 'occurred';
 	
 ActionQuery:
-	partyRef=[Party] multiplicity=('all'|'any'|'current')? query=('finished') actionRef=[Action];
+	multiplicity=('all'|'any'|'current')?  partyRef=[Party|FQN] query='executed' actionRef=[Action|FQN];
 	
 TimeQuery:
 	ClauseQuery | EventQuery | ActionQuery;
@@ -204,40 +204,30 @@ Atomic returns Expression:
 	{IntegerConstant} value=INT | 
 	{StringConstant} value=STRING | 
 	{BooleanConstant} value=('true' | 'false') |
-	DotExpression;
-
-/*FeatureCall:
-  OperationCall |
-  (type=Type) |
-  CollectionExpression |
-TypeSelectExpression;
-
-OperationCall:
-	actionRef=[Action|ID] '(' (argsRef+=[Attribute] (',' argsRef+=[Attribute])*)? ')';
-
-CollectionExpression:
-  name=('collect'|'select'|'selectFirst'|'reject'|'exists'|'notExists'|'sortBy'|'forAll')
-'(' (var=Identifier '|')? exp=Expression ')';*/
-
-DotExpression returns Attribute:
+	ref=[Attribute];
+	
+DotExpression returns Ref:
     DotExpressionStart ({DotExpression.head=current} '.' tail=[Attribute])*;
  
-DotExpressionStart returns Attribute:
-    {DotExpressionStart} ref=[DotReference];
+DotExpressionStart returns Ref:
+    {DotExpressionStart} ref=[Attribute];
 
 DotReference:
 	Party | Attribute;
-	 
+	
+/*
+enum BuiltinConstants:
+	  questionMark='?'
+	| self='self'
+	| const_e
+	| pi
+;*/
+FQN:
+	ID ('.' ID)*;
+	
 //terminal BOOL returns ecore::EBoolean:
 //	'true' | 'false';
-
 //terminal NUMBER returns ecore::EBigDecimal:
 //	/*('-')?*/ ('0'..'9')* ('.' ('0'..'9')+)?;
-
-@Override 
-terminal SL_COMMENT:
-	'#' !('\n' | '\r')* ('\r'? '\n')?;
-	
-// The following synthetic tokens are used for the indentation-aware blocks
 terminal BEGIN: 'synthetic:BEGIN';  // increase indentation
 terminal END: 'synthetic:END';      // decrease indentation
