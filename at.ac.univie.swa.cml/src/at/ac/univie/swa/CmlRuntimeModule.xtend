@@ -10,17 +10,18 @@ import org.eclipse.xtext.scoping.impl.AbstractDeclarativeScopeProvider
 import org.eclipse.xtext.scoping.impl.SimpleLocalScopeProvider
 import org.eclipse.xtext.scoping.impl.ImportUriGlobalScopeProvider
 import org.eclipse.xtext.scoping.impl.ResourceSetGlobalScopeProvider
+import org.eclipse.xtext.scoping.impl.ImportedNamespaceAwareLocalScopeProvider
 
 /**
  * Use this class to register components to be used at runtime / without the Equinox extension registry.
  */
 class CmlRuntimeModule extends AbstractCmlRuntimeModule {
 	
-	/*override configureIScopeProviderDelegate(Binder binder) {
+	override configureIScopeProviderDelegate(Binder binder) {
 		binder.bind(IScopeProvider)
 		.annotatedWith(Names.named(AbstractDeclarativeScopeProvider.NAMED_DELEGATE))
 		.to(ImportedNamespaceAwareLocalScopeProvider);
-	}*/
+	}
 	
 	/*override bindIGlobalScopeProvider() {
         //ImportUriGlobalScopeProvider

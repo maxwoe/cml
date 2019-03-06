@@ -1,8 +1,5 @@
 package at.ac.univie.swa.services
 
-import at.ac.univie.swa.cml.Attribute
-import at.ac.univie.swa.cml.Entity
-
 /**
  * Extensions for model elements of a domain model.
  * Usage in Xtend files:

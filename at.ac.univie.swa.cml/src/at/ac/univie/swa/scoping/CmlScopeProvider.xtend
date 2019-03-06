@@ -8,24 +8,18 @@ import at.ac.univie.swa.cml.AtomicAction
 import at.ac.univie.swa.cml.Attribute
 import at.ac.univie.swa.cml.Clause
 import at.ac.univie.swa.cml.CmlPackage
+import at.ac.univie.swa.cml.ComplexTypeRef
 import at.ac.univie.swa.cml.DotExpression
 import at.ac.univie.swa.cml.DotExpressionStart
 import at.ac.univie.swa.cml.Entity
+import at.ac.univie.swa.cml.Expr
 import at.ac.univie.swa.cml.Party
-import javax.lang.model.type.PrimitiveType
+import at.ac.univie.swa.cml.SimpleType
 import org.eclipse.emf.ecore.EObject
 import org.eclipse.emf.ecore.EReference
 import org.eclipse.xtext.EcoreUtil2
 import org.eclipse.xtext.scoping.IScope
 import org.eclipse.xtext.scoping.Scopes
-import at.ac.univie.swa.cml.ComplexType
-import at.ac.univie.swa.cml.ComplexTypeRef
-import at.ac.univie.swa.cml.Record
-import at.ac.univie.swa.cml.SimpleType
-import org.eclipse.xtext.naming.QualifiedName
-import org.eclipse.xtext.resource.EObjectDescription
-import org.eclipse.xtext.scoping.impl.SimpleScope
-import at.ac.univie.swa.cml.Expr
 
 /**
  * This class contains custom scoping description.
@@ -45,7 +39,7 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 			if (context instanceof AtomicAction) {
 				val clause = EcoreUtil2.getContainerOfType(context, Clause)
 				if (clause !== null && clause.actor !== null && clause.actor.party !== null) {
-					val allActions = EcoreUtil2.getAllContentsOfType(clause.actor.party.type, Action)
+					val allActions = EcoreUtil2.getAllContentsOfType(clause.actor.party, Action)
 					return Scopes.scopeFor(allActions)
 					//return Scopes.scopeFor(allActions.filter[context.args.size == args.size])
 				}
@@ -53,6 +47,15 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 		}
 
 		if (reference == CmlPackage.Literals.ATOMIC_ACTION__ARGS) {
+			if (context instanceof AtomicAction) {
+				if (context !== null && context.action !== null) {
+					val args = EcoreUtil2.getAllContentsOfType(context.action, Attribute)
+					return Scopes.scopeFor(args);
+				}
+			}
+		}
+		
+		if (reference == CmlPackage.Literals.ATOMIC_ACTION__PRE_CONDITION) {
 			if (context instanceof AtomicAction) {
 				if (context !== null && context.action !== null) {
 					val args = EcoreUtil2.getAllContentsOfType(context.action, Attribute)
@@ -177,15 +180,15 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 									ComplexTypeRef: {
 										val ref = type.ref
 										switch (ref) {
-											Entity:	return Scopes::scopeFor(ref.attributes)
-											Record: return Scopes::scopeFor(ref.attributes)
+											Party:	return Scopes::scopeFor(ref.attributes)
+											Entity: return Scopes::scopeFor(ref.attributes)
 											default: return IScope.NULLSCOPE
 										}
 									}
 									default: return IScope.NULLSCOPE
 								}
 							}
-							Party: return Scopes::scopeFor((head.ref as Party).type.attributes)
+							Party: return Scopes::scopeFor((head.ref as Party).attributes)
 							default: return IScope.NULLSCOPE
 						}
 					DotExpression: {
@@ -200,8 +203,8 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 									ComplexTypeRef: {
 										val ref = type.ref
 										switch (ref) {
-											Entity:	return Scopes::scopeFor(ref.attributes)
-											Record: return Scopes::scopeFor(ref.attributes)
+											Party:	return Scopes::scopeFor(ref.attributes)
+											Entity: return Scopes::scopeFor(ref.attributes)
 											default: return IScope.NULLSCOPE
 										}
 									}

@@ -3,10 +3,6 @@
  */
 package at.ac.univie.swa.validation
 
-import at.ac.univie.swa.cml.Entity
-import at.ac.univie.swa.cml.CmlPackage
-import org.eclipse.xtext.validation.Check
-
 /**
  * This class contains custom validation rules. 
  *

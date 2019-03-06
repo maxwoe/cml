@@ -7,22 +7,18 @@ generate cml 'http://swa.univie.ac.at/Cml'
 Contract:
 	'contract' name=ID
 	BEGIN
-		(parties+=Party |
-		 events+=Event |
-		 attributes+=Attribute |
+		(attributes+=Attribute |
 		 types+=ComplexType |
+		 events+=Event |
 		 clauses+=Clause)*
 	END;
 
 Classifier:
-	Feature | Record | Entity | Party | Event | Clause;
+	Attribute | Action | Entity | Enumeration | Party | Event | Clause;
 	
 Feature:
     Attribute | Action;
 	
-Party:
-	'party' name=ID ':' many?='many'?  type=[Entity|FQN];
-
 Action:
 	visibility=Visibility? name=ID '(' (args+=Attribute (',' args+=Attribute)*)? ')' (':' returnType=AttributeType)?;
 
@@ -39,24 +35,32 @@ Type:
 	SimpleType | ComplexTypeRef;
 	
 SimpleType:
-	{IntegerType} 'integer' | {BooleanType} 'boolean' | {StringType} 'string' | {DateType} 'date';
+	{IntegerType} 'Integer' | {BooleanType} 'Boolean' | {StringType} 'String' | {DateType} 'DateTime';
 
 ComplexType:
-	Record | Entity;
+	Entity | Enumeration | Party;
 	
 ComplexTypeRef:
 	ref=[ComplexType|FQN];
 
-Entity:
-	'entity' name=ID ('extends' superType=[Entity|FQN])?
+Enumeration:
+	'enum' name=ID
+	BEGIN
+		elements+=EnumerationElement*
+	END;
+
+EnumerationElement:
+	name = ID;
+
+Party:
+	'party' name=ID ('identified' 'by' id=[Attribute])? ('extends' superType=[Party|FQN])? 
 	BEGIN
 		(attributes+=Attribute |
-		 types+=ComplexType |
 		 actions+=Action)*
 	END;
 	
-Record:
-	'datatype' name=ID
+Entity:
+	'object' name=ID ('identified' 'by' id=[Attribute])? ('extends' superType=[Entity|FQN])? 
 	BEGIN
 		attributes+=Attribute+
 	END;
@@ -65,8 +69,11 @@ Attribute:
 	name=ID ':' typeDef=AttributeType ('=' expr=Expression)?;
 
 Event:
-	'event' name=ID ('(' (args+=Attribute (',' args+=Attribute)*)? ')')?;
-
+	'event' name=ID 
+	(BEGIN
+		args+=Attribute
+	END)?;
+	
 Clause:
 	'clause' name=ID
 	BEGIN
