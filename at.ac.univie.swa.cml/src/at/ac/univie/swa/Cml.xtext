@@ -20,19 +20,28 @@ Feature:
     Attribute | Action;
 	
 Action:
-	visibility=Visibility? name=ID '(' (args+=Attribute (',' args+=Attribute)*)? ')' (':' returnType=AttributeType)?;
+	visibility=Visibility? name=ID '(' (args+=Attribute (',' args+=Attribute)*)? ')' (':' returnType=Type)?;
 
 enum Visibility:
 	PUBLIC='public' | PRIVATE='private' | PROTECTED='protected';
 		
-AttributeType:
-	/*(collection = Collection)?*/ many?='many'? type=Type (array ?='[' (length=INT)? ']')?;
+//AttributeType:
+//	/*(collection = Collection)?*/ many?='many'? type=Type (array ?='[' (length=INT)? ']')?;
+	
+Type:
+	IndividualType | CollectionType | ArrayType;
+
+IndividualType:
+	SimpleType | ComplexTypeRef;
 
 Collection:
 	{Set} 'set' | {Bag} 'bag';
-	
-Type:
-	SimpleType | ComplexTypeRef;
+
+ArrayType:
+	ref=IndividualType '[' (length=INT)? ']';
+
+CollectionType:
+	collection=Collection ref=IndividualType;
 	
 SimpleType:
 	{IntegerType} 'Integer' | {BooleanType} 'Boolean' | {StringType} 'String' | {DateType} 'DateTime';
@@ -66,7 +75,7 @@ Entity:
 	END;
 	  
 Attribute:
-	name=ID ':' typeDef=AttributeType ('=' expr=Expression)?;
+	name=ID ':' typeDef=Type ('=' expr=Expression)?;
 
 Event:
 	'event' name=ID 
@@ -124,9 +133,6 @@ AtomicAction:
 	END)?
 	;
 	
-Expr:
-	ref=[Attribute];
-	
 Reparation:
 	'otherwise' referTo=[Clause|FQN];
 
@@ -171,44 +177,78 @@ TimeFrame:
 	{TimeFrame} (weeks=INT 'weeks') | {TimeFrame} (days=INT 'days') | {TimeFrame} (hours=INT 'hours') | {TimeFrame} (minutes=INT 'minutes') | {TimeFrame} (seconds=INT 'seconds');
 	
 Expression:
-	Assignment;
+	ImpliesOpExp;
+	
+ImpliesOpExp returns Expression:
+	XorOpExp ({ImpliesOpExp.source=current} op='implies' target=XorOpExp)*;
 
-Assignment returns Expression:
-	Implies ({Assignment.left=current} '=' right=Implies)*;
+XorOpExp returns Expression:
+	OrOpExp ({XorOpExp.source=current} op='xor' target=OrOpExp)*;
 
-Implies returns Expression:
-	Conditional ({Implies.left=current} op=('=>' | 'implies') right=Conditional)*; 
+OrOpExp returns Expression:
+	AndOpExp ({OrOpExp.source=current} op='or' target=AndOpExp)*;
 
-Conditional returns Expression:
-	Or ({Conditional.left=current} '?' trueCase=Or ':' falseCase=Or)?;// |
-	//'if' Or ({Conditional.left=current} 'then' trueCase=Or 'else' falseCase=Or)? ;
-  
-Or returns Expression:
-	And ({Or.left=current} op=('||' | 'or') right=And)*;
+AndOpExp returns Expression:
+	EqOpExp ({AndOpExp.source=current} op='and' target=EqOpExp)*;
 
-And returns Expression:
-	Equality ({And.left=current} op=('&&' | 'and') right=Equality)*;
+EqOpExp returns Expression :
+	ComparisonOpExp ({EqOpExp.source=current} op=('<>'|'=') target=ComparisonOpExp)*;
 
-Equality returns Expression:
-	Relation ({Equality.left=current} op=('==' | '!=') right=Relation)*;
+ComparisonOpExp returns Expression:
+	ConditionalOpExp ({ComparisonOpExp.source=current} op=('>' | '<' | '>=' | '<=') target=ConditionalOpExp)*;
 
-Relation returns Expression:
-	PlusOrMinus ({Relation.left=current} op=('>=' | '<=' | '>' | '<') right=PlusOrMinus)*;
+ConditionalOpExp returns Expression:
+	AdditionOpExp ('if' {ConditionalOpExp.source=current} 'then' trueCase=AdditionOpExp 'else' falseCase=AdditionOpExp)? ;
+	
+AdditionOpExp returns Expression : 
+	MultiOpExp ({AdditionOpExp.source=current} op=('+' | '-') target=MultiOpExp)*;
 
-PlusOrMinus returns Expression:
-	MulOrDiv ({PlusOrMinus.left=current} op=('+' | '-') right=MulOrDiv)*;
+MultiOpExp returns Expression : 
+	UnaryOpExp ({MultiOpExp.source=current} op=('*' | '/') target=UnaryOpExp)*;
 
-MulOrDiv returns Expression:
-	Unary ({MulOrDiv.left=current} op=('*' | '/') right=Unary)*;
+UnaryOpExp returns Expression:
+	NavOpExp | {UnaryOpExp} op=('not' | '-' ) right=NavOpExp;
+	
+NavOpExp returns Expression:
+	NavigationOpCallExp (({NavOpExp.source=current} op=(/*'.' |*/ '->') target=NavigationOpCallExp)*)?;
 
-Unary returns Expression:
-	Postfix | {Unary} op=('+' | '-') right=Postfix;
+NavigationOpCallExp returns Expression :
+	OperationCall
+	//| NavigationOrAttributeCall
+	| IterateExp
+	| IteratorExp
+	| CollectionOpCall
+	| PrimaryExp;
 
-Postfix returns Expression:
-	Primary ({Postfix.left=current} op=('++'|'--'))*;
+OperationCall returns Expression:
+	{OperationCall} name=ID '(' (arguments+=Expression ("," arguments+=Expression)*)? ')';
+	
+NavigationOrAttributeCall returns Expression:
+	{NavigationOrAttributeCall} feature=ID;
 
-Primary returns Expression:
-	'(' Expression ')' | {Not} op=('!' | 'not') expression=Primary | Atomic;
+IteratorExp returns Expression:
+	{IteratorExp} name=IterativeOperationID '(' iterators+=Iterator  (','iterators+=Iterator)*  '|' body=Expression')';
+
+Iterator:
+	name=ID (':' type=CollectionType)?; 
+
+IterateExp returns Expression:
+	{IterateExp} op='iterate' '(' iterators+=Iterator  (','iterators+=Iterator)* ';'result=LocalVariable '|' body=Expression')';
+
+LocalVariable returns LocalVariable :
+	name=ID ':' type=CollectionType '=' initExp=Expression;
+
+CollectionOpCall returns Expression:
+	{CollectionOpCallExp} name=CollectionOperationID '(' (arguments+=Expression ("," arguments+=Expression)*)? ')';
+	
+IterativeOperationID returns ecore::EString :
+	'exists' | 'forAll'	| 'isUnique' | 'any' | 'one' | 'collect' | 'select'	| 'reject';
+
+CollectionOperationID returns ecore::EString :
+	'size'	| 'includes' | 'excludes' | 'count' | 'includesAll' | 'excludesAll' | 'isEmpty' | 'notEmpty' | 'sum';
+	
+PrimaryExp returns Expression:
+	'(' Expression ')' | Atomic;
 
 Atomic returns Expression:
 	{IntegerConstant} value=INT | 
@@ -222,16 +262,6 @@ DotExpression returns Ref:
 DotExpressionStart returns Ref:
     {DotExpressionStart} ref=[Attribute];
 
-DotReference:
-	Party | Attribute;
-	
-/*
-enum BuiltinConstants:
-	  questionMark='?'
-	| self='self'
-	| const_e
-	| pi
-;*/
 FQN:
 	ID ('.' ID)*;
 	

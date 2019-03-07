@@ -12,7 +12,6 @@ import at.ac.univie.swa.cml.ComplexTypeRef
 import at.ac.univie.swa.cml.DotExpression
 import at.ac.univie.swa.cml.DotExpressionStart
 import at.ac.univie.swa.cml.Entity
-import at.ac.univie.swa.cml.Expr
 import at.ac.univie.swa.cml.Party
 import at.ac.univie.swa.cml.SimpleType
 import org.eclipse.emf.ecore.EObject
@@ -92,12 +91,6 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 			}
 		}
 		
-		if (reference == CmlPackage.Literals.EXPR__REF) {
-					
-			if (context instanceof AtomicAction) {			
-				return Scopes.scopeFor(context.args);
-			}
-		}
 		
 //		if (reference == CmlPackage.Literals.EXPRESSION__REF) {
 //
@@ -124,7 +117,7 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 //		}
 		
 		//if (reference == CmlPackage.Literals.ATOMIC_ACTION__PRE_CONDITION) {
-		if (reference == CmlPackage.Literals.EXPR__REF) {	
+		if (reference == CmlPackage.Literals.ATOMIC_ACTION__PRE_CONDITION) {	
 			/*if (context instanceof AtomicAction) {
 				var result = IScope.NULLSCOPE
 				val rootElement = EcoreUtil2.getRootContainer(context)
@@ -158,11 +151,6 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 //				}
 //			}
 			
-			if (context instanceof Expr) {
-				val aa = EcoreUtil2.getContainerOfType(context, AtomicAction)
-				return Scopes.scopeFor(aa.args);
-           
-			}
 			
 		}
 		
@@ -174,7 +162,10 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 					DotExpressionStart:
 						switch (head.ref) {
 							Attribute: {
-								val type = (head.ref as Attribute).typeDef.type;
+								if((head.ref as Attribute).typeDef !== null && 
+									(head.ref as Attribute).typeDef !== null)
+								{
+								val type = (head.ref as Attribute).typeDef;
 								switch (type) {
 									SimpleType: return Scopes::scopeFor(type.eContents)
 									ComplexTypeRef: {
@@ -186,7 +177,7 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 										}
 									}
 									default: return IScope.NULLSCOPE
-								}
+								}}
 							}
 							Party: return Scopes::scopeFor((head.ref as Party).attributes)
 							default: return IScope.NULLSCOPE
@@ -195,7 +186,7 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 						val tail = head.tail
 						switch (tail) {
 							Attribute: {
-								val type = (head.tail as Attribute).typeDef.type
+								val type = (head.tail as Attribute).typeDef
 								switch (type) {
 									SimpleType: {
 										return Scopes::scopeFor(type.eContents)
