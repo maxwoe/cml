@@ -153,7 +153,7 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 			
 			
 		}
-		
+		/* 
 		if (reference == CmlPackage.Literals.DOT_EXPRESSION__TAIL) {
 			
 			if (context instanceof DotExpression) {
@@ -162,12 +162,9 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 					DotExpressionStart:
 						switch (head.ref) {
 							Attribute: {
-								if((head.ref as Attribute).typeDef !== null && 
-									(head.ref as Attribute).typeDef !== null)
-								{
 								val type = (head.ref as Attribute).typeDef;
 								switch (type) {
-									SimpleType: return Scopes::scopeFor(type.eContents)
+									//SimpleType: return Scopes::scopeFor(type.eContents)
 									ComplexTypeRef: {
 										val ref = type.ref
 										switch (ref) {
@@ -189,7 +186,7 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 								val type = (head.tail as Attribute).typeDef
 								switch (type) {
 									SimpleType: {
-										return Scopes::scopeFor(type.eContents)
+										//return Scopes::scopeFor(type.eContents)
 									}
 									ComplexTypeRef: {
 										val ref = type.ref
@@ -208,7 +205,7 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 					default: return IScope.NULLSCOPE
 				}
 			}
-		}
+		}*/
 
 		super.getScope(context, reference)
 	}

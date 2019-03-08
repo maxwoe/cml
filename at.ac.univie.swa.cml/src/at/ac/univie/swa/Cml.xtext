@@ -28,20 +28,20 @@ enum Visibility:
 //AttributeType:
 //	/*(collection = Collection)?*/ many?='many'? type=Type (array ?='[' (length=INT)? ']')?;
 	
-Type:
-	IndividualType | CollectionType | ArrayType;
+//Type:
+//	IndividualType | CollectionType | ArrayType;
 
-IndividualType:
+Type:
 	SimpleType | ComplexTypeRef;
 
 Collection:
 	{Set} 'set' | {Bag} 'bag';
 
-ArrayType:
-	ref=IndividualType '[' (length=INT)? ']';
+//ArrayType:
+//	ref=IndividualType '[' (length=INT)? ']';
 
-CollectionType:
-	collection=Collection ref=IndividualType;
+//CollectionType:
+//	collection=Collection ref=IndividualType;
 	
 SimpleType:
 	{IntegerType} 'Integer' | {BooleanType} 'Boolean' | {StringType} 'String' | {DateType} 'DateTime';
@@ -74,8 +74,17 @@ Entity:
 		attributes+=Attribute+
 	END;
 	  
-Attribute:
+IndividualAttribute:
 	name=ID ':' typeDef=Type ('=' expr=Expression)?;
+	
+ArrayAttribute:
+	name=ID ':' type=Type '[' (length=INT)? ']';
+
+CollectionAttribute:
+	name=ID ':' collection=Collection type=Type;
+
+Attribute:
+	IndividualAttribute | CollectionAttribute | ArrayAttribute;
 
 Event:
 	'event' name=ID 
@@ -230,13 +239,13 @@ IteratorExp returns Expression:
 	{IteratorExp} name=IterativeOperationID '(' iterators+=Iterator  (','iterators+=Iterator)*  '|' body=Expression')';
 
 Iterator:
-	name=ID (':' type=CollectionType)?; 
+	name=ID (':' type=CollectionAttribute)?; 
 
 IterateExp returns Expression:
 	{IterateExp} op='iterate' '(' iterators+=Iterator  (','iterators+=Iterator)* ';'result=LocalVariable '|' body=Expression')';
 
 LocalVariable returns LocalVariable :
-	name=ID ':' type=CollectionType '=' initExp=Expression;
+	name=ID ':' type=CollectionAttribute '=' initExp=Expression;
 
 CollectionOpCall returns Expression:
 	{CollectionOpCallExp} name=CollectionOperationID '(' (arguments+=Expression ("," arguments+=Expression)*)? ')';
