@@ -7,9 +7,6 @@ import com.google.inject.Binder
 import com.google.inject.name.Names
 import org.eclipse.xtext.scoping.IScopeProvider
 import org.eclipse.xtext.scoping.impl.AbstractDeclarativeScopeProvider
-import org.eclipse.xtext.scoping.impl.SimpleLocalScopeProvider
-import org.eclipse.xtext.scoping.impl.ImportUriGlobalScopeProvider
-import org.eclipse.xtext.scoping.impl.ResourceSetGlobalScopeProvider
 import org.eclipse.xtext.scoping.impl.ImportedNamespaceAwareLocalScopeProvider
 
 /**
@@ -17,18 +14,19 @@ import org.eclipse.xtext.scoping.impl.ImportedNamespaceAwareLocalScopeProvider
  */
 class CmlRuntimeModule extends AbstractCmlRuntimeModule {
 	
+	
 	override configureIScopeProviderDelegate(Binder binder) {
 		binder.bind(IScopeProvider)
 		.annotatedWith(Names.named(AbstractDeclarativeScopeProvider.NAMED_DELEGATE))
 		.to(ImportedNamespaceAwareLocalScopeProvider);
 	}
-	
-	/*override bindIGlobalScopeProvider() {
-        //ImportUriGlobalScopeProvider
-        ResourceSetGlobalScopeProvider
-    }
+	/* 
+	override bindIGlobalScopeProvider() {
+        ImportUriGlobalScopeProvider
+        //ResourceSetGlobalScopeProvider
+    }*/
     
-
+	/*
     override configureIScopeProviderDelegate(Binder binder) {
         binder.bind(IScopeProvider).annotatedWith(Names.named(AbstractDeclarativeScopeProvider.NAMED_DELEGATE))
             .to(SimpleLocalScopeProvider);
@@ -45,4 +43,5 @@ class CmlRuntimeModule extends AbstractCmlRuntimeModule {
 		.to(MyDslImportedNamespaceAwareLocalScopeProvider) 
 
 	}*/
+	/* */
 }

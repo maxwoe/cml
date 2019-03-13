@@ -4,76 +4,79 @@ import 'http://www.eclipse.org/emf/2002/Ecore' as ecore
 
 generate cml 'http://swa.univie.ac.at/Cml'
 
+Model:
+	('namespace' name=FQN)?
+	//imports+=Import*
+	contracts+=Contract*;
+
+//Import:
+//	'import' importedNamespace = QualifiedNameWithWildcard
+//  'import' importURI=STRING;
+	
 Contract:
 	'contract' name=ID
 	BEGIN
 		(attributes+=Attribute |
-		 types+=ComplexType |
-		 events+=Event |
-		 clauses+=Clause)*
+		 types+=Type |
+		 clauses+=Clause |
+		 vars+=VariableDeclaration |
+		 expr+=Expr)*
 	END;
-
-Classifier:
-	Attribute | Action | Entity | Enumeration | Party | Event | Clause;
+	
+Expr:
+	'exp' exp=Expression;
 	
 Feature:
-    Attribute | Action;
+	Attribute | Operation;
 	
-Action:
-	visibility=Visibility? name=ID '(' (args+=Attribute (',' args+=Attribute)*)? ')' (':' returnType=Type)?;
+Operation:
+	visibility=Visibility? name=ID '(' (args+=Parameter (',' args+=Parameter)*)? ')' (':' type=ReturnType)?;
+
+Parameter:
+	typeDef=AttributeType name=ID;
+	
+ReturnType:
+	{VoidType} 'void' | AttributeType;
+
+VariableDeclaration:
+	'var' name=ID ':' typeDef=AttributeType;
+
+AttributeType:
+	(collection = Collection)? type=TypeReference (array ?='[' (length=INT)? ']')?;
 
 enum Visibility:
 	PUBLIC='public' | PRIVATE='private' | PROTECTED='protected';
-		
-//AttributeType:
-//	/*(collection = Collection)?*/ many?='many'? type=Type (array ?='[' (length=INT)? ']')?;
-	
-//Type:
-//	IndividualType | CollectionType | ArrayType;
 
 Type:
-	SimpleType | ComplexTypeRef;
+	Class | Enumeration;
+
+TypeReference:
+	kind = PrimitiveType | ref = [Type|FQN];
+
+PrimitiveType:
+	{IntegerType} 'Integer' | {BooleanType} 'Boolean' | {StringType} 'String' | {DateTimeType} 'DateTime' | {RealType} 'Real' /* | ref=[Entity|ID]*/;
+
+//Entity:
+//	Party | Asset | Event;
+/*
+Type:
+	PrimitiveType | ComplexTypeRef;
+	
+PrimitiveType:
+	{IntegerType} 'Integer' | {BooleanType} 'Boolean' | {StringType} 'String' | {DateTimeType} 'DateTime' | {RealType} 'Real';
+
+ComplexTypeRef:
+	Class | Party | Asset | Enumeration | Event;
+		
+ComplexType:
+	ref=[ComplexTypeRef];
+*/
+Attribute:
+	name=ID ':' typeDef=AttributeType;
 
 Collection:
-	{Set} 'set' | {Bag} 'bag';
-
-//ArrayType:
-//	ref=IndividualType '[' (length=INT)? ']';
-
-//CollectionType:
-//	collection=Collection ref=IndividualType;
-	
-SimpleType:
-	{IntegerType} 'Integer' | {BooleanType} 'Boolean' | {StringType} 'String' | {DateType} 'DateTime';
-
-ComplexType:
-	Entity | Enumeration | Party;
-	
-ComplexTypeRef:
-	ref=[ComplexType|FQN];
-
-Enumeration:
-	'enum' name=ID
-	BEGIN
-		elements+=EnumerationElement*
-	END;
-
-EnumerationElement:
-	name = ID;
-
-Party:
-	'party' name=ID ('identified' 'by' id=[Attribute])? ('extends' superType=[Party|FQN])? 
-	BEGIN
-		(attributes+=Attribute |
-		 actions+=Action)*
-	END;
-	
-Entity:
-	'object' name=ID ('identified' 'by' id=[Attribute])? ('extends' superType=[Entity|FQN])? 
-	BEGIN
-		attributes+=Attribute+
-	END;
-	  
+	{Set} 'set' | {Bag} 'bag' | {Sequence} 'seq' | {OrderedSet} 'oset';
+/* 
 IndividualAttribute:
 	name=ID ':' typeDef=Type ('=' expr=Expression)?;
 	
@@ -85,20 +88,48 @@ CollectionAttribute:
 
 Attribute:
 	IndividualAttribute | CollectionAttribute | ArrayAttribute;
+*/
+
+Class:
+	(isAbstract?='abstract')? 'class' name=ID ('extends' superClass=[Class|FQN])?
+	BEGIN
+		features+=Feature*
+		exp+=Expr*
+	END;
+
+Party:
+	'party' name=ID ('identified' 'by' id=[Attribute])? ('extends' superClass=[Party|ID])? 
+	BEGIN
+		 features+=Feature*
+	END;
+	
+Asset:
+	'asset' name=ID ('identified' 'by' id=[Attribute])? ('extends' superClass=[Asset|ID])? 
+	BEGIN
+		attributes+=Attribute+
+	END;
 
 Event:
 	'event' name=ID 
 	(BEGIN
-		args+=Attribute
+		attributes+=Attribute
 	END)?;
 	
+Enumeration:
+	'enum' name=ID
+	BEGIN
+		elements+=EnumerationElement*
+	END;
+
+EnumerationElement:
+	name = ID;
+		
 Clause:
 	'clause' name=ID
 	BEGIN
 		antecedent=Antecedent
 		actor=Actor
 		action=DeonticAction
-		reparation=Reparation?
 	END;
 
 Antecedent:
@@ -111,13 +142,13 @@ Constraint:
 	'given' expression=Expression;
 
 Actor:
-	'party' party=[Party|FQN];
+	'party' party=[Attribute];
 
 enum Deontic:
 	MUST='must' | MAY='may' | MUST_NOT= 'must_not';
 
 DeonticAction:
-	deontic=Deontic compoundAction=CompoundAction;
+	deontic=Deontic compoundAction=AtomicAction;
 
 CompoundAction:
 	OrCompoundAction;
@@ -135,21 +166,17 @@ AtomicCompoundAction returns CompoundAction:
 	'(' CompoundAction ')' | AtomicAction;
 
 AtomicAction:
-	action=[Action|FQN] '(' (args+=[Attribute|FQN] (',' args+=[Attribute|FQN])*)? ')'
+	action=[Operation] '(' (args+=[Attribute] (',' args+=[Attribute])*)? ')'
 	(BEGIN
-		'when' preCondition=Expression
-		('then' postCondition=Expression)?
-	END)?
-	;
-	
-Reparation:
-	'otherwise' referTo=[Clause|FQN];
+		'pre' preCondition=Expression
+		('post' postCondition=Expression)?
+	END)?;
 
 TimeConstraint:
-	closed?='within'? timeframe=(RelativeTime | DotExpression)? period=PeriodicTime? precedence=TemporalPrecedence reference=(AbsoluteTime | DotExpression);
+	closed?='within'? timeframe=(RelativeTime)? period=PeriodicTime? precedence=TemporalPrecedence reference=(AbsoluteTime);
 
 PeriodicTime:
-	'every' period=(RelativeTime | DotExpression) 'from' start=(AbsoluteTime | DotExpression) ('until' end=(AbsoluteTime | DotExpression))?;
+	'every' period=(RelativeTime) 'from' start=(AbsoluteTime) ('until' end=(AbsoluteTime))?;
 	
 enum TemporalPrecedence:
 	BEFORE='before' |
@@ -159,13 +186,13 @@ enum TemporalPrecedence:
 	AFTER='after';
 
 ClauseQuery:
-	'clause' ref=[Clause|FQN] 'fulfilled';
+	'clause' ref=[Clause] 'fulfilled';
 
 EventQuery:
-	'event' ref=[Event|FQN] 'occurred';
+	'event' ref=[Attribute] 'occurred';
 	
 ActionQuery:
-	multiplicity=('all'|'any'|'current')?  partyRef=[Party|FQN] query='executed' actionRef=[Action|FQN];
+	multiplicity=('all'|'any'|'this')?  partyRef=[Attribute] query='executed' actionRef=[Operation];
 	
 TimeQuery:
 	ClauseQuery | EventQuery | ActionQuery;
@@ -180,75 +207,88 @@ RelativeTime:
 	TimeFrame;
 
 enum GlobalTimeReference:
-	NOW='$now' | CONTRACT_START='$contractStart' | CONTRACT_END='$contractEnd';
+	NOW='_now' | CONTRACT_START='_contractStart' | CONTRACT_END='_contractEnd';
 	
 TimeFrame:
 	{TimeFrame} (weeks=INT 'weeks') | {TimeFrame} (days=INT 'days') | {TimeFrame} (hours=INT 'hours') | {TimeFrame} (minutes=INT 'minutes') | {TimeFrame} (seconds=INT 'seconds');
 	
-Expression:
-	ImpliesOpExp;
+Expression: ImpliesExpression;
 	
-ImpliesOpExp returns Expression:
-	XorOpExp ({ImpliesOpExp.source=current} op='implies' target=XorOpExp)*;
+ImpliesExpression returns Expression:
+	XorExpression (=>({ImpliesExpression.left=current} op='implies') right=XorExpression)*;
 
-XorOpExp returns Expression:
-	OrOpExp ({XorOpExp.source=current} op='xor' target=OrOpExp)*;
+XorExpression returns Expression:
+	OrExpression (=>({XorExpression.left=current} op='xor') right=OrExpression)*;
 
-OrOpExp returns Expression:
-	AndOpExp ({OrOpExp.source=current} op='or' target=AndOpExp)*;
+OrExpression returns Expression:
+	AndExpression (=>({OrExpression.left=current} op='or') right=AndExpression)*;
 
-AndOpExp returns Expression:
-	EqOpExp ({AndOpExp.source=current} op='and' target=EqOpExp)*;
+AndExpression returns Expression:
+	EqualityExpression (=>({AndExpression.left=current} op='and') right=EqualityExpression)*;
 
-EqOpExp returns Expression :
-	ComparisonOpExp ({EqOpExp.source=current} op=('<>'|'=') target=ComparisonOpExp)*;
+EqualityExpression returns Expression :
+	RelationalExpression (=>({EqualityExpression.left=current} op=('=='|'!=')) right=RelationalExpression)*;
 
-ComparisonOpExp returns Expression:
-	ConditionalOpExp ({ComparisonOpExp.source=current} op=('>' | '<' | '>=' | '<=') target=ConditionalOpExp)*;
+RelationalExpression returns Expression:
+	AdditiveExpression (=>({RelationalExpression.left=current} op=('>' | '<' | '>=' | '<=')) right=AdditiveExpression)*;
 
-ConditionalOpExp returns Expression:
-	AdditionOpExp ('if' {ConditionalOpExp.source=current} 'then' trueCase=AdditionOpExp 'else' falseCase=AdditionOpExp)? ;
-	
-AdditionOpExp returns Expression : 
-	MultiOpExp ({AdditionOpExp.source=current} op=('+' | '-') target=MultiOpExp)*;
+//ConditionalOpExp returns Expression:
+//	AdditionOpExp ('if' {ConditionalOpExp.left=current} 'then' trueCase=AdditionOpExp 'else' falseCase=AdditionOpExp)? ;
 
-MultiOpExp returns Expression : 
-	UnaryOpExp ({MultiOpExp.source=current} op=('*' | '/') target=UnaryOpExp)*;
+AdditiveExpression returns Expression: 
+	MultiplicativeExpression (=>({AdditiveExpression.left=current} op=('+' | '-')) right=MultiplicativeExpression)*;
 
-UnaryOpExp returns Expression:
-	NavOpExp | {UnaryOpExp} op=('not' | '-' ) right=NavOpExp;
-	
-NavOpExp returns Expression:
-	NavigationOpCallExp (({NavOpExp.source=current} op=(/*'.' |*/ '->') target=NavigationOpCallExp)*)?;
+MultiplicativeExpression returns Expression : 
+	UnaryExpression (=>({MultiplicativeExpression.left=current} op=('*' | '/')) right=UnaryExpression)*;
 
-NavigationOpCallExp returns Expression :
-	OperationCall
-	//| NavigationOrAttributeCall
-	| IterateExp
-	| IteratorExp
-	| CollectionOpCall
-	| PrimaryExp;
+UnaryExpression returns Expression:
+	{UnaryExpression} op=('not' | '!' | '-' | '+') operand=UnaryExpression | SelectionExpression;
 
-OperationCall returns Expression:
-	{OperationCall} name=ID '(' (arguments+=Expression ("," arguments+=Expression)*)? ')';
-	
-NavigationOrAttributeCall returns Expression:
-	{NavigationOrAttributeCall} feature=ID;
+SelectionExpression returns Expression:
+	PrimaryExpression 
+	(=>({MemberSelection.receiver=current} '.') member=[Feature]
+	(=>methodinvocation ?= '(' (args += Expression (',' args += Expression)* )?  ')' )?
+	|=>({MemberSelection.receiver=current} isCollectionOperation?='->') coll=CollectionOperation
+	(=>methodinvocation ?= '(' (args += Expression (',' args += Expression)* )?  ')' )?)*;
 
-IteratorExp returns Expression:
-	{IteratorExp} name=IterativeOperationID '(' iterators+=Iterator  (','iterators+=Iterator)*  '|' body=Expression')';
+CollectionOperation:
+	{SizeCollectionFeature}    'size'       |
+	{IsEmptyCollectionFeature} 'isEmpty'    |
+	{AtCollectionFeature}      'at'       
+;
 
-Iterator:
-	name=ID (':' type=CollectionAttribute)?; 
+PrimaryExpression returns Expression:
+	ParenthesizedExpression |
+	SelfExpression          |
+	SuperExpression         |
+	LocalReference          |
+	LiteralExpression       
+;
 
-IterateExp returns Expression:
-	{IterateExp} op='iterate' '(' iterators+=Iterator  (','iterators+=Iterator)* ';'result=LocalVariable '|' body=Expression')';
+SelfExpression:
+	{SelfExpression} 'self'
+;	
 
-LocalVariable returns LocalVariable :
-	name=ID ':' type=CollectionAttribute '=' initExp=Expression;
+SuperExpression:
+	{SuperExpression} 'super'
+;	
 
-CollectionOpCall returns Expression:
-	{CollectionOpCallExp} name=CollectionOperationID '(' (arguments+=Expression ("," arguments+=Expression)*)? ')';
+LocalReference:
+	ref=[Local]
+;
+
+Local:
+	VariableDeclaration | Parameter;
+
+ParenthesizedExpression returns Expression:
+	'(' Expression ')';
+
+LiteralExpression returns Expression:
+	{IntegerLiteral} value=INT |
+	{StringLiteral} value=STRING |
+	{NullLiteral} 'null' |
+	{EnumerationLiteral} enumeration=[Enumeration|FQN] '::' literal=[EnumerationLiteral] |
+	{BooleanLiteral} ('false' | 'true');
 	
 IterativeOperationID returns ecore::EString :
 	'exists' | 'forAll'	| 'isUnique' | 'any' | 'one' | 'collect' | 'select'	| 'reject';
@@ -256,27 +296,8 @@ IterativeOperationID returns ecore::EString :
 CollectionOperationID returns ecore::EString :
 	'size'	| 'includes' | 'excludes' | 'count' | 'includesAll' | 'excludesAll' | 'isEmpty' | 'notEmpty' | 'sum';
 	
-PrimaryExp returns Expression:
-	'(' Expression ')' | Atomic;
-
-Atomic returns Expression:
-	{IntegerConstant} value=INT | 
-	{StringConstant} value=STRING | 
-	{BooleanConstant} value=('true' | 'false') |
-	DotExpression;
-	
-DotExpression returns Ref:
-    DotExpressionStart ({DotExpression.head=current} '.' tail=[Attribute])*;
- 
-DotExpressionStart returns Ref:
-    {DotExpressionStart} ref=[Attribute];
-
 FQN:
 	ID ('.' ID)*;
 	
-//terminal BOOL returns ecore::EBoolean:
-//	'true' | 'false';
-//terminal NUMBER returns ecore::EBigDecimal:
-//	/*('-')?*/ ('0'..'9')* ('.' ('0'..'9')+)?;
 terminal BEGIN: 'synthetic:BEGIN';  // increase indentation
 terminal END: 'synthetic:END';      // decrease indentation

@@ -1,0 +1,18 @@
+namespace cml.lang
+
+class Object
+	equals(Object o)
+		//return false;
+	toString()
+		//return "not implemented yet!";
+
+class Party extends Object{}
+	deposit(Integer amount)
+	withdraw(Integer amount)
+	transfer(Party party)
+class Asset extends Object{}
+class Event extends Object{}	
+class String  extends Object{}
+class Integer extends Object{}
+class Real    extends Object{}
+class Boolean extends Object{}
