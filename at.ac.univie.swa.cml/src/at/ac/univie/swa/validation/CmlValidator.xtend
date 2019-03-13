@@ -82,7 +82,7 @@ class CmlValidator extends AbstractCmlValidator {
 
 	@Check
 	def void checkNoDuplicateClass(Class c){
-		if(c.containingContract.classes.exists[it != c && it.name == c.name])
+		if(c.containingModel.classes.exists[it != c && it.name == c.name])
 			error("Duplicate Class '" + c.name + "'",
 				CmlPackage::eINSTANCE.type_Name,
 				DUPLICATE_ELEMENT)
@@ -129,7 +129,7 @@ class CmlValidator extends AbstractCmlValidator {
 		
 	@Check
 	def void checkNoDuplicateEnumeration(Enumeration e){
-		if(e.containingContract.enumerations.exists[it != e && it.name == e.name])
+		if(e.containingModel.enumerations.exists[it != e && it.name == e.name])
 			error("Duplicate enumeration '" + e.name + "'",
 				CmlPackage::eINSTANCE.type_Name,
 				DUPLICATE_ELEMENT

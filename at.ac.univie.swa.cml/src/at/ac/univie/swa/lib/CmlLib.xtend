@@ -40,6 +40,7 @@ class CmlLib {
 			if (cmlObjectClass !== null)
 				hierarchy += cmlObjectClass
 		}
+		println(hierarchy)
 		hierarchy
 	}
 

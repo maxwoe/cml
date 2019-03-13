@@ -3,6 +3,7 @@ package at.ac.univie.swa.typing
 import at.ac.univie.swa.cml.AdditiveExpression
 import at.ac.univie.swa.cml.AndExpression
 import at.ac.univie.swa.cml.AtCollectionFeature
+import at.ac.univie.swa.cml.Attribute
 import at.ac.univie.swa.cml.AttributeType
 import at.ac.univie.swa.cml.BooleanLiteral
 import at.ac.univie.swa.cml.Class
@@ -11,6 +12,7 @@ import at.ac.univie.swa.cml.CmlPackage
 import at.ac.univie.swa.cml.EnumerationLiteral
 import at.ac.univie.swa.cml.EqualityExpression
 import at.ac.univie.swa.cml.Expression
+import at.ac.univie.swa.cml.ImpliesExpression
 import at.ac.univie.swa.cml.IntegerLiteral
 import at.ac.univie.swa.cml.IsEmptyCollectionFeature
 import at.ac.univie.swa.cml.LocalReference
@@ -20,6 +22,7 @@ import at.ac.univie.swa.cml.NullLiteral
 import at.ac.univie.swa.cml.Operation
 import at.ac.univie.swa.cml.OrExpression
 import at.ac.univie.swa.cml.Parameter
+import at.ac.univie.swa.cml.RelationalExpression
 import at.ac.univie.swa.cml.SelfExpression
 import at.ac.univie.swa.cml.SizeCollectionFeature
 import at.ac.univie.swa.cml.StringLiteral
@@ -27,23 +30,19 @@ import at.ac.univie.swa.cml.SuperExpression
 import at.ac.univie.swa.cml.Type
 import at.ac.univie.swa.cml.UnaryExpression
 import at.ac.univie.swa.cml.VoidType
-
-import static extension at.ac.univie.swa.util.CmlModelUtil.*
+import at.ac.univie.swa.cml.XorExpression
 import at.ac.univie.swa.lib.CmlLib
 import com.google.inject.Inject
-import at.ac.univie.swa.cml.Attribute
-import at.ac.univie.swa.cml.Feature
-import at.ac.univie.swa.cml.RelationalExpression
-import at.ac.univie.swa.cml.XorExpression
-import at.ac.univie.swa.cml.ImpliesExpression
+
+import static extension at.ac.univie.swa.util.CmlModelUtil.*
 
 class CmlTypeProvider {
 	@Inject extension CmlLib
 	
 	public static val stringType = CmlFactory::eINSTANCE.createClass => [name = "String"]
 	public static val integerType = CmlFactory::eINSTANCE.createClass => [name = "Integer"]
-	public static val realType = CmlFactory::eINSTANCE.createClass => [name = "Real"]
 	public static val booleanType = CmlFactory::eINSTANCE.createClass => [name = "Boolean"]
+	public static val realType = CmlFactory::eINSTANCE.createClass => [name = "Real"]
 	public static val nullType = CmlFactory::eINSTANCE.createClass => [name = "Null"]
 	public static val voidType = CmlFactory::eINSTANCE.createClass => [name = "Void"]
 

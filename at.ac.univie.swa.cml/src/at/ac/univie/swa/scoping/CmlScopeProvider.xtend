@@ -324,9 +324,9 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 
 	def selectedFeatures(Class type, MemberSelection sel) {
 		if (sel.methodinvocation)
-			type.operations
+			type.operations + type.attributes
 		else
-			type.attributes
+			type.attributes + type.operations
 	}
 
 }

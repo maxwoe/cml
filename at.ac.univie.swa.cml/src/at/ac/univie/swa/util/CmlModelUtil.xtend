@@ -5,9 +5,9 @@ import at.ac.univie.swa.cml.AttributeType
 import at.ac.univie.swa.cml.Bag
 import at.ac.univie.swa.cml.BooleanType
 import at.ac.univie.swa.cml.Class
-import at.ac.univie.swa.cml.Contract
 import at.ac.univie.swa.cml.Enumeration
 import at.ac.univie.swa.cml.IntegerType
+import at.ac.univie.swa.cml.Model
 import at.ac.univie.swa.cml.Operation
 import at.ac.univie.swa.cml.OrderedSet
 import at.ac.univie.swa.cml.PrimitiveType
@@ -23,23 +23,27 @@ import at.ac.univie.swa.typing.CmlTypeProvider
 import org.eclipse.emf.ecore.EObject
 
 import static extension org.eclipse.xtext.EcoreUtil2.*
+import at.ac.univie.swa.lib.CmlLib
+import com.google.inject.Inject
 
 class CmlModelUtil {
+	
+	@Inject extension CmlLib
 
 	def static attributes(Class c) {
 		c.features.filter(typeof(Attribute))
 	}
 
-	def static classes(Contract c) {
-		c.types.filter(typeof(Class))
+	def static classes(Model m) {
+		m.types.filter(typeof(Class))
 	}
 
 	/*def static declarations(Operation op){
 		op.body.statements.filter(typeof(VariableDeclaration))
 	}*/
 
-	def static enumerations(Contract c) {
-		c.types.filter(typeof(Enumeration))
+	def static enumerations(Model m) {
+		m.types.filter(typeof(Enumeration))
 	}
 
 	def static operations(Class c) {
@@ -70,8 +74,8 @@ class CmlModelUtil {
 		e.getContainerOfType(typeof(Enumeration))
 	}
 
-	def static containingContract(EObject e) {
-		e.getContainerOfType(typeof(Contract))
+	def static containingModel(EObject e) {
+		e.getContainerOfType(typeof(Model))
 	}
 
 	def static containingOperation(EObject e) {
@@ -117,6 +121,11 @@ class CmlModelUtil {
 			visited.add(current)
 			current = current.superClass
 		}
+
+		/*val object = c.cmlObjectClass
+		if (object !== null)
+			visited.add(object)*/
+
 		return visited
 	}
 

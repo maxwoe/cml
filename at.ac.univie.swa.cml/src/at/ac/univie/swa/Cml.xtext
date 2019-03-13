@@ -6,18 +6,18 @@ generate cml 'http://swa.univie.ac.at/Cml'
 
 Model:
 	('namespace' name=FQN)?
-	//imports+=Import*
+	imports+=Import*
+	types+=Type*
 	contracts+=Contract*;
 
-//Import:
-//	'import' importedNamespace = QualifiedNameWithWildcard
+Import:
+	'import' importedNamespace = FQNWithWildcard;
 //  'import' importURI=STRING;
 	
 Contract:
 	'contract' name=ID
 	BEGIN
 		(attributes+=Attribute |
-		 types+=Type |
 		 clauses+=Clause |
 		 vars+=VariableDeclaration |
 		 expr+=Expr)*
@@ -92,11 +92,12 @@ Attribute:
 
 Class:
 	(isAbstract?='abstract')? 'class' name=ID ('extends' superClass=[Class|FQN])?
-	BEGIN
+	(BEGIN
 		features+=Feature*
+		vars+=VariableDeclaration* 
 		exp+=Expr*
-	END;
-
+	END)?;
+/* 
 Party:
 	'party' name=ID ('identified' 'by' id=[Attribute])? ('extends' superClass=[Party|ID])? 
 	BEGIN
@@ -114,7 +115,7 @@ Event:
 	(BEGIN
 		attributes+=Attribute
 	END)?;
-	
+*/
 Enumeration:
 	'enum' name=ID
 	BEGIN
@@ -298,6 +299,9 @@ CollectionOperationID returns ecore::EString :
 	
 FQN:
 	ID ('.' ID)*;
+
+FQNWithWildcard:
+    FQN '.*'?;
 	
 terminal BEGIN: 'synthetic:BEGIN';  // increase indentation
 terminal END: 'synthetic:END';      // decrease indentation
