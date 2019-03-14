@@ -5,13 +5,13 @@ import 'http://www.eclipse.org/emf/2002/Ecore' as ecore
 generate cml 'http://swa.univie.ac.at/Cml'
 
 Model:
-	('namespace' name=FQN)?
+	('namespace' name=QualifiedName)?
 	imports+=Import*
 	types+=Type*
 	contracts+=Contract*;
 
 Import:
-	'import' importedNamespace = FQNWithWildcard;
+	'import' importedNamespace = QualifiedNameWithWildcard;
 //  'import' importURI=STRING;
 	
 Contract:
@@ -51,7 +51,7 @@ Type:
 	Class | Enumeration;
 
 TypeReference:
-	kind = PrimitiveType | ref = [Type|FQN];
+	kind = PrimitiveType | ref = [Type|QualifiedName];
 
 PrimitiveType:
 	{IntegerType} 'Integer' | {BooleanType} 'Boolean' | {StringType} 'String' | {DateTimeType} 'DateTime' | {RealType} 'Real' /* | ref=[Entity|ID]*/;
@@ -89,33 +89,35 @@ CollectionAttribute:
 Attribute:
 	IndividualAttribute | CollectionAttribute | ArrayAttribute;
 */
+//Concept:
+//	Class | Party | Asset | Event;
 
 Class:
-	(isAbstract?='abstract')? 'class' name=ID ('extends' superClass=[Class|FQN])?
+	(isAbstract?='abstract')? 'class' name=ID ('extends' superClass=[Class|QualifiedName])?
 	(BEGIN
 		features+=Feature*
 		vars+=VariableDeclaration* 
 		exp+=Expr*
 	END)?;
 /* 
-Party:
-	'party' name=ID ('identified' 'by' id=[Attribute])? ('extends' superClass=[Party|ID])? 
+Party returns Class:
+	type='party' name=ID ('identified' 'by' id=[Attribute])? ('extends' superClass=[Class|QualifiedName])? 
 	BEGIN
 		 features+=Feature*
 	END;
 	
-Asset:
-	'asset' name=ID ('identified' 'by' id=[Attribute])? ('extends' superClass=[Asset|ID])? 
+Asset returns Class:
+	type='asset' name=ID ('identified' 'by' id=[Attribute])? ('extends' superClass=[Class|QualifiedName])? 
 	BEGIN
 		attributes+=Attribute+
 	END;
 
-Event:
-	'event' name=ID 
+Event returns Class:
+	type='event' name=ID 
 	(BEGIN
 		attributes+=Attribute
-	END)?;
-*/
+	END)?;*/
+
 Enumeration:
 	'enum' name=ID
 	BEGIN
@@ -247,61 +249,44 @@ UnaryExpression returns Expression:
 
 SelectionExpression returns Expression:
 	PrimaryExpression 
+	
 	(=>({MemberSelection.receiver=current} '.') member=[Feature]
 	(=>methodinvocation ?= '(' (args += Expression (',' args += Expression)* )?  ')' )?
+
 	|=>({MemberSelection.receiver=current} isCollectionOperation?='->') coll=CollectionOperation
 	(=>methodinvocation ?= '(' (args += Expression (',' args += Expression)* )?  ')' )?)*;
 
-CollectionOperation:
-	{SizeCollectionFeature}    'size'       |
-	{IsEmptyCollectionFeature} 'isEmpty'    |
-	{AtCollectionFeature}      'at'       
-;
-
-PrimaryExpression returns Expression:
-	ParenthesizedExpression |
-	SelfExpression          |
-	SuperExpression         |
-	LocalReference          |
-	LiteralExpression       
-;
-
-SelfExpression:
-	{SelfExpression} 'self'
-;	
-
-SuperExpression:
-	{SuperExpression} 'super'
-;	
-
-LocalReference:
-	ref=[Local]
-;
+PrimaryExpression returns Expression:	
+	LiteralExpression |
+	{SelfExpression} 'self' |
+	{SuperExpression} 'super' |
+	{LocalReference} ref=[Local] |
+	'(' Expression ')';
 
 Local:
 	VariableDeclaration | Parameter;
-
-ParenthesizedExpression returns Expression:
-	'(' Expression ')';
 
 LiteralExpression returns Expression:
 	{IntegerLiteral} value=INT |
 	{StringLiteral} value=STRING |
 	{NullLiteral} 'null' |
-	{EnumerationLiteral} enumeration=[Enumeration|FQN] '::' literal=[EnumerationLiteral] |
+	{EnumerationLiteral} enumeration=[Enumeration|QualifiedName] '::' literal=[EnumerationLiteral] |
 	{BooleanLiteral} ('false' | 'true');
-	
+
+CollectionOperation returns ecore::EString:
+	'size' | 'isEmpty' | 'at';
+		
 IterativeOperationID returns ecore::EString :
 	'exists' | 'forAll'	| 'isUnique' | 'any' | 'one' | 'collect' | 'select'	| 'reject';
 
 CollectionOperationID returns ecore::EString :
 	'size'	| 'includes' | 'excludes' | 'count' | 'includesAll' | 'excludesAll' | 'isEmpty' | 'notEmpty' | 'sum';
 	
-FQN:
-	ID ('.' ID)*;
+QualifiedName:
+    ID ('.' ID)*;
 
-FQNWithWildcard:
-    FQN '.*'?;
-	
+QualifiedNameWithWildcard:
+    QualifiedName '.*'?;
+   	
 terminal BEGIN: 'synthetic:BEGIN';  // increase indentation
 terminal END: 'synthetic:END';      // decrease indentation

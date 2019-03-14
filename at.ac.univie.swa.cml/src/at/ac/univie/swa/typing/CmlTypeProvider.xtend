@@ -2,7 +2,6 @@ package at.ac.univie.swa.typing
 
 import at.ac.univie.swa.cml.AdditiveExpression
 import at.ac.univie.swa.cml.AndExpression
-import at.ac.univie.swa.cml.AtCollectionFeature
 import at.ac.univie.swa.cml.Attribute
 import at.ac.univie.swa.cml.AttributeType
 import at.ac.univie.swa.cml.BooleanLiteral
@@ -14,7 +13,6 @@ import at.ac.univie.swa.cml.EqualityExpression
 import at.ac.univie.swa.cml.Expression
 import at.ac.univie.swa.cml.ImpliesExpression
 import at.ac.univie.swa.cml.IntegerLiteral
-import at.ac.univie.swa.cml.IsEmptyCollectionFeature
 import at.ac.univie.swa.cml.LocalReference
 import at.ac.univie.swa.cml.MemberSelection
 import at.ac.univie.swa.cml.MultiplicativeExpression
@@ -24,7 +22,6 @@ import at.ac.univie.swa.cml.OrExpression
 import at.ac.univie.swa.cml.Parameter
 import at.ac.univie.swa.cml.RelationalExpression
 import at.ac.univie.swa.cml.SelfExpression
-import at.ac.univie.swa.cml.SizeCollectionFeature
 import at.ac.univie.swa.cml.StringLiteral
 import at.ac.univie.swa.cml.SuperExpression
 import at.ac.univie.swa.cml.Type
@@ -93,9 +90,9 @@ class CmlTypeProvider {
 			MemberSelection:
 				if (e.coll !== null && e.member === null) {
 					switch (e.coll) {
-						IsEmptyCollectionFeature: return booleanType
-						SizeCollectionFeature: return integerType
-						AtCollectionFeature: return e.receiver.typeFor
+						case "size": return booleanType
+						case "isEmpty": return integerType
+						case "at": return e.receiver.typeFor
 					}
 				} else if (e.coll === null && e.member !== null)
 					return e.member.type

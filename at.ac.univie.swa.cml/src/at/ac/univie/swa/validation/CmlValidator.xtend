@@ -3,7 +3,6 @@
  */
 package at.ac.univie.swa.validation
 
-import at.ac.univie.swa.cml.AtCollectionFeature
 import at.ac.univie.swa.cml.Attribute
 import at.ac.univie.swa.cml.Class
 import at.ac.univie.swa.cml.CmlPackage
@@ -80,13 +79,13 @@ class CmlValidator extends AbstractCmlValidator {
 		}
 	}
 
-	@Check
-	def void checkNoDuplicateClass(Class c){
-		if(c.containingModel.classes.exists[it != c && it.name == c.name])
-			error("Duplicate Class '" + c.name + "'",
-				CmlPackage::eINSTANCE.type_Name,
-				DUPLICATE_ELEMENT)
-	}
+//	@Check
+//	def void checkNoDuplicateClass(Class c){
+//		if(c.containingModel.classes.exists[it != c && it.name == c.name])
+//			error("Duplicate Class '" + c.name + "'",
+//				CmlPackage::eINSTANCE.type_Name,
+//				DUPLICATE_ELEMENT)
+//	}
 
 	/*
 	@Check(CheckType::NORMAL)
@@ -127,14 +126,14 @@ class CmlValidator extends AbstractCmlValidator {
 				DUPLICATE_ELEMENT)
 	}
 		
-	@Check
-	def void checkNoDuplicateEnumeration(Enumeration e){
-		if(e.containingModel.enumerations.exists[it != e && it.name == e.name])
-			error("Duplicate enumeration '" + e.name + "'",
-				CmlPackage::eINSTANCE.type_Name,
-				DUPLICATE_ELEMENT
-			)
-	}
+//	@Check
+//	def void checkNoDuplicateEnumeration(Enumeration e){
+//		if(e.containingModel.enumerations.exists[it != e && it.name == e.name])
+//			error("Duplicate enumeration '" + e.name + "'",
+//				CmlPackage::eINSTANCE.type_Name,
+//				DUPLICATE_ELEMENT
+//			)
+//	}
 	
 	@Check
 	def void checkNoDuplicateEnumerationLiteral(EnumerationElement lit) {
@@ -267,7 +266,7 @@ class CmlValidator extends AbstractCmlValidator {
 	
 	@Check
 	def void checkValidArgumentForCollectionOperation(MemberSelection sel){
-		if(sel.coll !== null && sel.coll instanceof AtCollectionFeature){
+		if(sel.coll !== null && sel.coll === "at"){
 			if(sel.args === null)
 				error("Collection operation 'at' should have one argument of type integer",
 					CmlPackage::eINSTANCE.memberSelection_Args,
