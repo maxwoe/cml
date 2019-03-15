@@ -17,6 +17,8 @@ import at.ac.univie.swa.typing.CmlTypeProvider
 import static extension at.ac.univie.swa.util.CmlModelUtil.*
 import javax.inject.Inject
 import at.ac.univie.swa.lib.CmlLib
+import org.eclipse.xtext.EcoreUtil2
+import org.eclipse.xtext.naming.IQualifiedNameProvider
 
 /**
  * This class contains custom scoping description.
@@ -295,12 +297,10 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 			if (context instanceof MemberSelection) {
 				var parentScope = IScope::NULLSCOPE
 				var type = context.receiver.typeFor
-				println(context.receiver + ": " + type)
 				if (type === null || type.isPrimitiveType)
 					return parentScope
 				if (type instanceof Class) {
 					val features = (type as Class).selectedFeatures(context)
-					println(features)
 					for (c : type.classHierarchyWithObject.reverseView) {
 					  	parentScope = Scopes::scopeFor(c.selectedFeatures(context), parentScope)
 					}
@@ -312,12 +312,13 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 		if (reference == CmlPackage.Literals.ENUMERATION_LITERAL__LITERAL) {
 			if (context instanceof EnumerationLiteral) {
 				var parentScope = IScope::NULLSCOPE
-				if (context.enumeration instanceof Enumeration)
+				if (context.enumeration instanceof Enumeration) {
 					return Scopes::scopeFor(context.enumeration.elements, parentScope)
+				}
 				else
 					return parentScope
 			}
-		}
+		}		
 
 		super.getScope(context, reference)
 	}

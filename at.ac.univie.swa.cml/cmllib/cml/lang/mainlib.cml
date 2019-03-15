@@ -3,15 +3,19 @@ namespace cml.lang
 class Object
 	dummy()
 class Contract extends Object
-	balances : set Integer
-	deposit(Integer a)
-	withdraw(Integer a)
-	transfer(Integer a, Party p)
-	
+	balances : Set Integer
+	deposit(Integer amount)
+	withdraw(Integer amount)
+	transfer(Integer amount, Party ^party)
 class Party extends Object
 class Asset extends Object
 class Event extends Object
-class String  extends Object
-class Integer extends Object
-class Boolean extends Object
-class Real    extends Object
+class ^String extends Object
+class ^Integer extends Object
+class ^Boolean extends Object
+class ^Real extends Object
+class Array extends Object
+class Collection extends Object
+	op()
+class ^Set extends Collection
+class ^Bag extends Collection

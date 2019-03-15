@@ -21,6 +21,7 @@ class CmlLib {
 	public val static LIB_STRING = LIB_PACKAGE + ".String"
 	public val static LIB_INTEGER = LIB_PACKAGE + ".Integer"
 	public val static LIB_BOOLEAN = LIB_PACKAGE + ".Boolean"
+	public val static LIB_COLLECTION = LIB_PACKAGE + ".Collection"
 	public val static MAIN_LIB = "cml/lang/mainlib.cml"
 
 	def loadLib() {
@@ -40,7 +41,6 @@ class CmlLib {
 			if (cmlObjectClass !== null)
 				hierarchy += cmlObjectClass
 		}
-		println(hierarchy)
 		hierarchy
 	}
 

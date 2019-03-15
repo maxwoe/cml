@@ -282,6 +282,7 @@ class CmlValidator extends AbstractCmlValidator {
 		}
 	}
 	
+	
 	@Check
 	def void checkCompatibleTypes(Expression exp) {
 		val actualType   = exp.typeFor
@@ -289,11 +290,15 @@ class CmlValidator extends AbstractCmlValidator {
 		if (expectedType === null || actualType === null)
 			return; // nothing to check
 		if (!actualType.isConformant(expectedType)) {
-			error("Incompatible types. Expected '" + expectedType?.name
+			/*error("Incompatible types. Expected '" + expectedType?.name
 					+ "' but was '" + actualType?.name + "'", null,
+					INCOMPATIBLE_TYPES);*/
+					error("Incompatible types. Expected '" + expectedType
+					+ "' but was '" + actualType + "'", null,
 					INCOMPATIBLE_TYPES);
 		}
 	}
+
 	
 	/* 
 	@Check

@@ -8,11 +8,11 @@ Model:
 	('namespace' name=QualifiedName)?
 	imports+=Import*
 	types+=Type*
+	expr+=Expr*
 	contracts+=Contract*;
 
 Import:
 	'import' importedNamespace = QualifiedNameWithWildcard;
-//  'import' importURI=STRING;
 	
 Contract:
 	'contract' name=ID
@@ -42,53 +42,35 @@ VariableDeclaration:
 	'var' name=ID ':' typeDef=AttributeType;
 
 AttributeType:
-	(collection = Collection)? type=TypeReference (array ?='[' (length=INT)? ']')?;
+	Simple | Collection | Array;
 
 enum Visibility:
 	PUBLIC='public' | PRIVATE='private' | PROTECTED='protected';
 
 Type:
-	Class | Enumeration;
+	Class | Enumeration | Collection | Array;
 
 TypeReference:
 	kind = PrimitiveType | ref = [Type|QualifiedName];
 
 PrimitiveType:
-	{IntegerType} 'Integer' | {BooleanType} 'Boolean' | {StringType} 'String' | {DateTimeType} 'DateTime' | {RealType} 'Real' /* | ref=[Entity|ID]*/;
-
-//Entity:
-//	Party | Asset | Event;
-/*
-Type:
-	PrimitiveType | ComplexTypeRef;
-	
-PrimitiveType:
 	{IntegerType} 'Integer' | {BooleanType} 'Boolean' | {StringType} 'String' | {DateTimeType} 'DateTime' | {RealType} 'Real';
 
-ComplexTypeRef:
-	Class | Party | Asset | Enumeration | Event;
-		
-ComplexType:
-	ref=[ComplexTypeRef];
-*/
 Attribute:
 	name=ID ':' typeDef=AttributeType;
 
-Collection:
-	{Set} 'set' | {Bag} 'bag' | {Sequence} 'seq' | {OrderedSet} 'oset';
-/* 
-IndividualAttribute:
-	name=ID ':' typeDef=Type ('=' expr=Expression)?;
+Simple:
+	type=TypeReference;
 	
-ArrayAttribute:
-	name=ID ':' type=Type '[' (length=INT)? ']';
+Array:
+	type=TypeReference '[' (length=INT)? ']';
 
-CollectionAttribute:
-	name=ID ':' collection=Collection type=Type;
+Collection:
+	name=CollectionType type=TypeReference;
+	
+CollectionType:
+	{Set} 'Set' | {Bag} 'Bag' | {Sequence} 'Sequence' | {OrderedSet} 'OrderedSet';
 
-Attribute:
-	IndividualAttribute | CollectionAttribute | ArrayAttribute;
-*/
 //Concept:
 //	Class | Party | Asset | Event;
 
@@ -256,6 +238,13 @@ SelectionExpression returns Expression:
 	|=>({MemberSelection.receiver=current} isCollectionOperation?='->') coll=CollectionOperation
 	(=>methodinvocation ?= '(' (args += Expression (',' args += Expression)* )?  ')' )?)*;
 
+/* 
+CollectionOpCall returns OclLExpression:
+	{CollectionOpCallExp} name=CollectionOpID '(' (arguments+=Expression ("," arguments+=Expression)*)? ')';
+
+IterateExp returns OclLExpression:
+	{IterateExp}name='iterate' '(' iterators+=Iterator  (','iterators+=Iterator)* ';'result=LocalVariable '|' body=Expression')';
+*/
 PrimaryExpression returns Expression:	
 	LiteralExpression |
 	{SelfExpression} 'self' |
@@ -270,18 +259,14 @@ LiteralExpression returns Expression:
 	{IntegerLiteral} value=INT |
 	{StringLiteral} value=STRING |
 	{NullLiteral} 'null' |
-	{EnumerationLiteral} enumeration=[Enumeration|QualifiedName] '::' literal=[EnumerationLiteral] |
+	{EnumerationLiteral} enumeration=[Enumeration|QualifiedName] '::' literal=[EnumerationElement] |
 	{BooleanLiteral} ('false' | 'true');
 
 CollectionOperation returns ecore::EString:
-	'size' | 'isEmpty' | 'at';
-		
-IterativeOperationID returns ecore::EString :
-	'exists' | 'forAll'	| 'isUnique' | 'any' | 'one' | 'collect' | 'select'	| 'reject';
+	//'count' | 'includes' | 'excludes' | 'exists' | 'forAll' | 'sum' | 'select' | 'at'
+	'size'	| 'includes' | 'excludes' | 'count' | 'includesAll' | 'excludesAll' | 'isEmpty' | 'notEmpty' | 'sum' |
+	'exists' | 'forAll'	| 'isUnique' | 'collect' | 'select'	| 'reject';
 
-CollectionOperationID returns ecore::EString :
-	'size'	| 'includes' | 'excludes' | 'count' | 'includesAll' | 'excludesAll' | 'isEmpty' | 'notEmpty' | 'sum';
-	
 QualifiedName:
     ID ('.' ID)*;
 

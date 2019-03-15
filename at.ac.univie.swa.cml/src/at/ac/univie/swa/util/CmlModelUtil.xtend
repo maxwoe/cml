@@ -121,11 +121,6 @@ class CmlModelUtil {
 			visited.add(current)
 			current = current.superClass
 		}
-
-		/*val object = c.cmlObjectClass
-		if (object !== null)
-			visited.add(object)*/
-
 		return visited
 	}
 
@@ -147,8 +142,8 @@ class CmlModelUtil {
 		return result
 	}
 
-	def static Type typeOf(AttributeType ctype) {
-		return typeOf(ctype.type)
+	def static Type typeOf(AttributeType atype) {
+		return typeOf(atype.type)
 	}
 
 	def static Type typeOf(ReturnType rtype) {
@@ -157,7 +152,7 @@ class CmlModelUtil {
 		else
 			return typeOf((rtype as AttributeType).type)
 	}
-
+/* 
 	def static isUnique(AttributeType ctype) {
 		val coll = ctype.collection
 		if (coll === null)
@@ -196,6 +191,6 @@ class CmlModelUtil {
 			VoidType: true
 			AttributeType: rtype.isUnique
 		}
-}
+}*/
 
 }
