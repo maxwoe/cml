@@ -11,10 +11,16 @@ class CmlIndex {
 	@Inject ResourceDescriptionsProvider rdp
 	@Inject IContainer.Manager cm
 
-	def getVisibleEObjectDescriptions(EObject o) {
-		o.getVisibleContainers.map [ container |
-			container.getExportedObjects
-		].flatten
+	def getVisibleExternalClassesDescriptions(EObject o) {
+		val allVisibleClasses = o.getVisibleClassesDescriptions
+		val allExportedClasses = o.getExportedClassesEObjectDescriptions
+		val difference = allVisibleClasses.toSet
+		difference.removeAll(allExportedClasses.toSet)
+		return difference.toMap[qualifiedName]
+	}
+
+	def getVisibleClassesDescriptions(EObject o) {
+		o.getVisibleEObjectDescriptions(CmlPackage.eINSTANCE.class_)
 	}
 
 	def getVisibleEObjectDescriptions(EObject o, EClass type) {
@@ -23,17 +29,10 @@ class CmlIndex {
 		].flatten
 	}
 
-	def getVisibleClassesDescriptions(EObject o) {
-		o.getVisibleEObjectDescriptions(CmlPackage::eINSTANCE.class_)
-	}
-
 	def getVisibleContainers(EObject o) {
 		val index = rdp.getResourceDescriptions(o.eResource)
 		val rd = index.getResourceDescription(o.eResource.URI)
-		if (rd !== null)
-			cm.getVisibleContainers(rd, index)
-		else
-			emptyList
+		cm.getVisibleContainers(rd, index)
 	}
 
 	def getResourceDescription(EObject o) {
@@ -43,5 +42,9 @@ class CmlIndex {
 
 	def getExportedEObjectDescriptions(EObject o) {
 		o.getResourceDescription.getExportedObjects
+	}
+
+	def getExportedClassesEObjectDescriptions(EObject o) {
+		o.getResourceDescription.getExportedObjectsByType(CmlPackage.eINSTANCE.class_)
 	}
 }

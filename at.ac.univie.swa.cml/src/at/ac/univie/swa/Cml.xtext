@@ -20,6 +20,7 @@ Contract:
 		(attributes+=Attribute |
 		 clauses+=Clause |
 		 vars+=VariableDeclaration |
+		 derived+=DerivedAttribute |
 		 expr+=Expr)*
 	END;
 	
@@ -33,16 +34,16 @@ Operation:
 	visibility=Visibility? name=ID '(' (args+=Parameter (',' args+=Parameter)*)? ')' (':' type=ReturnType)?;
 
 Parameter:
-	typeDef=AttributeType name=ID;
+	type=Container name=ID;
 	
 ReturnType:
-	{VoidType} 'void' | AttributeType;
+	{VoidType} 'void' | Container;
 
 VariableDeclaration:
-	'var' name=ID ':' typeDef=AttributeType;
+	'var' name=ID ':' type=Container;
 
-AttributeType:
-	Simple | Collection | Array;
+Container:
+	Primitive | Collection | Array;
 
 enum Visibility:
 	PUBLIC='public' | PRIVATE='private' | PROTECTED='protected';
@@ -50,32 +51,26 @@ enum Visibility:
 Type:
 	Class | Enumeration | Collection | Array;
 
-TypeReference:
-	kind = PrimitiveType | ref = [Type|QualifiedName];
-
-PrimitiveType:
-	{IntegerType} 'Integer' | {BooleanType} 'Boolean' | {StringType} 'String' | {DateTimeType} 'DateTime' | {RealType} 'Real';
-
 Attribute:
-	name=ID ':' typeDef=AttributeType;
+	name=ID ':' type=Container;
 
-Simple:
-	type=TypeReference;
+Primitive:
+	type=[Type|QualifiedName];
 	
 Array:
-	type=TypeReference '[' (length=INT)? ']';
+	type=[Type|QualifiedName] '[' (length=INT)? ']';
 
 Collection:
-	name=CollectionType type=TypeReference;
+	collectionType=CollectionType '<' type=[Type|QualifiedName] '>';
 	
 CollectionType:
-	{Set} 'Set' | {Bag} 'Bag' | {Sequence} 'Sequence' | {OrderedSet} 'OrderedSet';
+	{Set} name='Set' | {Bag} name='Bag' | {Sequence} name='Sequence' | {OrderedSet} name='OrderedSet';
 
 //Concept:
 //	Class | Party | Asset | Event;
 
 Class:
-	(isAbstract?='abstract')? 'class' name=ID ('extends' superClass=[Class|QualifiedName])?
+	(isAbstract?='abstract')? 'class' name=ID ('extends' superclass=[Class|QualifiedName])?
 	(BEGIN
 		features+=Feature*
 		vars+=VariableDeclaration* 
@@ -83,13 +78,13 @@ Class:
 	END)?;
 /* 
 Party returns Class:
-	type='party' name=ID ('identified' 'by' id=[Attribute])? ('extends' superClass=[Class|QualifiedName])? 
+	type='party' name=ID ('identified' 'by' id=[Attribute])? ('extends' superclass=[Class|QualifiedName])? 
 	BEGIN
 		 features+=Feature*
 	END;
 	
 Asset returns Class:
-	type='asset' name=ID ('identified' 'by' id=[Attribute])? ('extends' superClass=[Class|QualifiedName])? 
+	type='asset' name=ID ('identified' 'by' id=[Attribute])? ('extends' superclass=[Class|QualifiedName])? 
 	BEGIN
 		attributes+=Attribute+
 	END;
@@ -109,6 +104,9 @@ Enumeration:
 EnumerationElement:
 	name = ID;
 		
+DerivedAttribute:
+	'derive' name=ID ':' type=Container '=' expression=Expression;
+	
 Clause:
 	'clause' name=ID
 	BEGIN
@@ -231,12 +229,25 @@ UnaryExpression returns Expression:
 
 SelectionExpression returns Expression:
 	PrimaryExpression 
-	
+	(=>({MemberSelection.receiver=current} '.')
+		member=[Feature]
+		(=>methodinvocation?='('
+			(args+=Expression (',' args+=Expression)*)? ')'
+		)?
+		)*;
+	/*(
+		{MemberSelection.receiver=current} '.'
+		member=[Feature]
+		(methodinvocation?='('
+			(args+=Expression (',' args+=Expression)*)? ')'
+		)?
+)*;*/
+	/* 
 	(=>({MemberSelection.receiver=current} '.') member=[Feature]
 	(=>methodinvocation ?= '(' (args += Expression (',' args += Expression)* )?  ')' )?
 
 	|=>({MemberSelection.receiver=current} isCollectionOperation?='->') coll=CollectionOperation
-	(=>methodinvocation ?= '(' (args += Expression (',' args += Expression)* )?  ')' )?)*;
+	(=>methodinvocation ?= '(' (args += Expression (',' args += Expression)* )?  ')' )?)*;*/
 
 /* 
 CollectionOpCall returns OclLExpression:
@@ -251,27 +262,45 @@ PrimaryExpression returns Expression:
 	{SuperExpression} 'super' |
 	{LocalReference} ref=[Local] |
 	'(' Expression ')';
-
+	
 Local:
 	VariableDeclaration | Parameter;
 
+NamedElement:
+	Class | Feature | Local | Enumeration | EnumerationElement;
+	
 LiteralExpression returns Expression:
 	{IntegerLiteral} value=INT |
+	{BooleanLiteral} ('false' | 'true') |
 	{StringLiteral} value=STRING |
+	{RealLiteral} value=REAL |
 	{NullLiteral} 'null' |
-	{EnumerationLiteral} enumeration=[Enumeration|QualifiedName] '::' literal=[EnumerationElement] |
-	{BooleanLiteral} ('false' | 'true');
+	{DurationLiteral} value=INT unit=TimeUnit |
+	{DateTimeLiteral} value=DATE |
+	{EnumerationLiteral} enumeration=[Enumeration|QualifiedName] '::' literal=[EnumerationElement];
+
+enum TimeUnit: 
+	MINUTE='minutes'|
+	HOUR='hours'|
+	DAY='days'|
+	WEEK='weeks'|
+	SECOND='seconds';
+
+terminal fragment DIGIT : ('0'..'9');
+//terminal DATE : '\'' DIGIT DIGIT DIGIT DIGIT '.'? DIGIT DIGIT '.'? DIGIT DIGIT ' '? (DIGIT DIGIT ':'? DIGIT DIGIT ':'? DIGIT DIGIT)? '\'';
 
 CollectionOperation returns ecore::EString:
 	//'count' | 'includes' | 'excludes' | 'exists' | 'forAll' | 'sum' | 'select' | 'at'
 	'size'	| 'includes' | 'excludes' | 'count' | 'includesAll' | 'excludesAll' | 'isEmpty' | 'notEmpty' | 'sum' |
-	'exists' | 'forAll'	| 'isUnique' | 'collect' | 'select'	| 'reject';
+	'exists' | 'forAll'	| 'isUnique' | 'collect' | 'select'	| 'reject' | 'at';
 
 QualifiedName:
     ID ('.' ID)*;
 
 QualifiedNameWithWildcard:
     QualifiedName '.*'?;
-   	
+
+terminal DATE returns ecore::EDate: '0'..'9''0'..'9''0'..'9''0'..'9' '-' '0'..'9''0'..'9' '-' '0'..'9''0'..'9';
+terminal REAL returns ecore::EDouble: ('0'..'9')+'.'('0'..'9'+); 	
 terminal BEGIN: 'synthetic:BEGIN';  // increase indentation
 terminal END: 'synthetic:END';      // decrease indentation

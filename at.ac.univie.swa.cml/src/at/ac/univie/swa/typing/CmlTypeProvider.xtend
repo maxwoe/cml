@@ -4,7 +4,7 @@ import at.ac.univie.swa.cml.AdditiveExpression
 import at.ac.univie.swa.cml.AndExpression
 import at.ac.univie.swa.cml.Array
 import at.ac.univie.swa.cml.Attribute
-import at.ac.univie.swa.cml.AttributeType
+import at.ac.univie.swa.cml.Container
 import at.ac.univie.swa.cml.BooleanLiteral
 import at.ac.univie.swa.cml.Class
 import at.ac.univie.swa.cml.CmlFactory
@@ -24,29 +24,33 @@ import at.ac.univie.swa.cml.OrExpression
 import at.ac.univie.swa.cml.Parameter
 import at.ac.univie.swa.cml.RelationalExpression
 import at.ac.univie.swa.cml.SelfExpression
-import at.ac.univie.swa.cml.Simple
+import at.ac.univie.swa.cml.Primitive
 import at.ac.univie.swa.cml.StringLiteral
 import at.ac.univie.swa.cml.SuperExpression
 import at.ac.univie.swa.cml.Type
 import at.ac.univie.swa.cml.UnaryExpression
 import at.ac.univie.swa.cml.VoidType
 import at.ac.univie.swa.cml.XorExpression
-import at.ac.univie.swa.lib.CmlLib
+import at.ac.univie.swa.CmlLib
 import com.google.inject.Inject
 
-import static extension at.ac.univie.swa.util.CmlModelUtil.*
+import static extension at.ac.univie.swa.CmlModelUtil.*
+import at.ac.univie.swa.cml.RealLiteral
+import at.ac.univie.swa.cml.VariableDeclaration
+import at.ac.univie.swa.cml.Feature
 
 class CmlTypeProvider {
 	@Inject extension CmlLib
+	@Inject extension CmlTypeConformance
 	
-	public static val stringType = CmlFactory::eINSTANCE.createClass => [name = "String"]
-	public static val integerType = CmlFactory::eINSTANCE.createClass => [name = "Integer"]
-	public static val booleanType = CmlFactory::eINSTANCE.createClass => [name = "Boolean"]
-	public static val realType = CmlFactory::eINSTANCE.createClass => [name = "Real"]
-	public static val nullType = CmlFactory::eINSTANCE.createClass => [name = "Null"]
-	public static val voidType = CmlFactory::eINSTANCE.createClass => [name = "Void"]
-	public static val collectionType = CmlFactory::eINSTANCE.createClass => [name = "Collection"]
-	public static val arrayType = CmlFactory::eINSTANCE.createClass => [name = "Array"]
+	public static val STRING_TYPE = CmlFactory::eINSTANCE.createClass => [name = "String"]
+	public static val INTEGER_TYPE = CmlFactory::eINSTANCE.createClass => [name = "Integer"]
+	public static val BOOLEAN_TYPE = CmlFactory::eINSTANCE.createClass => [name = "Boolean"]
+	public static val REAL_TYPE = CmlFactory::eINSTANCE.createClass => [name = "Real"]
+	public static val NULL_TYPE = CmlFactory::eINSTANCE.createClass => [name = "Null"]
+	public static val VOID_TYPE = CmlFactory::eINSTANCE.createClass => [name = "Void"]
+	public static val COLLECTION_TYPE = CmlFactory::eINSTANCE.createClass => [name = "Collection"]
+	public static val ARRAY_TYPE = CmlFactory::eINSTANCE.createClass => [name = "Array"]
 
 	val ep = CmlPackage::eINSTANCE
 
@@ -56,18 +60,23 @@ class CmlTypeProvider {
 				return e.containingClass
 			SuperExpression:
 				return e.containingClass.superclassOrObject
-			LocalReference:
-				return e.ref.typeDef.typeOf
+			LocalReference: {
+				var t = e.ref.type.typeOf
+				println("LocalReference: " + t)
+				return t
+			}
 			// NewInstanceExpression:
 			// return e.type
 			NullLiteral:
-				return nullType
+				return NULL_TYPE
 			StringLiteral:
-				return stringType
+				return STRING_TYPE
 			BooleanLiteral:
-				return booleanType
+				return BOOLEAN_TYPE
 			IntegerLiteral:
-				return integerType
+				return INTEGER_TYPE
+			RealLiteral:
+				return REAL_TYPE
 			// CollectionLiteral:
 			// return typeFor(e.elements.head)
 			EnumerationLiteral:
@@ -82,37 +91,42 @@ class CmlTypeProvider {
 			 * InstanceofExpression,
 			 ComparativeExpression*/
 			:
-				return booleanType
+				return BOOLEAN_TYPE
 			AdditiveExpression,
 			MultiplicativeExpression:
-				return integerType
+				return INTEGER_TYPE
 			UnaryExpression:
 				if (e.op == "+" || e.op == "-") {
-					return integerType
+					return INTEGER_TYPE
 				} else {
-					return booleanType
+					return BOOLEAN_TYPE
 				}
-			MemberSelection:
+			MemberSelection:/* 
 				if (e.coll !== null && e.member === null) {
 					switch (e.coll) {
-						case "size": return integerType
-						case "includes": return booleanType
-						case "excludes": return booleanType
-						case "count": return integerType
-						case "includesAll": return booleanType
-						case "excludesAll": return booleanType
-						case "isEmpty": return booleanType
-						case "notEmpty": return booleanType
-						case "sum": return integerType
-						case "exists": return booleanType
-						case "forAll": return booleanType
-						case "isUnique": return booleanType
-						//case "collect": return ? // should return coll
-						case "select": return e.receiver.typeFor // should return coll
-						case "reject": return e.receiver.typeFor // should return coll
+						case "size": return INTEGER_TYPE
+						case "includes": return BOOLEAN_TYPE
+						case "excludes": return BOOLEAN_TYPE
+						case "count": return INTEGER_TYPE
+						case "includesAll": return BOOLEAN_TYPE
+						case "excludesAll": return BOOLEAN_TYPE
+						case "isEmpty": return BOOLEAN_TYPE
+						case "notEmpty": return BOOLEAN_TYPE
+						case "sum": return INTEGER_TYPE
+						case "exists": return BOOLEAN_TYPE
+						case "forAll": return BOOLEAN_TYPE
+						case "isUnique": return BOOLEAN_TYPE
+						case "collect": return COLLECTION_TYPE
+						case "select": return COLLECTION_TYPE
+						case "reject": return COLLECTION_TYPE
+						case "at": e.receiver.typeFor
 					}
-				} else if (e.coll === null && e.member !== null)
-					return e.member.type
+				} else if (e.coll === null && e.member !== null)*/
+					{	var type = e.member.typeOf
+						if(type == COLLECTION_TYPE)
+							return getCmlClass(e, CmlLib.LIB_COLLECTION)
+						return type
+					}
 		}
 	}
 
@@ -120,6 +134,8 @@ class CmlTypeProvider {
 		val container = exp.eContainer
 		val feature = exp.eContainingFeature
 		switch (container) {
+			VariableDeclaration:
+				container.type.typeOf
 			/*AssignmentExpression case feature == ep.assignmentExpression_Right:
 			 * 	container.left.typeFor
 			 * BranchingStmt case feature == ep.branchingStmt_Expression:
@@ -132,34 +148,19 @@ class CmlTypeProvider {
 				// assume that it refers to a method and that there
 				// is a parameter corresponding to the argument
 				try {
-					(container.member as Operation).args.get(container.args.indexOf(exp)).type
+					(container.member as Operation).args.get(container.args.indexOf(exp)).type.typeOf
 				} catch (Throwable t) {
 					null
 				}
 		}
 	}
-	
-	def dispatch Type type(Operation op) {
-		switch (op.type) {
-			VoidType: return nullType
-			AttributeType: return (op.type as AttributeType).typeOf
-		}
-	}
-	
-	def dispatch Type type(Attribute a) {
-		switch(a.typeDef) {
-			Simple: a.typeDef.typeOf
-			Collection: collectionType
-			Array: arrayType
-		}
-	}
 
-	def dispatch Type type(Parameter param) {
-		return param.typeDef.typeOf
-	}
-
-	def isPrimitiveType(Type c) {
+	def isPrimitive(Type c) {
 		c instanceof Class && (c as Class).eResource === null
+	}
+	
+	def getSuperclassOrObject(Class c) {
+		c.superclass ?: getCmlObjectClass(c)
 	}
 
 }

@@ -3,7 +3,7 @@ namespace cml.lang
 class Object
 	dummy()
 class Contract extends Object
-	balances : Set Integer
+	balances : Set<Integer>
 	deposit(Integer amount)
 	withdraw(Integer amount)
 	transfer(Integer amount, Party ^party)

@@ -14,11 +14,18 @@ import org.eclipse.xtext.scoping.IScope
 import org.eclipse.xtext.scoping.Scopes
 import at.ac.univie.swa.typing.CmlTypeProvider
 
-import static extension at.ac.univie.swa.util.CmlModelUtil.*
+import static extension at.ac.univie.swa.CmlModelUtil.*
 import javax.inject.Inject
-import at.ac.univie.swa.lib.CmlLib
 import org.eclipse.xtext.EcoreUtil2
 import org.eclipse.xtext.naming.IQualifiedNameProvider
+import at.ac.univie.swa.CmlLib
+import at.ac.univie.swa.cml.VariableDeclaration
+import at.ac.univie.swa.cml.Operation
+import at.ac.univie.swa.CmlModelUtil
+import at.ac.univie.swa.cml.Contract
+import at.ac.univie.swa.cml.Type
+import at.ac.univie.swa.cml.LocalReference
+import java.util.List
 
 /**
  * This class contains custom scoping description.
@@ -289,10 +296,77 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 //	}*/
 	
 	@Inject extension CmlTypeProvider
-	@Inject extension CmlLib
+	@Inject extension CmlModelUtil
+	
+	val epackage = CmlPackage.eINSTANCE
 
 	override getScope(EObject context, EReference reference) {
+		println("ctx: "+ context + "ref: " + reference)
+		if (reference == epackage.localReference_Ref) {
+			//scopeForLocalRef(context)
+		} else if (context instanceof MemberSelection) {
+			return scopeForMemberSelection(context)
+		} else if (reference == epackage.enumerationLiteral_Literal) {
+			return scopeForEnumLiteral(context)
+		} 
+		
+		return super.getScope(context, reference)
+	}
 
+	def protected IScope scopeForLocalRef(EObject context) {
+		val container = context.eContainer
+		return switch (container) {
+			Operation:
+				Scopes.scopeFor(container.args)
+			default:
+				scopeForLocalRef(container)
+		}
+	}
+	
+	def protected IScope scopeForMemberSelection(MemberSelection sel) {
+		val type = sel.receiver.typeFor
+		var parentScope = IScope::NULLSCOPE
+		if (type === null || type.isPrimitive)
+			return IScope.NULLSCOPE
+
+		if (type instanceof Class) {
+			val features = type.selectedFeatures(sel)
+			for (c : type.classHierarchyWithObject.toArray().reverseView) {
+				parentScope = Scopes::scopeFor((c as Class).selectedFeatures(sel), parentScope)
+			}
+
+			return Scopes::scopeFor(features, parentScope)
+			/*val grouped = type.classHierarchyFeatures.groupBy[it instanceof Operation]
+			val inheritedMethods = grouped.get(true) ?: emptyList
+			val inheritedFields = grouped.get(false) ?: emptyList
+
+			if (sel.methodinvocation) {
+				return Scopes.scopeFor(
+					type.operations + type.attributes,
+					Scopes.scopeFor(inheritedMethods + inheritedFields)
+				)
+			} else {
+				return Scopes.scopeFor(
+					type.attributes + type.operations,
+					Scopes.scopeFor(inheritedFields + inheritedMethods)
+				)
+			}*/
+		}
+	}
+	
+	def protected IScope scopeForEnumLiteral(EObject context) {
+		if (context instanceof EnumerationLiteral) {
+			var parentScope = IScope::NULLSCOPE
+			if (context.enumeration instanceof Enumeration) {
+				return Scopes::scopeFor(context.enumeration.elements, parentScope)
+			} else
+				return parentScope
+		}
+	}
+	
+	/*
+	
+	override getScope(EObject context, EReference reference) {
 		if (reference == CmlPackage.Literals.MEMBER_SELECTION__MEMBER) {
 			if (context instanceof MemberSelection) {
 				var parentScope = IScope::NULLSCOPE
@@ -308,21 +382,8 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 				}
 			}
 		}
-
-		if (reference == CmlPackage.Literals.ENUMERATION_LITERAL__LITERAL) {
-			if (context instanceof EnumerationLiteral) {
-				var parentScope = IScope::NULLSCOPE
-				if (context.enumeration instanceof Enumeration) {
-					return Scopes::scopeFor(context.enumeration.elements, parentScope)
-				}
-				else
-					return parentScope
-			}
-		}		
-
-		super.getScope(context, reference)
 	}
-
+*/
 	def selectedFeatures(Class type, MemberSelection sel) {
 		if (sel.methodinvocation)
 			type.operations + type.attributes

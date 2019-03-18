@@ -1,4 +1,4 @@
-package at.ac.univie.swa;
+package at.ac.univie.swa.scoping;
 
 import javax.inject.Inject;
 

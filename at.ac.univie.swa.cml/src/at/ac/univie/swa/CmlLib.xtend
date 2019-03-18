@@ -1,26 +1,23 @@
-package at.ac.univie.swa.lib
+package at.ac.univie.swa
 
+import at.ac.univie.swa.cml.Class
+import at.ac.univie.swa.scoping.CmlIndex
 import com.google.inject.Inject
 import com.google.inject.Provider
 import org.eclipse.emf.common.util.URI
 import org.eclipse.emf.ecore.EObject
 import org.eclipse.emf.ecore.resource.ResourceSet
-import org.eclipse.xtext.naming.IQualifiedNameProvider
-import at.ac.univie.swa.scoping.CmlIndex
-import at.ac.univie.swa.cml.Class
-
-import static extension at.ac.univie.swa.util.CmlModelUtil.*
 
 class CmlLib {
 	@Inject Provider<ResourceSet> resourceSetProvider;
 	@Inject extension CmlIndex
-	@Inject extension IQualifiedNameProvider
 
 	public val static LIB_PACKAGE = "cml.lang"
 	public val static LIB_OBJECT = LIB_PACKAGE + ".Object"
 	public val static LIB_STRING = LIB_PACKAGE + ".String"
 	public val static LIB_INTEGER = LIB_PACKAGE + ".Integer"
 	public val static LIB_BOOLEAN = LIB_PACKAGE + ".Boolean"
+	public val static LIB_REAL = LIB_PACKAGE + ".Real"
 	public val static LIB_COLLECTION = LIB_PACKAGE + ".Collection"
 	public val static MAIN_LIB = "cml/lang/mainlib.cml"
 
@@ -34,22 +31,12 @@ class CmlLib {
 		]
 	}
 
-	def getClassHierarchyWithObject(Class c) {
-		var hierarchy = c.classHierarchy
-		if (hierarchy.last?.fullyQualifiedName?.toString != LIB_OBJECT) {
-			val cmlObjectClass = getCmlObjectClass(c)
-			if (cmlObjectClass !== null)
-				hierarchy += cmlObjectClass
-		}
-		hierarchy
-	}
-
-	def getSuperclassOrObject(Class c) {
-		c.superClass ?: getCmlObjectClass(c)
-	}
-
 	def getCmlObjectClass(EObject context) {
-		val desc = context.getVisibleClassesDescriptions.findFirst[qualifiedName.toString == LIB_OBJECT]
+		getCmlClass(context, LIB_OBJECT)
+	}
+	
+	def getCmlClass(EObject context, String qn) {
+		val desc = context.getVisibleClassesDescriptions.findFirst[qualifiedName.toString == qn]
 
 		if (desc === null)
 			return null
@@ -60,4 +47,5 @@ class CmlLib {
 
 		return (o as Class)
 	}
+
 }

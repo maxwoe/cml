@@ -21,7 +21,11 @@ import org.eclipse.xtext.naming.IQualifiedNameProvider
 import org.eclipse.xtext.validation.Check
 import org.eclipse.xtext.validation.CheckType
 
-import static extension at.ac.univie.swa.util.CmlModelUtil.*
+import static extension at.ac.univie.swa.CmlModelUtil.*
+import com.google.common.collect.HashMultimap
+import at.ac.univie.swa.cml.NamedElement
+import at.ac.univie.swa.cml.Model
+import at.ac.univie.swa.CmlModelUtil
 
 /**
  * This class contains custom validation rules. 
@@ -48,10 +52,9 @@ class CmlValidator extends AbstractCmlValidator {
 //                CmlPackage.Literals.ENTITY__NAME)
 //        }
 //    }
-    
-    
 
 	@Inject extension IQualifiedNameProvider
+	@Inject extension CmlModelUtil
 	@Inject extension CmlTypeProvider
 	@Inject extension CmlTypeConformance
 
@@ -69,99 +72,41 @@ class CmlValidator extends AbstractCmlValidator {
 	public static val OPPOSITE_INCONSISTENCY = "OPPOSITE_INCONSISTENCY"
 	public static val DECLARATION_WITHIN_BLOCK = "DECLARATION_WITHIN_BLOCK"
 	
-	@Check
+	@Check 
 	def void checkClassHierarchy(Class c) {
 		if (c.classHierarchy.contains(c)) {
 			error("Cycle in hierarchy of Class '" + c.name + "'",
-				CmlPackage::eINSTANCE.class_SuperClass,
+				CmlPackage::eINSTANCE.class_Superclass,
 				HIERARCHY_CYCLE,
-				c.superClass.name)
+				c.superclass.name)
 		}
 	}
 
-//	@Check
-//	def void checkNoDuplicateClass(Class c){
-//		if(c.containingModel.classes.exists[it != c && it.name == c.name])
-//			error("Duplicate Class '" + c.name + "'",
-//				CmlPackage::eINSTANCE.type_Name,
-//				DUPLICATE_ELEMENT)
-//	}
-
-	/*
-	@Check(CheckType::NORMAL)
-	def checkDuplicateClassesInFiles(Class c) {
-		val className = c.fullyQualifiedName
-		c.getVisibleClassesDescriptions.forEach[
-			desc |
-			if (desc.qualifiedName == className && 
-					desc.EObjectOrProxy != c && 
-					desc.EObjectURI.trimFragment != c.eResource.URI) {
-				error(
-					"The type " + c.name + " is already defined in another file. Check imports...",
-					CmlPackage::eINSTANCE.type_Name,
-					DUPLICATE_CLASS)
-			}
-		]
-	}*/
-
-	@Check
-	def void checkNoDuplicateProperty(Attribute a){ 
-		if(a.containingClass.attributes.exists[
-			it != a && 
-			it.name == a.name])
-			error("Duplicate structural property '" + a.name + "'",
-				CmlPackage::eINSTANCE.feature_Name,
-				DUPLICATE_ELEMENT)
+	@Check 
+	def void checkNoDuplicateClasses(Model m) {
+		checkNoDuplicateElements(m.classes, "class")
 	}
 	
-	@Check
-	def void checkNoDuplicateOperation(Operation op){
-		val duplicate = op.containingClass.features.findFirst[
-			it != op && 
-			it.eClass == op.eClass 
-			&& it.name == op.name] 
-		if(duplicate !== null)
-			error("Duplicate operation '" + op.name + "'",
-				CmlPackage::eINSTANCE.feature_Name,
-				DUPLICATE_ELEMENT)
-	}
-		
-//	@Check
-//	def void checkNoDuplicateEnumeration(Enumeration e){
-//		if(e.containingModel.enumerations.exists[it != e && it.name == e.name])
-//			error("Duplicate enumeration '" + e.name + "'",
-//				CmlPackage::eINSTANCE.type_Name,
-//				DUPLICATE_ELEMENT
-//			)
-//	}
-	
-	@Check
-	def void checkNoDuplicateEnumerationLiteral(EnumerationElement lit) {
-		if (lit.containingEnumeration.elements.exists[it != lit && it.name == lit.name])
-			error("Duplicate enumeration literal '" + lit.name + "'",
-					CmlPackage::eINSTANCE.enumerationElement_Name,
-					DUPLICATE_ELEMENT)
-	}
-	
-	@Check
-	def void checkNoDuplicateParameter(Attribute a){
-		val duplicate = a.containingOperation.args.findFirst[it != a && it.name == a.name]
-		if(duplicate !== null)
-			error("Duplicate parameter declaration '" + a.name + "'",
-				CmlPackage::eINSTANCE.feature_Name,
-				DUPLICATE_ELEMENT)
+	@Check 
+	def void checkNoDuplicateEnumerations(Model m) {
+		checkNoDuplicateElements(m.enumerations, "enumeration")
 	}
 
-/*
+	@Check 
+	def void checkNoDuplicateFeatures(Class c) {
+		checkNoDuplicateElements(c.attributes, "attribute")
+		checkNoDuplicateElements(c.operations, "operation")
+	}
+
+	@Check 
+	def void checkNoDuplicateLocals(Operation o) {
+		checkNoDuplicateElements(o.args, "parameter")
+	}
+
 	@Check
-	def void checkNoDuplicateVariable(VariableDeclaration variable){
-		val duplicate = variable.containingOperation.
-			getAllContentsOfType(typeof(VariableDeclaration)).findFirst[it != variable && it.name == variable.name]
-		if(duplicate != null)
-			error("Duplicate variable declaration '" + variable.name + "'",
-				CmlPackage::eINSTANCE.local_Name,
-				DUPLICATE_ELEMENT)
-	}*/
+	def void checkNoDuplicateEnumerationLiterals(Enumeration e) {
+		checkNoDuplicateElements(e.elements, "parameter")
+	}
 	
 	/*
 	@Check
@@ -264,23 +209,23 @@ class CmlValidator extends AbstractCmlValidator {
 				ABSTRACT_OP_INSIDE_NONABSTRACT_CLASS)	
 	}*/
 	
-	@Check
-	def void checkValidArgumentForCollectionOperation(MemberSelection sel){
-		if(sel.coll !== null && sel.coll === "at"){
-			if(sel.args === null)
-				error("Collection operation 'at' should have one argument of type integer",
-					CmlPackage::eINSTANCE.memberSelection_Args,
-					WRONG_TYPE)
-			if(sel.args !== null && sel.args.size > 1)
-				error("Collection operation 'at' should have only one argument of type integer",
-					CmlPackage::eINSTANCE.memberSelection_Args,
-					WRONG_TYPE)
-			if(sel.args !== null && !sel.args.isEmpty && sel.args.get(0).typeFor != CmlTypeProvider.integerType)
-				error("Collection operation 'at' should have an argument of type integer",
-					CmlPackage::eINSTANCE.memberSelection_Args,
-					WRONG_TYPE)
-		}
-	}
+//	@Check
+//	def void checkValidArgumentForCollectionOperation(MemberSelection sel){
+//		if(sel.coll !== null && sel.coll === "at"){
+//			if(sel.args === null)
+//				error("Collection operation 'at' should have one argument of type integer",
+//					CmlPackage::eINSTANCE.memberSelection_Args,
+//					WRONG_TYPE)
+//			if(sel.args !== null && sel.args.size > 1)
+//				error("Collection operation 'at' should have only one argument of type integer",
+//					CmlPackage::eINSTANCE.memberSelection_Args,
+//					WRONG_TYPE)
+//			if(sel.args !== null && !sel.args.isEmpty && sel.args.get(0).typeFor != CmlTypeProvider.INTEGER_TYPE)
+//				error("Collection operation 'at' should have an argument of type integer",
+//					CmlPackage::eINSTANCE.memberSelection_Args,
+//					WRONG_TYPE)
+//		}
+//	}
 	
 	
 	@Check
@@ -293,12 +238,11 @@ class CmlValidator extends AbstractCmlValidator {
 			/*error("Incompatible types. Expected '" + expectedType?.name
 					+ "' but was '" + actualType?.name + "'", null,
 					INCOMPATIBLE_TYPES);*/
-					error("Incompatible types. Expected '" + expectedType
-					+ "' but was '" + actualType + "'", null,
+					error("Incompatible types. Expected '" + expectedType.typeName
+					+ "' but was '" + actualType.typeName + "'", null,
 					INCOMPATIBLE_TYPES);
 		}
 	}
-
 	
 	/* 
 	@Check
@@ -330,4 +274,20 @@ class CmlValidator extends AbstractCmlValidator {
 	@Check
 	def void checkCollectionLiteralWithSameType(CollectionLiteral lit){
 	}*/
+	
+	def private void checkNoDuplicateElements(Iterable<? extends NamedElement> elements, String desc) {
+		val multiMap = HashMultimap.create()
+
+		for (e : elements)
+			multiMap.put(e.name, e)
+
+		for (entry : multiMap.asMap.entrySet) {
+			val duplicates = entry.value
+			if (duplicates.size > 1) {
+				for (d : duplicates)
+					error("Duplicate " + desc + " '" + d.name + "'", d, CmlPackage.eINSTANCE.namedElement_Name,
+						DUPLICATE_ELEMENT)
+			}
+		}
+	}
 }
