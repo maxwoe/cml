@@ -3,29 +3,21 @@
  */
 package at.ac.univie.swa.scoping
 
+import at.ac.univie.swa.CmlModelUtil
 import at.ac.univie.swa.cml.Class
 import at.ac.univie.swa.cml.CmlPackage
 import at.ac.univie.swa.cml.Enumeration
 import at.ac.univie.swa.cml.EnumerationLiteral
 import at.ac.univie.swa.cml.MemberSelection
+import at.ac.univie.swa.cml.Operation
+import at.ac.univie.swa.typing.CmlTypeProvider
+import javax.inject.Inject
 import org.eclipse.emf.ecore.EObject
 import org.eclipse.emf.ecore.EReference
 import org.eclipse.xtext.scoping.IScope
 import org.eclipse.xtext.scoping.Scopes
-import at.ac.univie.swa.typing.CmlTypeProvider
 
 import static extension at.ac.univie.swa.CmlModelUtil.*
-import javax.inject.Inject
-import org.eclipse.xtext.EcoreUtil2
-import org.eclipse.xtext.naming.IQualifiedNameProvider
-import at.ac.univie.swa.CmlLib
-import at.ac.univie.swa.cml.VariableDeclaration
-import at.ac.univie.swa.cml.Operation
-import at.ac.univie.swa.CmlModelUtil
-import at.ac.univie.swa.cml.Contract
-import at.ac.univie.swa.cml.Type
-import at.ac.univie.swa.cml.LocalReference
-import java.util.List
 
 /**
  * This class contains custom scoping description.
@@ -308,7 +300,7 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 			return scopeForMemberSelection(context)
 		} else if (reference == epackage.enumerationLiteral_Literal) {
 			return scopeForEnumLiteral(context)
-		} 
+		}
 		
 		return super.getScope(context, reference)
 	}

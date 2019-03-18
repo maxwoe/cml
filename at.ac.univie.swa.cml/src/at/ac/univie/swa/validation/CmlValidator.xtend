@@ -81,6 +81,16 @@ class CmlValidator extends AbstractCmlValidator {
 				c.superclass.name)
 		}
 	}
+	
+	@Check 
+	def void checkSuperclass(Class c) {
+		if (c.type != c.superclass.type) {
+			error("Error of Class '" + c.name + "'",
+				CmlPackage::eINSTANCE.class_Superclass,
+				HIERARCHY_CYCLE,
+				c.superclass.name)
+		}
+	}
 
 	@Check 
 	def void checkNoDuplicateClasses(Model m) {

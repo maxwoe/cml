@@ -8,6 +8,7 @@ class Contract extends Object
 	withdraw(Integer amount)
 	transfer(Integer amount, Party ^party)
 class Party extends Object
+	partyOp()
 class Asset extends Object
 class Event extends Object
 class ^String extends Object
@@ -16,6 +17,7 @@ class ^Boolean extends Object
 class ^Real extends Object
 class Array extends Object
 class Collection extends Object
-	op()
+	collectionOp()
 class ^Set extends Collection
 class ^Bag extends Collection
+class Map extends Object
