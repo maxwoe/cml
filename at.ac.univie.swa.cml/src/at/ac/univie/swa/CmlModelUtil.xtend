@@ -25,20 +25,20 @@ class CmlModelUtil {
 	@Inject extension CmlLib
 
 	def static attributes(Class c) {
-		c.features.filter(typeof(Attribute))
+		c.features.filter(Attribute)
 	}
 
-	def static classes(Model m) {
+	/*def static classes(Model m) {
 		m.types.filter(Class)
-	}
+	}*
 
 	/*def static declarations(Operation op){
 		op.body.statements.filter(typeof(VariableDeclaration))
 	}*/
 
-	def static enumerations(Model m) {
+	/*def static enumerations(Model m) {
 		m.types.filter(Enumeration)
-	}
+	}*/
 
 	def static operations(Class c) {
 		c.features.filter(Operation)
@@ -65,15 +65,15 @@ class CmlModelUtil {
 	}*/
 
 	def static containingEnumeration(EObject e) {
-		e.getContainerOfType(typeof(Enumeration))
+		e.getContainerOfType(Enumeration)
 	}
 
 	def static containingModel(EObject e) {
-		e.getContainerOfType(typeof(Model))
+		e.getContainerOfType(Model)
 	}
 
 	def static containingOperation(EObject e) {
-		e.getContainerOfType(typeof(Operation))
+		e.getContainerOfType(Operation)
 	}
 
 	/*def static isLastStatementInBlock(Statement stmt, Block block){
@@ -295,9 +295,17 @@ class CmlModelUtil {
 	def classHierarchyWithObject(Class c) {
 		val visited = classHierarchy(c)
 		
+		switch(c.type) {
+			case "party": visited.add(c.getCmlPartyClass)
+			case "asset": visited.add(c.getCmlAssetClass)
+			case "event": visited.add(c.getCmlEventClass)
+		}
+		
 		val object = c.getCmlObjectClass
 		if (object !== null)
 			visited.add(object)
+		
+		println("hierarchy: " + visited)
 		
 		visited
 	}

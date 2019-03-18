@@ -7,17 +7,21 @@ generate cml 'http://swa.univie.ac.at/Cml'
 Model:
 	('namespace' name=QualifiedName)?
 	imports+=Import*
-	types+=Type*
-	expr+=Expr*
-	contracts+=Contract*;
+	(classes+=Class |
+	parties+=Party |
+	assets+=Asset |
+	events+=Event |
+	enumerations+=Enumeration |
+	expr+=Expr |
+	contracts+=Contract)*;
 
 Import:
 	'import' importedNamespace = QualifiedNameWithWildcard;
 	
-Contract:
-	'contract' name=ID
+Contract returns Class:
+	type='contract' name=ID
 	BEGIN
-		(attributes+=Attribute |
+		(attr+=Attribute |
 		 clauses+=Clause |
 		 vars+=VariableDeclaration |
 		 derived+=DerivedAttribute |
@@ -66,34 +70,35 @@ Collection:
 CollectionType:
 	{Set} name='Set' | {Bag} name='Bag' | {Sequence} name='Sequence' | {OrderedSet} name='OrderedSet';
 
-//Concept:
-//	Class | Party | Asset | Event;
+Concept:
+	Class | Party | Asset | Event;
 
 Class:
-	(isAbstract?='abstract')? 'class' name=ID ('extends' superclass=[Class|QualifiedName])?
+	(isAbstract?='abstract')? type='class' name=ID ('extends' superclass=[Class|QualifiedName])?
 	(BEGIN
 		features+=Feature*
 		vars+=VariableDeclaration* 
 		exp+=Expr*
 	END)?;
-/* 
+
 Party returns Class:
 	type='party' name=ID ('identified' 'by' id=[Attribute])? ('extends' superclass=[Class|QualifiedName])? 
 	BEGIN
 		 features+=Feature*
+		 exp+=Expr*
 	END;
 	
 Asset returns Class:
 	type='asset' name=ID ('identified' 'by' id=[Attribute])? ('extends' superclass=[Class|QualifiedName])? 
 	BEGIN
-		attributes+=Attribute+
+		attr+=Attribute+
 	END;
 
 Event returns Class:
 	type='event' name=ID 
 	(BEGIN
-		attributes+=Attribute
-	END)?;*/
+		attr+=Attribute
+	END)?;
 
 Enumeration:
 	'enum' name=ID

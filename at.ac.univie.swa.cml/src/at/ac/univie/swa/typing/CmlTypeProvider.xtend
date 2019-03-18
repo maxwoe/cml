@@ -125,6 +125,8 @@ class CmlTypeProvider {
 					{	var type = e.member.typeOf
 						if(type == COLLECTION_TYPE)
 							return getCmlClass(e, CmlLib.LIB_COLLECTION)
+						if(type == typeof(Class))
+							return getCmlClass(e, CmlLib.LIB_COLLECTION)
 						return type
 					}
 		}
