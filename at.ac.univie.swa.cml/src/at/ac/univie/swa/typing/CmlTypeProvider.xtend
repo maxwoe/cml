@@ -1,15 +1,14 @@
 package at.ac.univie.swa.typing
 
+import at.ac.univie.swa.CmlLib
 import at.ac.univie.swa.cml.AdditiveExpression
 import at.ac.univie.swa.cml.AndExpression
-import at.ac.univie.swa.cml.Array
-import at.ac.univie.swa.cml.Attribute
-import at.ac.univie.swa.cml.Container
 import at.ac.univie.swa.cml.BooleanLiteral
 import at.ac.univie.swa.cml.Class
 import at.ac.univie.swa.cml.CmlFactory
 import at.ac.univie.swa.cml.CmlPackage
-import at.ac.univie.swa.cml.Collection
+import at.ac.univie.swa.cml.DateTimeLiteral
+import at.ac.univie.swa.cml.DurationLiteral
 import at.ac.univie.swa.cml.EnumerationLiteral
 import at.ac.univie.swa.cml.EqualityExpression
 import at.ac.univie.swa.cml.Expression
@@ -21,23 +20,18 @@ import at.ac.univie.swa.cml.MultiplicativeExpression
 import at.ac.univie.swa.cml.NullLiteral
 import at.ac.univie.swa.cml.Operation
 import at.ac.univie.swa.cml.OrExpression
-import at.ac.univie.swa.cml.Parameter
+import at.ac.univie.swa.cml.RealLiteral
 import at.ac.univie.swa.cml.RelationalExpression
 import at.ac.univie.swa.cml.SelfExpression
-import at.ac.univie.swa.cml.Primitive
 import at.ac.univie.swa.cml.StringLiteral
 import at.ac.univie.swa.cml.SuperExpression
 import at.ac.univie.swa.cml.Type
 import at.ac.univie.swa.cml.UnaryExpression
-import at.ac.univie.swa.cml.VoidType
+import at.ac.univie.swa.cml.VariableDeclaration
 import at.ac.univie.swa.cml.XorExpression
-import at.ac.univie.swa.CmlLib
 import com.google.inject.Inject
 
 import static extension at.ac.univie.swa.CmlModelUtil.*
-import at.ac.univie.swa.cml.RealLiteral
-import at.ac.univie.swa.cml.VariableDeclaration
-import at.ac.univie.swa.cml.Feature
 
 class CmlTypeProvider {
 	@Inject extension CmlLib
@@ -51,6 +45,11 @@ class CmlTypeProvider {
 	public static val VOID_TYPE = CmlFactory::eINSTANCE.createClass => [name = "Void"]
 	public static val COLLECTION_TYPE = CmlFactory::eINSTANCE.createClass => [name = "Collection"]
 	public static val ARRAY_TYPE = CmlFactory::eINSTANCE.createClass => [name = "Array"]
+	public static val PARTY_TYPE = CmlFactory::eINSTANCE.createClass => [name = "Party"]
+	public static val ASSET_TYPE = CmlFactory::eINSTANCE.createClass => [name = "Asset"]
+	public static val EVENT_TYPE = CmlFactory::eINSTANCE.createClass => [name = "Event"]
+	public static val DATETIME_TYPE = CmlFactory::eINSTANCE.createClass => [name = "DateTime"]
+	public static val DURATION_TYPE = CmlFactory::eINSTANCE.createClass => [name = "Duration"]
 
 	val ep = CmlPackage::eINSTANCE
 
@@ -60,11 +59,8 @@ class CmlTypeProvider {
 				return e.containingClass
 			SuperExpression:
 				return e.containingClass.superclassOrObject
-			LocalReference: {
-				var t = e.ref.type.typeOf
-				println("LocalReference: " + t)
-				return t
-			}
+			LocalReference:  
+				e.ref.type.typeOf
 			// NewInstanceExpression:
 			// return e.type
 			NullLiteral:
@@ -77,6 +73,10 @@ class CmlTypeProvider {
 				return INTEGER_TYPE
 			RealLiteral:
 				return REAL_TYPE
+			DateTimeLiteral:
+				return getCmlClass(e, CmlLib.LIB_DATETIME)
+			DurationLiteral:
+				return getCmlClass(e, CmlLib.LIB_DURATION)
 			// CollectionLiteral:
 			// return typeFor(e.elements.head)
 			EnumerationLiteral:
@@ -123,6 +123,7 @@ class CmlTypeProvider {
 					}
 				} else if (e.coll === null && e.member !== null)*/
 					{	var type = e.member.typeOf
+						
 						if(type == COLLECTION_TYPE)
 							return getCmlClass(e, CmlLib.LIB_COLLECTION)
 						if(type == typeof(Class))

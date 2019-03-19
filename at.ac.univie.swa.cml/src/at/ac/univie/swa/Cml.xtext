@@ -19,9 +19,10 @@ Import:
 	'import' importedNamespace = QualifiedNameWithWildcard;
 	
 Contract returns Class:
-	type='contract' name=ID
+	type='contract' name=ID ('extends' superclass=[Class|QualifiedName])?
 	BEGIN
-		(attr+=Attribute |
+		(//attr+=Attribute |
+		 features+=Feature |
 		 clauses+=Clause |
 		 vars+=VariableDeclaration |
 		 derived+=DerivedAttribute |
@@ -32,6 +33,12 @@ Expr:
 	'exp' exp=Expression;
 	
 Feature:
+	Attribute | Operation; //| Clause;
+	
+FeatureAttribute returns Feature:  
+	Attribute;
+	
+FeatureAttributeAndOperation returns Feature:
 	Attribute | Operation;
 	
 Operation:
@@ -70,13 +77,13 @@ Collection:
 CollectionType:
 	{Set} name='Set' | {Bag} name='Bag' | {Sequence} name='Sequence' | {OrderedSet} name='OrderedSet';
 
-Concept:
-	Class | Party | Asset | Event;
+ContractModel:
+	Class | Party | Asset | Event | Enumeration;
 
 Class:
 	(isAbstract?='abstract')? type='class' name=ID ('extends' superclass=[Class|QualifiedName])?
 	(BEGIN
-		features+=Feature*
+		features+=FeatureAttributeAndOperation*
 		vars+=VariableDeclaration* 
 		exp+=Expr*
 	END)?;
@@ -84,20 +91,20 @@ Class:
 Party returns Class:
 	type='party' name=ID ('identified' 'by' id=[Attribute])? ('extends' superclass=[Class|QualifiedName])? 
 	BEGIN
-		 features+=Feature*
+		 features+=FeatureAttributeAndOperation+
 		 exp+=Expr*
 	END;
 	
 Asset returns Class:
 	type='asset' name=ID ('identified' 'by' id=[Attribute])? ('extends' superclass=[Class|QualifiedName])? 
 	BEGIN
-		attr+=Attribute+
+		features+=FeatureAttribute+
 	END;
 
 Event returns Class:
 	type='event' name=ID 
 	(BEGIN
-		attr+=Attribute
+		features+=FeatureAttribute+
 	END)?;
 
 Enumeration:
@@ -154,17 +161,17 @@ AtomicCompoundAction returns CompoundAction:
 	'(' CompoundAction ')' | AtomicAction;
 
 AtomicAction:
-	action=[Operation] '(' (args+=[Attribute] (',' args+=[Attribute])*)? ')'
+	action=[Operation] '(' (args+=[Parameter] (',' args+=[Parameter])*)? ')'
 	(BEGIN
 		'pre' preCondition=Expression
 		('post' postCondition=Expression)?
 	END)?;
 
 TimeConstraint:
-	closed?='within'? timeframe=(RelativeTime)? period=PeriodicTime? precedence=TemporalPrecedence reference=(AbsoluteTime);
+	closed?='within'? timeframe=Expression? period=PeriodicTime? precedence=TemporalPrecedence reference=(AbsoluteTime);
 
 PeriodicTime:
-	'every' period=(RelativeTime) 'from' start=(AbsoluteTime) ('until' end=(AbsoluteTime))?;
+	'every' period=Expression 'from' start=(AbsoluteTime) ('until' end=(AbsoluteTime))?;
 	
 enum TemporalPrecedence:
 	BEFORE='before' |

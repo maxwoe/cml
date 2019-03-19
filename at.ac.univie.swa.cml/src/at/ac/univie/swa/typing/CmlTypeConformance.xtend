@@ -60,6 +60,30 @@ class CmlTypeConformance {
 		c == REAL_TYPE || 
 		c.fullyQualifiedName.toString == CmlLib::LIB_REAL
 	}
+	
+	def conformsToParty(Class c) {
+		c.fullyQualifiedName.toString == CmlLib::LIB_PARTY
+	}
+	
+	def conformsToAsset(Class c) {
+		c.fullyQualifiedName.toString == CmlLib::LIB_ASSET
+	}
+	
+	def conformsToEvent(Class c) {
+		c.fullyQualifiedName.toString == CmlLib::LIB_EVENT
+	}
+	
+	def conformsToDuration(Class c) {
+		c.fullyQualifiedName.toString == CmlLib::LIB_DURATION
+	}
+	
+	def conformsToDateTime(Class c) {
+		c.fullyQualifiedName.toString == CmlLib::LIB_DATETIME
+	}
+	
+	def conformsToContract(Class c) {
+		c.fullyQualifiedName.toString == CmlLib::LIB_CONTRACT
+	}
 
 	def isSubclassOf(Class c1, Class c2) {
 		c1.classHierarchy.contains(c2)

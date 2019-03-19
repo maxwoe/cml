@@ -1,17 +1,12 @@
 package at.ac.univie.swa.scoping
 
-import at.ac.univie.swa.cml.Model
-import com.google.inject.Inject
-import java.util.List
-import org.eclipse.emf.ecore.EObject
-import org.eclipse.xtext.naming.IQualifiedNameProvider
 import org.eclipse.xtext.naming.QualifiedName
 import org.eclipse.xtext.scoping.impl.ImportNormalizer
 import org.eclipse.xtext.scoping.impl.ImportedNamespaceAwareLocalScopeProvider
 
 class CmlImportedNamespaceAwareLocalScopeProvider extends ImportedNamespaceAwareLocalScopeProvider{
 	
-	@Inject extension IQualifiedNameProvider
+	//@Inject extension IQualifiedNameProvider
 	
 	override getImplicitImports(boolean ignoreCase) {
 		newArrayList(new ImportNormalizer(
@@ -21,6 +16,7 @@ class CmlImportedNamespaceAwareLocalScopeProvider extends ImportedNamespaceAware
 		))
 	}
 	
+	/* 
 	override protected List<ImportNormalizer> internalGetImportedNamespaceResolvers(EObject context, boolean ignoreCase) {
 		val resolvers = super.internalGetImportedNamespaceResolvers(context, ignoreCase)
 		if (context instanceof Model) {
@@ -36,6 +32,6 @@ class CmlImportedNamespaceAwareLocalScopeProvider extends ImportedNamespaceAware
 			}
 		}
 		return resolvers
-	}
+	}*/
 	
 }

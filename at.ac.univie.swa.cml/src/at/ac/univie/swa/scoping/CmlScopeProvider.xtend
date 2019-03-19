@@ -18,6 +18,16 @@ import org.eclipse.xtext.scoping.IScope
 import org.eclipse.xtext.scoping.Scopes
 
 import static extension at.ac.univie.swa.CmlModelUtil.*
+import at.ac.univie.swa.cml.Actor
+import org.eclipse.xtext.EcoreUtil2
+import at.ac.univie.swa.typing.CmlTypeConformance
+import at.ac.univie.swa.CmlLib
+import org.eclipse.xtext.naming.IQualifiedNameProvider
+import at.ac.univie.swa.cml.AtomicAction
+import at.ac.univie.swa.cml.Clause
+import at.ac.univie.swa.cml.Parameter
+import at.ac.univie.swa.cml.DeonticAction
+import at.ac.univie.swa.cml.LocalReference
 
 /**
  * This class contains custom scoping description.
@@ -289,21 +299,58 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 	
 	@Inject extension CmlTypeProvider
 	@Inject extension CmlModelUtil
+	@Inject extension CmlTypeConformance
+	@Inject extension CmlLib
 	
 	val epackage = CmlPackage.eINSTANCE
 
 	override getScope(EObject context, EReference reference) {
 		println("ctx: "+ context + "ref: " + reference)
-		if (reference == epackage.localReference_Ref) {
+		if (reference == CmlPackage.Literals.LOCAL_REFERENCE__REF) {
+			if (context instanceof LocalReference) {
+				val atomicAction = EcoreUtil2.getContainerOfType(context, AtomicAction)
+				if(atomicAction !== null)
+				return Scopes.scopeFor(atomicAction.action.args)
+			}
 			//scopeForLocalRef(context)
 		} else if (context instanceof MemberSelection) {
 			return scopeForMemberSelection(context)
-		} else if (reference == epackage.enumerationLiteral_Literal) {
+		} else if (reference == CmlPackage.Literals.ENUMERATION_LITERAL__LITERAL) {
 			return scopeForEnumLiteral(context)
+		} else 	if (reference == CmlPackage.Literals.ACTOR__PARTY) {
+			if (context instanceof Actor) {
+				val attributes = context.containingClass.attributes;
+				val candidates = attributes.filter(a|(a.type.typeOf as Class).classHierarchyWithObject.exists[conformsToParty])
+				return Scopes.scopeFor(candidates)
+			}
+		} else if (reference == CmlPackage.Literals.ATOMIC_ACTION__ACTION) {
+			if (context instanceof AtomicAction) {
+				val clause = EcoreUtil2.getContainerOfType(context, Clause)
+				if (clause?.actor?.party?.type !== null) {
+					val allActions = (clause.actor.party.type.type as Class).operations
+					return Scopes.scopeFor(allActions)
+					//return Scopes.scopeFor(allActions.filter[context.args.size == args.size])
+				}
+				/*if (clause?.actor?.party?.type !== null) {
+					val allActions = (clause.actor.party.typeOf as Class).operations
+					return Scopes.scopeFor(allActions)
+					//return Scopes.scopeFor(allActions.filter[context.args.size == args.size])
+				}*/
+			}
+		}
+		else if (reference == CmlPackage.Literals.ATOMIC_ACTION__ARGS) {
+			if (context instanceof AtomicAction) {
+				if (context.action !== null) {
+					val args = EcoreUtil2.getAllContentsOfType(context.action, Parameter)
+					return Scopes.scopeFor(args);
+				}
+			}
 		}
 		
 		return super.getScope(context, reference)
 	}
+	
+
 
 	def protected IScope scopeForLocalRef(EObject context) {
 		val container = context.eContainer
@@ -317,32 +364,38 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 	
 	def protected IScope scopeForMemberSelection(MemberSelection sel) {
 		val type = sel.receiver.typeFor
-		var parentScope = IScope::NULLSCOPE
+
 		if (type === null || type.isPrimitive)
 			return IScope.NULLSCOPE
 
 		if (type instanceof Class) {
-			val features = type.selectedFeatures(sel)
-			for (c : type.classHierarchyWithObject.toArray().reverseView) {
-				parentScope = Scopes::scopeFor((c as Class).selectedFeatures(sel), parentScope)
-			}
-
-			return Scopes::scopeFor(features, parentScope)
-			/*val grouped = type.classHierarchyFeatures.groupBy[it instanceof Operation]
-			val inheritedMethods = grouped.get(true) ?: emptyList
-			val inheritedFields = grouped.get(false) ?: emptyList
-
-			if (sel.methodinvocation) {
-				return Scopes.scopeFor(
-					type.operations + type.attributes,
-					Scopes.scopeFor(inheritedMethods + inheritedFields)
-				)
-			} else {
-				return Scopes.scopeFor(
-					type.attributes + type.operations,
-					Scopes.scopeFor(inheritedFields + inheritedMethods)
-				)
-			}*/
+			var parentScope = IScope::NULLSCOPE
+				if (type === null || type.isPrimitive)
+					return parentScope
+				if (type instanceof Class) {
+					val features = (type as Class).selectedFeatures(sel)
+					val hierarchy = type.classHierarchyWithObject.toArray().reverseView
+					println(hierarchy)
+					for (c : type.classHierarchyWithObject.toArray().reverseView) {
+					  	parentScope = Scopes::scopeFor((c as Class).selectedFeatures(sel), parentScope)
+					}
+					return Scopes::scopeFor(features, parentScope)
+				}
+//			val grouped = type.classHierarchyFeatures.groupBy[it instanceof Operation]
+//			val inheritedMethods = grouped.get(true) ?: emptyList
+//			val inheritedFields = grouped.get(false) ?: emptyList
+//
+//			if (sel.methodinvocation) {
+//				return Scopes.scopeFor(
+//					type.operations + type.attributes,
+//					Scopes.scopeFor(inheritedMethods + inheritedFields)
+//				)
+//			} else {
+//				return Scopes.scopeFor(
+//					type.attributes + type.operations,
+//					Scopes.scopeFor(inheritedFields + inheritedMethods)
+//				)
+//			}
 		}
 	}
 	

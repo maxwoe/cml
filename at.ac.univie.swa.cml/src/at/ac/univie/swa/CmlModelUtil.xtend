@@ -299,13 +299,12 @@ class CmlModelUtil {
 			case "party": visited.add(c.getCmlPartyClass)
 			case "asset": visited.add(c.getCmlAssetClass)
 			case "event": visited.add(c.getCmlEventClass)
+			case "contract": visited.add(c.getCmlContractClass)
 		}
 		
 		val object = c.getCmlObjectClass
 		if (object !== null)
 			visited.add(object)
-		
-		println("hierarchy: " + visited)
 		
 		visited
 	}

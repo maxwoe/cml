@@ -18,9 +18,12 @@ class CmlLib {
 	public val static LIB_INTEGER = LIB_PACKAGE + ".Integer"
 	public val static LIB_BOOLEAN = LIB_PACKAGE + ".Boolean"
 	public val static LIB_REAL = LIB_PACKAGE + ".Real"
+	public val static LIB_DURATION = LIB_PACKAGE + ".Duration"
+	public val static LIB_DATETIME = LIB_PACKAGE + ".DateTime"
 	public val static LIB_PARTY = LIB_PACKAGE + ".Party"
 	public val static LIB_ASSET = LIB_PACKAGE + ".Asset"
 	public val static LIB_EVENT = LIB_PACKAGE + ".Event"
+	public val static LIB_CONTRACT = LIB_PACKAGE + ".Contract"
 	public val static LIB_COLLECTION = LIB_PACKAGE + ".Collection"
 	public val static MAIN_LIB = "cml/lang/mainlib.cml"
 
@@ -48,6 +51,10 @@ class CmlLib {
 	
 	def getCmlEventClass(EObject context) {
 		getCmlClass(context, LIB_EVENT)
+	}
+	
+	def getCmlContractClass(EObject context) {
+		getCmlClass(context, LIB_CONTRACT)
 	}
 	
 	def getCmlClass(EObject context, String qn) {

@@ -26,6 +26,8 @@ import com.google.common.collect.HashMultimap
 import at.ac.univie.swa.cml.NamedElement
 import at.ac.univie.swa.cml.Model
 import at.ac.univie.swa.CmlModelUtil
+import at.ac.univie.swa.cml.TimeConstraint
+import at.ac.univie.swa.cml.PeriodicTime
 
 /**
  * This class contains custom validation rules. 
@@ -69,6 +71,7 @@ class CmlValidator extends AbstractCmlValidator {
 	public static val INVALID_ABSTRACT_OPERATION = "INVALID_ABSTRACT_OPERATION"
 	public static val ABSTRACT_OP_INSIDE_NONABSTRACT_CLASS = "ABSTRACT_OP_INSIDE_NONABSTRACT_CLASS" 
 	public static val INCOMPATIBLE_TYPES = "INCOMPATIBLE_TYPES"	
+	public static val INCOMPATIBLE_TYPE = "INCOMPATIBLE_TYPE"	
 	public static val OPPOSITE_INCONSISTENCY = "OPPOSITE_INCONSISTENCY"
 	public static val DECLARATION_WITHIN_BLOCK = "DECLARATION_WITHIN_BLOCK"
 	
@@ -254,6 +257,30 @@ class CmlValidator extends AbstractCmlValidator {
 		}
 	}
 	
+	@Check
+	def void checkTimeConstraints(TimeConstraint tc) {
+		val actualType = tc.timeframe.typeFor
+		if (actualType === null)
+			return; // nothing to check
+		if (!(actualType as Class).conformsToDuration()) {
+					error("Incompatible types. Expected '" + CmlTypeProvider.DURATION_TYPE.typeName
+					+ "' but was '" + actualType.typeName + "'", CmlPackage.Literals.TIME_CONSTRAINT__TIMEFRAME,
+					INCOMPATIBLE_TYPES);
+		}
+	}
+	
+	@Check
+	def void checkPeriodicTime(PeriodicTime pt) {
+		val actualType = pt.period.typeFor
+		if (actualType === null)
+			return; // nothing to check
+		if (!(actualType as Class).conformsToDuration()) {
+					error("Incompatible types. Expected '" + CmlTypeProvider.DURATION_TYPE.typeName
+					+ "' but was '" + actualType.typeName + "'", CmlPackage.Literals.PERIODIC_TIME__PERIOD,
+					INCOMPATIBLE_TYPES);
+		}
+	}
+	
 	/* 
 	@Check
 	def void checkCorrectReturnUse(ReturnStmt stmt){
@@ -300,4 +327,6 @@ class CmlValidator extends AbstractCmlValidator {
 			}
 		}
 	}
+	
+	
 }
