@@ -3,6 +3,7 @@
  */
 package at.ac.univie.swa.ui.labeling
 
+import at.ac.univie.swa.CmlModelUtil
 import at.ac.univie.swa.cml.Attribute
 import at.ac.univie.swa.cml.Class
 import at.ac.univie.swa.cml.Feature
@@ -11,9 +12,6 @@ import com.google.inject.Inject
 import org.eclipse.emf.edit.ui.provider.AdapterFactoryLabelProvider
 import org.eclipse.jface.viewers.StyledString
 import org.eclipse.xtext.ui.label.DefaultEObjectLabelProvider
-import at.ac.univie.swa.CmlModelUtil
-
-import static extension at.ac.univie.swa.CmlModelUtil.*
 
 /**
  * Provides labels for EObjects.
@@ -29,28 +27,13 @@ class CmlLabelProvider extends DefaultEObjectLabelProvider {
 		super(delegate);
 	}
 
-	// Labels and icons can be computed like this:
-	
-//	def text(Greeting ele) {
-//		'A greeting to ' + ele.name
-//	}
-//
-//	def image(Greeting ele) {
-//		'Greeting.gif'
-//	}
-
 	def text(Feature f) {
-		new StyledString(f.memberAsString).append(new StyledString(" : " + f.typeName,
-			StyledString::DECORATIONS_STYLER))
+		new StyledString(f.featureAsString).append(new StyledString(" : " + f.typeOf.typeName,
+			StyledString.DECORATIONS_STYLER))
 	}
 
 	def image(Operation o) {
 		"methpub_obj.gif"
-	}
-
-	def text(Attribute a) {
-		new StyledString(a.name).append(new StyledString(" : " + a.typeName,
-			StyledString::DECORATIONS_STYLER))
 	}
 
 	def image(Attribute a) {

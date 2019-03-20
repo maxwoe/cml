@@ -3,31 +3,26 @@
  */
 package at.ac.univie.swa.validation
 
+import at.ac.univie.swa.CmlModelUtil
 import at.ac.univie.swa.cml.Attribute
 import at.ac.univie.swa.cml.Class
 import at.ac.univie.swa.cml.CmlPackage
+import at.ac.univie.swa.cml.CmlProgram
 import at.ac.univie.swa.cml.Enumeration
-import at.ac.univie.swa.cml.EnumerationElement
 import at.ac.univie.swa.cml.Expression
-import at.ac.univie.swa.cml.Feature
 import at.ac.univie.swa.cml.MemberSelection
+import at.ac.univie.swa.cml.NamedElement
 import at.ac.univie.swa.cml.Operation
+import at.ac.univie.swa.cml.PeriodicTime
 import at.ac.univie.swa.cml.SelfExpression
 import at.ac.univie.swa.cml.SuperExpression
+import at.ac.univie.swa.cml.TimeConstraint
 import at.ac.univie.swa.typing.CmlTypeConformance
 import at.ac.univie.swa.typing.CmlTypeProvider
+import com.google.common.collect.HashMultimap
 import com.google.inject.Inject
 import org.eclipse.xtext.naming.IQualifiedNameProvider
 import org.eclipse.xtext.validation.Check
-import org.eclipse.xtext.validation.CheckType
-
-import static extension at.ac.univie.swa.CmlModelUtil.*
-import com.google.common.collect.HashMultimap
-import at.ac.univie.swa.cml.NamedElement
-import at.ac.univie.swa.cml.Model
-import at.ac.univie.swa.CmlModelUtil
-import at.ac.univie.swa.cml.TimeConstraint
-import at.ac.univie.swa.cml.PeriodicTime
 
 /**
  * This class contains custom validation rules. 
@@ -87,8 +82,8 @@ class CmlValidator extends AbstractCmlValidator {
 	
 	@Check 
 	def void checkSuperclass(Class c) {
-		if (c.type != c.superclass.type) {
-			error("Error of Class '" + c.name + "'",
+		if (c.kind != c.superclass.kind) {
+			error("'" + c.name + "' must extend '" + c.name + "'" ,
 				CmlPackage::eINSTANCE.class_Superclass,
 				HIERARCHY_CYCLE,
 				c.superclass.name)
@@ -96,13 +91,13 @@ class CmlValidator extends AbstractCmlValidator {
 	}
 
 	@Check 
-	def void checkNoDuplicateClasses(Model m) {
-		checkNoDuplicateElements(m.classes, "class")
+	def void checkNoDuplicateClasses(CmlProgram cmlp) {
+		checkNoDuplicateElements(cmlp.classes, "class")
 	}
 	
 	@Check 
-	def void checkNoDuplicateEnumerations(Model m) {
-		checkNoDuplicateElements(m.enumerations, "enumeration")
+	def void checkNoDuplicateEnumerations(CmlProgram cmlp) {
+		checkNoDuplicateElements(cmlp.enumerations, "enumeration")
 	}
 
 	@Check 
@@ -113,12 +108,12 @@ class CmlValidator extends AbstractCmlValidator {
 
 	@Check 
 	def void checkNoDuplicateLocals(Operation o) {
-		checkNoDuplicateElements(o.args, "parameter")
+		checkNoDuplicateElements(o.params, "parameter")
 	}
 
 	@Check
 	def void checkNoDuplicateEnumerationLiterals(Enumeration e) {
-		checkNoDuplicateElements(e.elements, "parameter")
+		checkNoDuplicateElements(e.elements, "enumeration literal")
 	}
 	
 	/*
@@ -253,30 +248,6 @@ class CmlValidator extends AbstractCmlValidator {
 					INCOMPATIBLE_TYPES);*/
 					error("Incompatible types. Expected '" + expectedType.typeName
 					+ "' but was '" + actualType.typeName + "'", null,
-					INCOMPATIBLE_TYPES);
-		}
-	}
-	
-	@Check
-	def void checkTimeConstraints(TimeConstraint tc) {
-		val actualType = tc.timeframe.typeFor
-		if (actualType === null)
-			return; // nothing to check
-		if (!(actualType as Class).conformsToDuration()) {
-					error("Incompatible types. Expected '" + CmlTypeProvider.DURATION_TYPE.typeName
-					+ "' but was '" + actualType.typeName + "'", CmlPackage.Literals.TIME_CONSTRAINT__TIMEFRAME,
-					INCOMPATIBLE_TYPES);
-		}
-	}
-	
-	@Check
-	def void checkPeriodicTime(PeriodicTime pt) {
-		val actualType = pt.period.typeFor
-		if (actualType === null)
-			return; // nothing to check
-		if (!(actualType as Class).conformsToDuration()) {
-					error("Incompatible types. Expected '" + CmlTypeProvider.DURATION_TYPE.typeName
-					+ "' but was '" + actualType.typeName + "'", CmlPackage.Literals.PERIODIC_TIME__PERIOD,
 					INCOMPATIBLE_TYPES);
 		}
 	}

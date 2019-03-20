@@ -3,7 +3,7 @@
  */
 package at.ac.univie.swa.tests
 
-import at.ac.univie.swa.cml.Contract
+import at.ac.univie.swa.cml.CmlProgram
 import com.google.inject.Inject
 import org.eclipse.xtext.testing.InjectWith
 import org.eclipse.xtext.testing.extensions.InjectionExtension
@@ -16,7 +16,7 @@ import org.junit.jupiter.api.^extension.ExtendWith
 @InjectWith(CmlInjectorProvider)
 class CmlParsingTest {
 	@Inject
-	ParseHelper<Contract> parseHelper
+	ParseHelper<CmlProgram> parseHelper
 	
 	@Test
 	def void loadModel() {

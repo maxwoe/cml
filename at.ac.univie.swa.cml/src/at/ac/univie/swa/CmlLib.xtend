@@ -25,6 +25,9 @@ class CmlLib {
 	public val static LIB_EVENT = LIB_PACKAGE + ".Event"
 	public val static LIB_CONTRACT = LIB_PACKAGE + ".Contract"
 	public val static LIB_COLLECTION = LIB_PACKAGE + ".Collection"
+	public val static LIB_SET = LIB_PACKAGE + ".Set"
+	public val static LIB_BAG = LIB_PACKAGE + ".Bag"
+	public val static LIB_ARRAY = LIB_PACKAGE + ".Array"
 	public val static MAIN_LIB = "cml/lang/mainlib.cml"
 
 	def loadLib() {
@@ -55,6 +58,26 @@ class CmlLib {
 	
 	def getCmlContractClass(EObject context) {
 		getCmlClass(context, LIB_CONTRACT)
+	}
+	
+	def getCmlDateTimeClass(EObject context) {
+		getCmlClass(context, LIB_DATETIME)
+	}
+	
+	def getCmlDurationClass(EObject context) {
+		getCmlClass(context, LIB_DURATION)
+	}
+	
+	def getSetClass(EObject context) {
+		getCmlClass(context, LIB_SET)
+	}
+	
+	def getBagClass(EObject context) {
+		getCmlClass(context, LIB_BAG)
+	}
+	
+	def getArrayClass(EObject context) {
+		getCmlClass(context, LIB_ARRAY)
 	}
 	
 	def getCmlClass(EObject context, String qn) {

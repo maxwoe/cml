@@ -4,7 +4,7 @@ import 'http://www.eclipse.org/emf/2002/Ecore' as ecore
 
 generate cml 'http://swa.univie.ac.at/Cml'
 
-Model:
+CmlProgram:
 	('namespace' name=QualifiedName)?
 	imports+=Import*
 	(classes+=Class |
@@ -19,13 +19,9 @@ Import:
 	'import' importedNamespace = QualifiedNameWithWildcard;
 	
 Contract returns Class:
-	type='contract' name=ID ('extends' superclass=[Class|QualifiedName])?
+	kind='contract' name=ID ('extends' superclass=[Class|QualifiedName])?
 	BEGIN
-		(//attr+=Attribute |
-		 features+=Feature |
-		 clauses+=Clause |
-		 vars+=VariableDeclaration |
-		 derived+=DerivedAttribute |
+		(features+=Feature |
 		 expr+=Expr)*
 	END;
 	
@@ -33,7 +29,7 @@ Expr:
 	'exp' exp=Expression;
 	
 Feature:
-	Attribute | Operation; //| Clause;
+	AttributeWithInitExpr | Operation | Clause;
 	
 FeatureAttribute returns Feature:  
 	Attribute;
@@ -42,16 +38,13 @@ FeatureAttributeAndOperation returns Feature:
 	Attribute | Operation;
 	
 Operation:
-	visibility=Visibility? name=ID '(' (args+=Parameter (',' args+=Parameter)*)? ')' (':' type=ReturnType)?;
+	visibility=Visibility? name=ID '(' (params+=Parameter (',' params+=Parameter)*)? ')' (':' type=ReturnType)?;
 
 Parameter:
 	type=Container name=ID;
 	
 ReturnType:
 	{VoidType} 'void' | Container;
-
-VariableDeclaration:
-	'var' name=ID ':' type=Container;
 
 Container:
 	Primitive | Collection | Array;
@@ -63,7 +56,10 @@ Type:
 	Class | Enumeration | Collection | Array;
 
 Attribute:
-	name=ID ':' type=Container;
+	name=ID (':'|isReference?='->') type=Container;
+
+AttributeWithInitExpr returns Attribute:
+	name=ID ':' type=Container ('=' initExp=Expression)?;
 
 Primitive:
 	type=[Type|QualifiedName];
@@ -75,34 +71,31 @@ Collection:
 	collectionType=CollectionType '<' type=[Type|QualifiedName] '>';
 	
 CollectionType:
-	{Set} name='Set' | {Bag} name='Bag' | {Sequence} name='Sequence' | {OrderedSet} name='OrderedSet';
+	{Set} name='Set' | {Bag} name='Bag' /* | {Sequence} name='Sequence' | {OrderedSet} name='OrderedSet'*/;
 
 ContractModel:
 	Class | Party | Asset | Event | Enumeration;
 
 Class:
-	(isAbstract?='abstract')? type='class' name=ID ('extends' superclass=[Class|QualifiedName])?
+	(isAbstract?='abstract')? kind='class' /*('<'(typedVars+=ID (',' typedVars+=ID)*)?'>')?*/ name=ID ('extends' superclass=[Class|QualifiedName])?
 	(BEGIN
 		features+=FeatureAttributeAndOperation*
-		vars+=VariableDeclaration* 
-		exp+=Expr*
 	END)?;
 
 Party returns Class:
-	type='party' name=ID ('identified' 'by' id=[Attribute])? ('extends' superclass=[Class|QualifiedName])? 
+	kind='party' name=ID ('identified' 'by' id=[Attribute])? ('extends' superclass=[Class|QualifiedName])? 
 	BEGIN
 		 features+=FeatureAttributeAndOperation+
-		 exp+=Expr*
 	END;
 	
 Asset returns Class:
-	type='asset' name=ID ('identified' 'by' id=[Attribute])? ('extends' superclass=[Class|QualifiedName])? 
+	kind='asset' name=ID ('identified' 'by' id=[Attribute])? ('extends' superclass=[Class|QualifiedName])? 
 	BEGIN
 		features+=FeatureAttribute+
 	END;
 
 Event returns Class:
-	type='event' name=ID 
+	kind='event' name=ID
 	(BEGIN
 		features+=FeatureAttribute+
 	END)?;
@@ -116,9 +109,6 @@ Enumeration:
 EnumerationElement:
 	name = ID;
 		
-DerivedAttribute:
-	'derive' name=ID ':' type=Container '=' expression=Expression;
-	
 Clause:
 	'clause' name=ID
 	BEGIN
@@ -168,7 +158,7 @@ AtomicAction:
 	END)?;
 
 TimeConstraint:
-	closed?='within'? timeframe=Expression? period=PeriodicTime? precedence=TemporalPrecedence reference=(AbsoluteTime);
+	closed?='within'? timeframe=Expression? period=PeriodicTime? precedence=TemporalPrecedence reference=Expression;
 
 PeriodicTime:
 	'every' period=Expression 'from' start=(AbsoluteTime) ('until' end=(AbsoluteTime))?;
@@ -191,22 +181,13 @@ ActionQuery:
 	
 TimeQuery:
 	ClauseQuery | EventQuery | ActionQuery;
-	
-Time:
-	AbsoluteTime | RelativeTime;
 
 AbsoluteTime:
 	TimeQuery | globalTimeRef=GlobalTimeReference;
-	
-RelativeTime:
-	TimeFrame;
 
 enum GlobalTimeReference:
 	NOW='_now' | CONTRACT_START='_contractStart' | CONTRACT_END='_contractEnd';
-	
-TimeFrame:
-	{TimeFrame} (weeks=INT 'weeks') | {TimeFrame} (days=INT 'days') | {TimeFrame} (hours=INT 'hours') | {TimeFrame} (minutes=INT 'minutes') | {TimeFrame} (seconds=INT 'seconds');
-	
+		
 Expression: ImpliesExpression;
 	
 ImpliesExpression returns Expression:
@@ -233,7 +214,7 @@ RelationalExpression returns Expression:
 AdditiveExpression returns Expression: 
 	MultiplicativeExpression (=>({AdditiveExpression.left=current} op=('+' | '-')) right=MultiplicativeExpression)*;
 
-MultiplicativeExpression returns Expression : 
+MultiplicativeExpression returns Expression: 
 	UnaryExpression (=>({MultiplicativeExpression.left=current} op=('*' | '/')) right=UnaryExpression)*;
 
 UnaryExpression returns Expression:
@@ -272,11 +253,13 @@ PrimaryExpression returns Expression:
 	LiteralExpression |
 	{SelfExpression} 'self' |
 	{SuperExpression} 'super' |
+	{CallerExpression} 'caller' |
 	{LocalReference} ref=[Local] |
-	'(' Expression ')';
+	'(' Expression ')'|
+	TimeQuery;
 	
 Local:
-	VariableDeclaration | Parameter;
+	Attribute | Parameter;
 
 NamedElement:
 	Class | Feature | Local | Enumeration | EnumerationElement;
@@ -286,9 +269,9 @@ LiteralExpression returns Expression:
 	{BooleanLiteral} ('false' | 'true') |
 	{StringLiteral} value=STRING |
 	{RealLiteral} value=REAL |
-	{NullLiteral} 'null' |
 	{DurationLiteral} value=INT unit=TimeUnit |
 	{DateTimeLiteral} value=DATE |
+	{NullLiteral} 'null' |
 	{EnumerationLiteral} enumeration=[Enumeration|QualifiedName] '::' literal=[EnumerationElement];
 
 enum TimeUnit: 
@@ -297,9 +280,6 @@ enum TimeUnit:
 	DAY='days'|
 	WEEK='weeks'|
 	SECOND='seconds';
-
-terminal fragment DIGIT : ('0'..'9');
-//terminal DATE : '\'' DIGIT DIGIT DIGIT DIGIT '.'? DIGIT DIGIT '.'? DIGIT DIGIT ' '? (DIGIT DIGIT ':'? DIGIT DIGIT ':'? DIGIT DIGIT)? '\'';
 
 CollectionOperation returns ecore::EString:
 	//'count' | 'includes' | 'excludes' | 'exists' | 'forAll' | 'sum' | 'select' | 'at'

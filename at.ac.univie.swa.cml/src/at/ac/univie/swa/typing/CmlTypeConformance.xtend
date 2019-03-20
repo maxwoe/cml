@@ -36,9 +36,11 @@ class CmlTypeConformance {
 
 	def conformToLibraryTypes(Class c1, Class c2) {
 		(c1.conformsToString && c2.conformsToString) || 
-		(c1.conformsToInt && c2.conformsToInt)       ||
+		(c1.conformsToInteger && c2.conformsToInteger)       ||
 		(c1.conformsToBoolean && c2.conformsToBoolean) ||
-		(c1.conformsToReal && c2.conformsToReal)
+		(c1.conformsToReal && c2.conformsToReal) ||
+		(c1.conformsToDateTime && c2.conformsToDateTime) ||
+		(c1.conformsToDuration && c2.conformsToDuration)
 	}
 
 	def conformsToString(Class c) {
@@ -46,7 +48,7 @@ class CmlTypeConformance {
 		c.fullyQualifiedName.toString == CmlLib::LIB_STRING
 	}
 
-	def conformsToInt(Class c) {
+	def conformsToInteger(Class c) {
 		c == INTEGER_TYPE || 
 		c.fullyQualifiedName.toString == CmlLib::LIB_INTEGER
 	}
@@ -61,6 +63,16 @@ class CmlTypeConformance {
 		c.fullyQualifiedName.toString == CmlLib::LIB_REAL
 	}
 	
+	def conformsToDateTime(Class c) {
+		c == DATETIME_TYPE || 
+		c.fullyQualifiedName.toString == CmlLib::LIB_DATETIME
+	}
+	
+	def conformsToDuration(Class c) {
+		c == DURATION_TYPE || 
+		c.fullyQualifiedName.toString == CmlLib::LIB_DURATION
+	}
+	
 	def conformsToParty(Class c) {
 		c.fullyQualifiedName.toString == CmlLib::LIB_PARTY
 	}
@@ -73,16 +85,20 @@ class CmlTypeConformance {
 		c.fullyQualifiedName.toString == CmlLib::LIB_EVENT
 	}
 	
-	def conformsToDuration(Class c) {
-		c.fullyQualifiedName.toString == CmlLib::LIB_DURATION
-	}
-	
-	def conformsToDateTime(Class c) {
-		c.fullyQualifiedName.toString == CmlLib::LIB_DATETIME
-	}
-	
 	def conformsToContract(Class c) {
 		c.fullyQualifiedName.toString == CmlLib::LIB_CONTRACT
+	}
+	
+	def conformsToCollection(Class c) {
+		c.classHierarchyWithObject.exists[c.fullyQualifiedName.toString == CmlLib::LIB_COLLECTION]
+	}
+	
+	def conformsToSet(Class c) {
+		c.fullyQualifiedName.toString == CmlLib::LIB_SET
+	}
+	
+	def conformsToBag(Class c) {
+		c.fullyQualifiedName.toString == CmlLib::LIB_BAG
 	}
 
 	def isSubclassOf(Class c1, Class c2) {

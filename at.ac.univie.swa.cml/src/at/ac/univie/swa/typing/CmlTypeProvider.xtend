@@ -1,6 +1,7 @@
 package at.ac.univie.swa.typing
 
 import at.ac.univie.swa.CmlLib
+import at.ac.univie.swa.CmlModelUtil
 import at.ac.univie.swa.cml.AdditiveExpression
 import at.ac.univie.swa.cml.AndExpression
 import at.ac.univie.swa.cml.BooleanLiteral
@@ -27,29 +28,24 @@ import at.ac.univie.swa.cml.StringLiteral
 import at.ac.univie.swa.cml.SuperExpression
 import at.ac.univie.swa.cml.Type
 import at.ac.univie.swa.cml.UnaryExpression
-import at.ac.univie.swa.cml.VariableDeclaration
 import at.ac.univie.swa.cml.XorExpression
 import com.google.inject.Inject
-
-import static extension at.ac.univie.swa.CmlModelUtil.*
+import at.ac.univie.swa.cml.Attribute
+import at.ac.univie.swa.cml.TimeConstraint
+import at.ac.univie.swa.cml.PeriodicTime
 
 class CmlTypeProvider {
 	@Inject extension CmlLib
-	@Inject extension CmlTypeConformance
+	@Inject extension CmlModelUtil
 	
 	public static val STRING_TYPE = CmlFactory::eINSTANCE.createClass => [name = "String"]
 	public static val INTEGER_TYPE = CmlFactory::eINSTANCE.createClass => [name = "Integer"]
 	public static val BOOLEAN_TYPE = CmlFactory::eINSTANCE.createClass => [name = "Boolean"]
-	public static val REAL_TYPE = CmlFactory::eINSTANCE.createClass => [name = "Real"]
-	public static val NULL_TYPE = CmlFactory::eINSTANCE.createClass => [name = "Null"]
-	public static val VOID_TYPE = CmlFactory::eINSTANCE.createClass => [name = "Void"]
-	public static val COLLECTION_TYPE = CmlFactory::eINSTANCE.createClass => [name = "Collection"]
-	public static val ARRAY_TYPE = CmlFactory::eINSTANCE.createClass => [name = "Array"]
-	public static val PARTY_TYPE = CmlFactory::eINSTANCE.createClass => [name = "Party"]
-	public static val ASSET_TYPE = CmlFactory::eINSTANCE.createClass => [name = "Asset"]
-	public static val EVENT_TYPE = CmlFactory::eINSTANCE.createClass => [name = "Event"]
 	public static val DATETIME_TYPE = CmlFactory::eINSTANCE.createClass => [name = "DateTime"]
 	public static val DURATION_TYPE = CmlFactory::eINSTANCE.createClass => [name = "Duration"]
+	public static val REAL_TYPE = CmlFactory::eINSTANCE.createClass => [name = "Real"]
+	public static val NULL_TYPE = CmlFactory::eINSTANCE.createClass => [name = "null"]
+	public static val VOID_TYPE = CmlFactory::eINSTANCE.createClass => [name = "void"]
 
 	val ep = CmlPackage::eINSTANCE
 
@@ -74,9 +70,9 @@ class CmlTypeProvider {
 			RealLiteral:
 				return REAL_TYPE
 			DateTimeLiteral:
-				return getCmlClass(e, CmlLib.LIB_DATETIME)
+				return DATETIME_TYPE
 			DurationLiteral:
-				return getCmlClass(e, CmlLib.LIB_DURATION)
+				return DURATION_TYPE
 			// CollectionLiteral:
 			// return typeFor(e.elements.head)
 			EnumerationLiteral:
@@ -122,14 +118,7 @@ class CmlTypeProvider {
 						case "at": e.receiver.typeFor
 					}
 				} else if (e.coll === null && e.member !== null)*/
-					{	var type = e.member.typeOf
-						
-						if(type == COLLECTION_TYPE)
-							return getCmlClass(e, CmlLib.LIB_COLLECTION)
-						if(type == typeof(Class))
-							return getCmlClass(e, CmlLib.LIB_COLLECTION)
-						return type
-					}
+					e.member.typeOf
 		}
 	}
 
@@ -137,12 +126,15 @@ class CmlTypeProvider {
 		val container = exp.eContainer
 		val feature = exp.eContainingFeature
 		switch (container) {
-			VariableDeclaration:
-				container.type.typeOf
 			/*AssignmentExpression case feature == ep.assignmentExpression_Right:
 			 * 	container.left.typeFor
 			 * BranchingStmt case feature == ep.branchingStmt_Expression:
 			 booleanType*/
+			PeriodicTime case feature == ep.periodicTime_Period,
+			TimeConstraint case feature == ep.timeConstraint_Timeframe:
+				DURATION_TYPE
+			Attribute:
+				container.type.typeOf
 			RelationalExpression case feature == ep.relationalExpression_Right:
 				container.left.typeFor
 			EqualityExpression case feature == ep.equalityExpression_Right:
@@ -151,7 +143,7 @@ class CmlTypeProvider {
 				// assume that it refers to a method and that there
 				// is a parameter corresponding to the argument
 				try {
-					(container.member as Operation).args.get(container.args.indexOf(exp)).type.typeOf
+					(container.member as Operation).params.get(container.args.indexOf(exp)).type.typeOf
 				} catch (Throwable t) {
 					null
 				}
@@ -165,5 +157,5 @@ class CmlTypeProvider {
 	def getSuperclassOrObject(Class c) {
 		c.superclass ?: getCmlObjectClass(c)
 	}
-
+	
 }

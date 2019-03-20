@@ -3,14 +3,13 @@
  */
 package at.ac.univie.swa.ui.contentassist
 
-import at.ac.univie.swa.CmlModelUtil
 import at.ac.univie.swa.cml.Class
 import at.ac.univie.swa.cml.Feature
-import com.google.inject.Inject
 import org.eclipse.emf.ecore.EObject
 import org.eclipse.jface.viewers.StyledString
 
-import static extension at.ac.univie.swa.CmlModelUtil.*
+import at.ac.univie.swa.CmlModelUtil
+import com.google.inject.Inject
 
 /**
  * See https://www.eclipse.org/Xtext/documentation/304_ide_concepts.html#content-assist
@@ -19,14 +18,13 @@ import static extension at.ac.univie.swa.CmlModelUtil.*
 class CmlProposalProvider extends AbstractCmlProposalProvider {
 	
 	@Inject extension CmlModelUtil
-
+	
 	override getStyledDisplayString(EObject element, String qualifiedNameAsString, String shortName) {
 		if (element instanceof Feature) {
-			new StyledString(element.memberAsStringWithType).append(
+			new StyledString(element.featureAsStringWithType).append(
 				new StyledString(" - " + (element.eContainer as Class).name, StyledString.QUALIFIER_STYLER))
 		} else
 			super.getStyledDisplayString(element, qualifiedNameAsString, shortName)
 	}
 
-	
 }

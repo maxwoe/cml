@@ -36,266 +36,6 @@ import at.ac.univie.swa.cml.LocalReference
  * on how and when to use it.
  */
 class CmlScopeProvider extends AbstractCmlScopeProvider {
-
-//	// private static final Logger logger = Logger.getLogger(CmlScopeProvider.getName());
-//	// @Inject extension CmlExtensions
-//	override getScope(EObject context, EReference reference) {
-//
-//		println(context.class);
-//		
-//		if (reference == CmlPackage.Literals.ATOMIC_ACTION__ACTION) {
-//			if (context instanceof AtomicAction) {
-////				val clause = EcoreUtil2.getContainerOfType(context, Clause)
-////				if (clause !== null && clause.actor !== null && clause.actor.party !== null) {
-////					val allActions = EcoreUtil2.getAllContentsOfType(clause.actor.party, Action)
-////					return Scopes.scopeFor(allActions)
-////					//return Scopes.scopeFor(allActions.filter[context.args.size == args.size])
-////				}
-//				val clause = EcoreUtil2.getContainerOfType(context, Clause)
-//				if (clause?.actor?.party?.type !== null) {
-//					val allActions = EcoreUtil2.getAllContentsOfType((clause.actor.party.type as ComplexType).ref, Action)
-//					return Scopes.scopeFor(allActions)
-//					//return Scopes.scopeFor(allActions.filter[context.args.size == args.size])
-//				}
-//			}
-//		}
-//		
-//		if (reference == CmlPackage.Literals.ATTRIBUTE_REFERENCE__REF) {
-//			println("ATTRIBUTE_REFERENCE__REF ctx: " + context)
-//		}
-//		
-//		if (reference == CmlPackage.Literals.MEMBER_SELECTION__MEMBER) {
-//			println("ctx: " + context)
-//			
-//			
-//
-//			if (context instanceof AttributeReference) {
-//				val head = context.ref
-//				println("AttributeReference rec: " + head)
-//				
-//				}
-//				
-//			if (context instanceof MemberSelection) {
-//				val head = context.receiver
-//				println("MemberFeatureCall rec: " + head)
-//				
-//				var parentScope = IScope::NULLSCOPE
-//				var type = context.receiver.
-//				if (type == null || type.isPrimitiveType)
-//					return parentScope
-//				if (type instanceof Class) {
-//					val features = (type as Class).selectedFeatures(sel)
-//					for (c : type.classHierarchyWithObject.reverseView) {
-//						parentScope = Scopes::scopeFor(c.selectedFeatures(sel), parentScope)
-//					}
-//					return Scopes::scopeFor(features, parentScope)
-//}
-//
-//				/*if(head instanceof AttributeReference) {
-//					switch (head.ref) {
-//							Attribute: {
-//								val type = head.ref.type;
-//								switch (type) {
-//									//SimpleType: return Scopes::scopeFor(type.eContents)
-//									ComplexType: {
-//										val ref = type.ref
-//										switch (ref) {
-//											Party:	return Scopes::scopeFor(ref.attributes)
-//											Asset: return Scopes::scopeFor(ref.attributes)
-//											default: return IScope.NULLSCOPE
-//										}
-//									}
-//									default: return IScope.NULLSCOPE
-//								}
-//							}
-//							default: return IScope.NULLSCOPE
-//						}
-//				}*/
-//				
-//			}
-//		}
-//
-//		if (reference == CmlPackage.Literals.ATOMIC_ACTION__ARGS) {
-//			if (context instanceof AtomicAction) {
-//				if (context.action !== null) {
-//					val args = EcoreUtil2.getAllContentsOfType(context.action, Attribute)
-//					return Scopes.scopeFor(args);
-//				}
-//			}
-//		}
-//		
-//		if (reference == CmlPackage.Literals.ATOMIC_ACTION__PRE_CONDITION) {
-//			if (context instanceof AtomicAction) {
-//				if (context !== null && context.action !== null) {
-//					val args = EcoreUtil2.getAllContentsOfType(context.action, Attribute)
-//					return Scopes.scopeFor(args);
-//				}
-//			}
-//		}
-//		
-//		if (reference == CmlPackage.Literals.ACTOR__PARTY) {
-//			if (context instanceof Actor) {
-//				val rootElement = EcoreUtil2.getRootContainer(context)
-//				val attributes = EcoreUtil2.getAllContentsOfType(rootElement, Attribute)
-//				val candidates = attributes.filter(a|a.type instanceof ComplexType)
-//				val parties = candidates.filter(a|(a.type as ComplexType).ref instanceof Party)
-//				return Scopes.scopeFor(parties)
-//			}
-//		}
-//		
-//		if (reference == CmlPackage.Literals.DOT_EXPRESSION_START__REF) {
-//			
-//			/*if (context instanceof AtomicAction) {
-//				var result = IScope.NULLSCOPE
-//				val rootElement = EcoreUtil2.getRootContainer(context)
-//				val parties = EcoreUtil2.getAllContentsOfType(rootElement, Party)
-//				result = Scopes.scopeFor(parties, result)
-//				result = Scopes.scopeFor(context.args, result);
-//				return result;
-//			}*/
-//			
-//			if (context instanceof DotExpressionStart) {
-//				/*var result = IScope.NULLSCOPE
-//				val rootElement = EcoreUtil2.getRootContainer(context)
-//				val parties = EcoreUtil2.getAllContentsOfType(rootElement, Party)
-//				result = Scopes.scopeFor(parties.filter[context.action == type.actions], result)
-//				result = Scopes.scopeFor(context.args, result);
-//				
-//				val attributes = EcoreUtil2.getAllContentsOfType(rootElement, Attribute)
-//				return Scopes.scopeFor(attributes);*/
-//				
-//				//val args = EcoreUtil2.getAllContentsOfType(context.action, Attribute)
-//				val aa = EcoreUtil2.getContainerOfType(context, AtomicAction)
-//				if(aa !== null)
-//					return Scopes.scopeFor(aa.args);
-//			}
-//		}
-//		
-//		
-////		if (reference == CmlPackage.Literals.EXPRESSION__REF) {
-////
-////			/*if (context instanceof AtomicAction) {
-////			 * 	var result = IScope.NULLSCOPE
-////			 * 	val rootElement = EcoreUtil2.getRootContainer(context)
-////			 * 	val parties = EcoreUtil2.getAllContentsOfType(rootElement, Party)
-////			 * 	result = Scopes.scopeFor(parties, result)
-////			 * 	result = Scopes.scopeFor(context.args, result);
-////			 * 	return result;
-////			 }*/
-////			if (context instanceof AtomicAction) {
-////				/*var result = IScope.NULLSCOPE
-////				 * val rootElement = EcoreUtil2.getRootContainer(context)
-////				 * val parties = EcoreUtil2.getAllContentsOfType(rootElement, Party)
-////				 * result = Scopes.scopeFor(parties.filter[context.action == type.actions], result)
-////				 * result = Scopes.scopeFor(context.args, result);
-////				 * 
-////				 * val attributes = EcoreUtil2.getAllContentsOfType(rootElement, Attribute)
-////				 return Scopes.scopeFor(attributes);*/
-////				val args = EcoreUtil2.getAllContentsOfType(context.action, Attribute)
-////				return Scopes.scopeFor(args, [Attribute attr|return QualifiedName.create(attr.name)], IScope.NULLSCOPE);
-////			}
-////		}
-//		
-//		//if (reference == CmlPackage.Literals.ATOMIC_ACTION__PRE_CONDITION) {
-//		if (reference == CmlPackage.Literals.ATOMIC_ACTION__PRE_CONDITION) {	
-//			/*if (context instanceof AtomicAction) {
-//				var result = IScope.NULLSCOPE
-//				val rootElement = EcoreUtil2.getRootContainer(context)
-//				val parties = EcoreUtil2.getAllContentsOfType(rootElement, Party)
-//				result = Scopes.scopeFor(parties, result)
-//				result = Scopes.scopeFor(context.args, result);
-//				return result;
-//			}*/
-//			
-////			if (context instanceof AtomicAction) {
-////				/*var result = IScope.NULLSCOPE
-////				val rootElement = EcoreUtil2.getRootContainer(context)
-////				val parties = EcoreUtil2.getAllContentsOfType(rootElement, Party)
-////				result = Scopes.scopeFor(parties.filter[context.action == type.actions], result)
-////				result = Scopes.scopeFor(context.args, result);
-////				
-////				val attributes = EcoreUtil2.getAllContentsOfType(rootElement, Attribute)
-////				return Scopes.scopeFor(attributes);*/
-////				
-////				//val args = EcoreUtil2.getAllContentsOfType(context.action, Attribute)
-////				//	return Scopes.scopeFor(args, [Attribute attr | return QualifiedName.create("haha" + attr.name)], IScope.NULLSCOPE);
-////					
-////            if (context.args !== null) {
-////					val result = newArrayList
-////					for (i : context.args) {
-////						result.add(EObjectDescription.create(QualifiedName.create(context.action.name, i.name), i))
-////
-////					}
-////					println(result)
-////					return new SimpleScope(IScope.NULLSCOPE, result)
-////				}
-////			}
-//			
-//			
-//		}
-//		/* 
-//		if (reference == CmlPackage.Literals.DOT_EXPRESSION__TAIL) {
-//			
-//			if (context instanceof DotExpression) {
-//				val head = context.head;
-//				switch (head) {
-//					DotExpressionStart:
-//						switch (head.ref) {
-//							Attribute: {
-//								val type = (head.ref as Attribute).typeDef;
-//								switch (type) {
-//									//SimpleType: return Scopes::scopeFor(type.eContents)
-//									ComplexTypeRef: {
-//										val ref = type.ref
-//										switch (ref) {
-//											Party:	return Scopes::scopeFor(ref.attributes)
-//											Entity: return Scopes::scopeFor(ref.attributes)
-//											default: return IScope.NULLSCOPE
-//										}
-//									}
-//									default: return IScope.NULLSCOPE
-//								}}
-//							}
-//							Party: return Scopes::scopeFor((head.ref as Party).attributes)
-//							default: return IScope.NULLSCOPE
-//						}
-//					DotExpression: {
-//						val tail = head.tail
-//						switch (tail) {
-//							Attribute: {
-//								val type = (head.tail as Attribute).typeDef
-//								switch (type) {
-//									SimpleType: {
-//										//return Scopes::scopeFor(type.eContents)
-//									}
-//									ComplexTypeRef: {
-//										val ref = type.ref
-//										switch (ref) {
-//											Party:	return Scopes::scopeFor(ref.attributes)
-//											Entity: return Scopes::scopeFor(ref.attributes)
-//											default: return IScope.NULLSCOPE
-//										}
-//									}
-//									default: return IScope.NULLSCOPE
-//								}
-//							}
-//							default: return IScope.NULLSCOPE
-//						}
-//					}
-//					default: return IScope.NULLSCOPE
-//				}
-//			}
-//		}*/
-//
-//		super.getScope(context, reference)
-//	}
-//	
-//	/*def Iterable<Attribute> filterAttribute(ComplexType ct, EObject ctx) {
-//		val rootElement = EcoreUtil2.getRootContainer(ctx)
-//		val attributes = EcoreUtil2.getAllContentsOfType(rootElement, Attribute)
-//		val candidates = attributes.filter(a|a.type instanceof ComplexType)
-//		candidates.filter(a|(a.type as ComplexType).ref instanceof ct.class)
-//	}*/
 	
 	@Inject extension CmlTypeProvider
 	@Inject extension CmlModelUtil
@@ -310,7 +50,7 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 			if (context instanceof LocalReference) {
 				val atomicAction = EcoreUtil2.getContainerOfType(context, AtomicAction)
 				if(atomicAction !== null)
-				return Scopes.scopeFor(atomicAction.action.args)
+				return Scopes.scopeFor(atomicAction.action.params)
 			}
 			//scopeForLocalRef(context)
 		} else if (context instanceof MemberSelection) {
@@ -320,7 +60,7 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 		} else 	if (reference == CmlPackage.Literals.ACTOR__PARTY) {
 			if (context instanceof Actor) {
 				val attributes = context.containingClass.attributes;
-				val candidates = attributes.filter(a|(a.type.typeOf as Class).classHierarchyWithObject.exists[conformsToParty])
+				val candidates = attributes.filter(a|(a.type.typeOf as Class)?.classHierarchyWithObject.exists[conformsToParty])
 				return Scopes.scopeFor(candidates)
 			}
 		} else if (reference == CmlPackage.Literals.ATOMIC_ACTION__ACTION) {
@@ -350,13 +90,11 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 		return super.getScope(context, reference)
 	}
 	
-
-
 	def protected IScope scopeForLocalRef(EObject context) {
 		val container = context.eContainer
 		return switch (container) {
 			Operation:
-				Scopes.scopeFor(container.args)
+				Scopes.scopeFor(container.params)
 			default:
 				scopeForLocalRef(container)
 		}
@@ -381,21 +119,6 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 					}
 					return Scopes::scopeFor(features, parentScope)
 				}
-//			val grouped = type.classHierarchyFeatures.groupBy[it instanceof Operation]
-//			val inheritedMethods = grouped.get(true) ?: emptyList
-//			val inheritedFields = grouped.get(false) ?: emptyList
-//
-//			if (sel.methodinvocation) {
-//				return Scopes.scopeFor(
-//					type.operations + type.attributes,
-//					Scopes.scopeFor(inheritedMethods + inheritedFields)
-//				)
-//			} else {
-//				return Scopes.scopeFor(
-//					type.attributes + type.operations,
-//					Scopes.scopeFor(inheritedFields + inheritedMethods)
-//				)
-//			}
 		}
 	}
 	

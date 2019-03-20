@@ -19,5 +19,7 @@ class Array extends Object
 class Collection extends Object
 	collectionOp()
 class ^Set extends Collection
+	setOp()
 class ^Bag extends Collection
+	bagOp()
 class Map extends Object
