@@ -33,6 +33,7 @@ import com.google.inject.Inject
 import at.ac.univie.swa.cml.Attribute
 import at.ac.univie.swa.cml.TimeConstraint
 import at.ac.univie.swa.cml.PeriodicTime
+import at.ac.univie.swa.cml.GlobalVars
 
 class CmlTypeProvider {
 	@Inject extension CmlLib
@@ -57,6 +58,8 @@ class CmlTypeProvider {
 				return e.containingClass.superclassOrObject
 			LocalReference:  
 				e.ref.type.typeOf
+			GlobalVars:
+				DATETIME_TYPE
 			// NewInstanceExpression:
 			// return e.type
 			NullLiteral:
@@ -130,6 +133,10 @@ class CmlTypeProvider {
 			 * 	container.left.typeFor
 			 * BranchingStmt case feature == ep.branchingStmt_Expression:
 			 booleanType*/
+			PeriodicTime case feature == ep.periodicTime_Start,
+			PeriodicTime case feature == ep.periodicTime_End,
+			TimeConstraint case feature == ep.timeConstraint_Reference:
+				DATETIME_TYPE
 			PeriodicTime case feature == ep.periodicTime_Period,
 			TimeConstraint case feature == ep.timeConstraint_Timeframe:
 				DURATION_TYPE

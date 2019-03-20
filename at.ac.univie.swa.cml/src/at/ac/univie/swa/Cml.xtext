@@ -158,10 +158,10 @@ AtomicAction:
 	END)?;
 
 TimeConstraint:
-	closed?='within'? timeframe=Expression? period=PeriodicTime? precedence=TemporalPrecedence reference=Expression;
+	closed?='within'? timeframe=Expression? period=PeriodicTime? precedence=TemporalPrecedence reference=(TimeQuery|Expression);
 
 PeriodicTime:
-	'every' period=Expression 'from' start=(AbsoluteTime) ('until' end=(AbsoluteTime))?;
+	'every' period=Expression 'from' start=(TimeQuery|Expression) ('until' end=(TimeQuery|Expression))?;
 	
 enum TemporalPrecedence:
 	BEFORE='before' |
@@ -181,12 +181,6 @@ ActionQuery:
 	
 TimeQuery:
 	ClauseQuery | EventQuery | ActionQuery;
-
-AbsoluteTime:
-	TimeQuery | globalTimeRef=GlobalTimeReference;
-
-enum GlobalTimeReference:
-	NOW='_now' | CONTRACT_START='_contractStart' | CONTRACT_END='_contractEnd';
 		
 Expression: ImpliesExpression;
 	
@@ -256,7 +250,7 @@ PrimaryExpression returns Expression:
 	{CallerExpression} 'caller' |
 	{LocalReference} ref=[Local] |
 	'(' Expression ')'|
-	TimeQuery;
+	{GlobalVars} value=GlobalTimeReference;
 	
 Local:
 	Attribute | Parameter;
@@ -280,6 +274,9 @@ enum TimeUnit:
 	DAY='days'|
 	WEEK='weeks'|
 	SECOND='seconds';
+
+enum GlobalTimeReference:
+	NOW='now' | CONTRACT_START='contractStart' | CONTRACT_END='contractEnd';
 
 CollectionOperation returns ecore::EString:
 	//'count' | 'includes' | 'excludes' | 'exists' | 'forAll' | 'sum' | 'select' | 'at'
