@@ -4,10 +4,9 @@ import org.eclipse.xtext.naming.QualifiedName
 import org.eclipse.xtext.scoping.impl.ImportNormalizer
 import org.eclipse.xtext.scoping.impl.ImportedNamespaceAwareLocalScopeProvider
 
-class CmlImportedNamespaceAwareLocalScopeProvider extends ImportedNamespaceAwareLocalScopeProvider{
-	
-	//@Inject extension IQualifiedNameProvider
-	
+class CmlImportedNamespaceAwareLocalScopeProvider extends ImportedNamespaceAwareLocalScopeProvider {
+
+	// @Inject extension IQualifiedNameProvider
 	override getImplicitImports(boolean ignoreCase) {
 		newArrayList(new ImportNormalizer(
 			QualifiedName::create("cml", "lang"),
@@ -15,7 +14,7 @@ class CmlImportedNamespaceAwareLocalScopeProvider extends ImportedNamespaceAware
 			ignoreCase
 		))
 	}
-	
+
 	/* 
 	override protected List<ImportNormalizer> internalGetImportedNamespaceResolvers(EObject context, boolean ignoreCase) {
 		val resolvers = super.internalGetImportedNamespaceResolvers(context, ignoreCase)
@@ -33,5 +32,4 @@ class CmlImportedNamespaceAwareLocalScopeProvider extends ImportedNamespaceAware
 		}
 		return resolvers
 	}*/
-	
 }

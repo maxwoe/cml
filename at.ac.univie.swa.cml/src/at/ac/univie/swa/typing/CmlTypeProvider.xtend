@@ -33,7 +33,6 @@ import com.google.inject.Inject
 import at.ac.univie.swa.cml.Attribute
 import at.ac.univie.swa.cml.TimeConstraint
 import at.ac.univie.swa.cml.PeriodicTime
-import at.ac.univie.swa.cml.GlobalVars
 
 class CmlTypeProvider {
 	@Inject extension CmlLib
@@ -58,10 +57,6 @@ class CmlTypeProvider {
 				return e.containingClass.superclassOrObject
 			LocalReference:  
 				e.ref.type.typeOf
-			GlobalVars:
-				DATETIME_TYPE
-			// NewInstanceExpression:
-			// return e.type
 			NullLiteral:
 				return NULL_TYPE
 			StringLiteral:
@@ -76,8 +71,6 @@ class CmlTypeProvider {
 				return DATETIME_TYPE
 			DurationLiteral:
 				return DURATION_TYPE
-			// CollectionLiteral:
-			// return typeFor(e.elements.head)
 			EnumerationLiteral:
 				return e.enumeration
 			XorExpression,
@@ -86,9 +79,6 @@ class CmlTypeProvider {
 			EqualityExpression,
 			RelationalExpression,
 			ImpliesExpression
-			/* ,
-			 * InstanceofExpression,
-			 ComparativeExpression*/
 			:
 				return BOOLEAN_TYPE
 			AdditiveExpression,
@@ -129,10 +119,6 @@ class CmlTypeProvider {
 		val container = exp.eContainer
 		val feature = exp.eContainingFeature
 		switch (container) {
-			/*AssignmentExpression case feature == ep.assignmentExpression_Right:
-			 * 	container.left.typeFor
-			 * BranchingStmt case feature == ep.branchingStmt_Expression:
-			 booleanType*/
 			PeriodicTime case feature == ep.periodicTime_Start,
 			PeriodicTime case feature == ep.periodicTime_End,
 			TimeConstraint case feature == ep.timeConstraint_Reference:

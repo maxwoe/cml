@@ -12,7 +12,6 @@ CmlProgram:
 	assets+=Asset |
 	events+=Event |
 	enumerations+=Enumeration |
-	expr+=Expr |
 	contracts+=Contract)*;
 
 Import:
@@ -25,7 +24,7 @@ Contract returns Class:
 		 expr+=Expr)*
 	END;
 	
-Expr:
+Expr: // for testing
 	'exp' exp=Expression;
 	
 Feature:
@@ -216,41 +215,19 @@ UnaryExpression returns Expression:
 
 SelectionExpression returns Expression:
 	PrimaryExpression 
-	(=>({MemberSelection.receiver=current} '.')
-		member=[Feature]
-		(=>methodinvocation?='('
-			(args+=Expression (',' args+=Expression)*)? ')'
-		)?
-		)*;
-	/*(
-		{MemberSelection.receiver=current} '.'
-		member=[Feature]
-		(methodinvocation?='('
-			(args+=Expression (',' args+=Expression)*)? ')'
-		)?
-)*;*/
-	/* 
 	(=>({MemberSelection.receiver=current} '.') member=[Feature]
 	(=>methodinvocation ?= '(' (args += Expression (',' args += Expression)* )?  ')' )?
+	//|=>({MemberSelection.receiver=current} isCollectionOperation?='->') coll=CollectionOperation
+	//(=>methodinvocation ?= '(' (args += Expression (',' args += Expression)* )?  ')' )?
+	);
 
-	|=>({MemberSelection.receiver=current} isCollectionOperation?='->') coll=CollectionOperation
-	(=>methodinvocation ?= '(' (args += Expression (',' args += Expression)* )?  ')' )?)*;*/
-
-/* 
-CollectionOpCall returns OclLExpression:
-	{CollectionOpCallExp} name=CollectionOpID '(' (arguments+=Expression ("," arguments+=Expression)*)? ')';
-
-IterateExp returns OclLExpression:
-	{IterateExp}name='iterate' '(' iterators+=Iterator  (','iterators+=Iterator)* ';'result=LocalVariable '|' body=Expression')';
-*/
 PrimaryExpression returns Expression:	
 	LiteralExpression |
 	{SelfExpression} 'self' |
 	{SuperExpression} 'super' |
 	{CallerExpression} 'caller' |
 	{LocalReference} ref=[Local] |
-	'(' Expression ')'|
-	{GlobalVars} value=GlobalTimeReference;
+	'(' Expression ')';
 	
 Local:
 	Attribute | Parameter;
@@ -274,14 +251,6 @@ enum TimeUnit:
 	DAY='days'|
 	WEEK='weeks'|
 	SECOND='seconds';
-
-enum GlobalTimeReference:
-	NOW='now' | CONTRACT_START='contractStart' | CONTRACT_END='contractEnd';
-
-CollectionOperation returns ecore::EString:
-	//'count' | 'includes' | 'excludes' | 'exists' | 'forAll' | 'sum' | 'select' | 'at'
-	'size'	| 'includes' | 'excludes' | 'count' | 'includesAll' | 'excludesAll' | 'isEmpty' | 'notEmpty' | 'sum' |
-	'exists' | 'forAll'	| 'isUnique' | 'collect' | 'select'	| 'reject' | 'at';
 
 QualifiedName:
     ID ('.' ID)*;

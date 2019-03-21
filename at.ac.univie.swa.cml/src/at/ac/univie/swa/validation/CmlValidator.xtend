@@ -13,10 +13,8 @@ import at.ac.univie.swa.cml.Expression
 import at.ac.univie.swa.cml.MemberSelection
 import at.ac.univie.swa.cml.NamedElement
 import at.ac.univie.swa.cml.Operation
-import at.ac.univie.swa.cml.PeriodicTime
 import at.ac.univie.swa.cml.SelfExpression
 import at.ac.univie.swa.cml.SuperExpression
-import at.ac.univie.swa.cml.TimeConstraint
 import at.ac.univie.swa.typing.CmlTypeConformance
 import at.ac.univie.swa.typing.CmlTypeProvider
 import com.google.common.collect.HashMultimap
@@ -31,25 +29,6 @@ import org.eclipse.xtext.validation.Check
  */
 class CmlValidator extends AbstractCmlValidator {
 	
-//	public static val INVALID_NAME = 'invalidName'
-//
-//	@Check
-//	def checkGreetingStartsWithCapital(Greeting greeting) {
-//		if (!Character.isUpperCase(greeting.name.charAt(0))) {
-//			warning('Name should start with a capital', 
-//					CmlPackage.Literals.GREETING__NAME,
-//					INVALID_NAME)
-//		}
-//	}
-
-//    @Check
-//    def void checkNameStartsWithCapital(Entity entity) {
-//        if (!Character.isUpperCase(entity.name.charAt(0))) {
-//            warning("Name should start with a capital", 
-//                CmlPackage.Literals.ENTITY__NAME)
-//        }
-//    }
-
 	@Inject extension IQualifiedNameProvider
 	@Inject extension CmlModelUtil
 	@Inject extension CmlTypeProvider
@@ -70,6 +49,14 @@ class CmlValidator extends AbstractCmlValidator {
 	public static val OPPOSITE_INCONSISTENCY = "OPPOSITE_INCONSISTENCY"
 	public static val DECLARATION_WITHIN_BLOCK = "DECLARATION_WITHIN_BLOCK"
 	
+	@Check
+    def void checkNameStartsWithCapital(Class c) {
+        if (!Character.isUpperCase(c.name.charAt(0))) {
+            warning("Name should start with a capital", 
+                CmlPackage.Literals.NAMED_ELEMENT__NAME)
+        }
+    }
+
 	@Check 
 	def void checkClassHierarchy(Class c) {
 		if (c.classHierarchy.contains(c)) {
@@ -83,7 +70,17 @@ class CmlValidator extends AbstractCmlValidator {
 	@Check 
 	def void checkSuperclass(Class c) {
 		if (c.kind != c.superclass.kind) {
-			error("'" + c.name + "' must extend '" + c.name + "'" ,
+			error("'" + c.name + "' must extend '" + c.kind + "'" ,
+				CmlPackage::eINSTANCE.class_Superclass,
+				HIERARCHY_CYCLE,
+				c.superclass.name)
+		}
+	}
+	
+	@Check 
+	def void checkIdentityDefinition(Class c) {
+		if (c.id === null && !c.classHierarchy.exists[id !== null]) {
+			error("'" + c.name + "' is not abstract. It must define and identifying attribute.",
 				CmlPackage::eINSTANCE.class_Superclass,
 				HIERARCHY_CYCLE,
 				c.superclass.name)
@@ -149,45 +146,6 @@ class CmlValidator extends AbstractCmlValidator {
 					PROPERTY_SELECTION_ON_METHOD)
 		}
 	}
-/* 
-	@Check
-	def void checkCollectionType(AttributeType ctype){
-		val boundsCondition = !(ctype.multiplicity.upperbound.isIsWildcard) && 
-			ctype.multiplicity.lowerbound > ctype.multiplicity.upperbound.value
-		val boundsConsistentWithCollection = ctype.collection == null ||
-			(ctype.multiplicity.upperbound.isIsWildcard || 
-				ctype.multiplicity.upperbound.value > 1)
-		if(boundsCondition)
-			error("Multiplicity bounds not correct", 
-				CmlPackage::eINSTANCE.collectionType_Multiplicity,
-				MULTIPLICITY_INCONSISTENCY)
-		if(!boundsConsistentWithCollection)
-			error("Multiplicity not consistent with collection declaration",
-				CmlPackage::eINSTANCE.collectionType_Multiplicity,
-				MULTIPLICITY_INCONSISTENCY)	
-	}
-
-	@Check
-	def void checkOppositeReferences(Reference ref){
-		val ctype = ref.collectionType
-		if(ref.opposite != null){
-			val opp = ref.opposite
-			if(opp.opposite == null || opp.opposite != ref)
-				error("Reference '" + ref.name + "' is not declared as opposite of '" 
-					+ opp.name + "' in '" + ctype.type.typeOf.name + "'",
-					CmlPackage::eINSTANCE.reference_Opposite,
-					OPPOSITE_INCONSISTENCY)
-			if(ref.isIsContainment && opp.isIsContainment)
-				error("The containment reference '" + ref.name + "' cannot have a containment as opposite",
-					CmlPackage::eINSTANCE.reference_Opposite,
-					OPPOSITE_INCONSISTENCY)
-			if(opp.isIsContainment && ctype.multiplicity != null && (ctype.multiplicity.lowerbound != 0 || ctype.multiplicity.upperbound.value != 1 || ctype.multiplicity.upperbound.isWildcard))
-				error("Multiplicity should be [0..1] since '" + ref.name + 
-					"' is the opposite of the containment reference '" + opp.name + "' in '" + opp.collectionType.type.typeOf.name + "'",
-					CmlPackage::eINSTANCE.structuralProperty_CollectionType,
-					OPPOSITE_INCONSISTENCY)
-		}
-	}*/
 
 	@Check
 	def void checkSuperAsReceiverOnly(SuperExpression e){
@@ -202,20 +160,6 @@ class CmlValidator extends AbstractCmlValidator {
 			error("'self' can only be used as a selection receiver (e.g., super.toString())",
 				null, WRONG_SELF_USAGE)
 	}
-	
-	/*
-	@Check
-	def void checkAbstractOperationInAbstractClass(Operation op){
-		if(op.isIsAbstract && op.body != null)
-			error("Abstract operation '" + op.name + "' contains a body",
-				CmlPackage::eINSTANCE.operation_Body,
-				INVALID_ABSTRACT_OPERATION)
-		if(op.isIsAbstract && !op.containingClass.isIsAbstract)
-			error("Abstract operation '" + op.name + 
-				"' inside the non-abstract class '" + op.containingClass.name + "'",
-				CmlPackage::eINSTANCE.operation_IsAbstract,
-				ABSTRACT_OP_INSIDE_NONABSTRACT_CLASS)	
-	}*/
 	
 //	@Check
 //	def void checkValidArgumentForCollectionOperation(MemberSelection sel){
@@ -298,6 +242,5 @@ class CmlValidator extends AbstractCmlValidator {
 			}
 		}
 	}
-	
 	
 }

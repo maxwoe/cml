@@ -4,30 +4,23 @@
 package at.ac.univie.swa.scoping
 
 import at.ac.univie.swa.CmlModelUtil
+import at.ac.univie.swa.cml.Actor
+import at.ac.univie.swa.cml.AtomicAction
 import at.ac.univie.swa.cml.Class
+import at.ac.univie.swa.cml.Clause
 import at.ac.univie.swa.cml.CmlPackage
 import at.ac.univie.swa.cml.Enumeration
 import at.ac.univie.swa.cml.EnumerationLiteral
 import at.ac.univie.swa.cml.MemberSelection
-import at.ac.univie.swa.cml.Operation
+import at.ac.univie.swa.cml.Parameter
+import at.ac.univie.swa.typing.CmlTypeConformance
 import at.ac.univie.swa.typing.CmlTypeProvider
 import javax.inject.Inject
 import org.eclipse.emf.ecore.EObject
 import org.eclipse.emf.ecore.EReference
+import org.eclipse.xtext.EcoreUtil2
 import org.eclipse.xtext.scoping.IScope
 import org.eclipse.xtext.scoping.Scopes
-
-import static extension at.ac.univie.swa.CmlModelUtil.*
-import at.ac.univie.swa.cml.Actor
-import org.eclipse.xtext.EcoreUtil2
-import at.ac.univie.swa.typing.CmlTypeConformance
-import at.ac.univie.swa.CmlLib
-import org.eclipse.xtext.naming.IQualifiedNameProvider
-import at.ac.univie.swa.cml.AtomicAction
-import at.ac.univie.swa.cml.Clause
-import at.ac.univie.swa.cml.Parameter
-import at.ac.univie.swa.cml.DeonticAction
-import at.ac.univie.swa.cml.LocalReference
 
 /**
  * This class contains custom scoping description.
@@ -36,92 +29,84 @@ import at.ac.univie.swa.cml.LocalReference
  * on how and when to use it.
  */
 class CmlScopeProvider extends AbstractCmlScopeProvider {
-	
+
 	@Inject extension CmlTypeProvider
 	@Inject extension CmlModelUtil
 	@Inject extension CmlTypeConformance
-	@Inject extension CmlLib
-	
-	val epackage = CmlPackage.eINSTANCE
 
 	override getScope(EObject context, EReference reference) {
-		println("ctx: "+ context + "ref: " + reference)
 		if (reference == CmlPackage.Literals.LOCAL_REFERENCE__REF) {
-			if (context instanceof LocalReference) {
-				val atomicAction = EcoreUtil2.getContainerOfType(context, AtomicAction)
-				if(atomicAction !== null)
-				return Scopes.scopeFor(atomicAction.action.params)
-			}
-			//scopeForLocalRef(context)
+			scopeForLocalRef(context)
 		} else if (context instanceof MemberSelection) {
 			return scopeForMemberSelection(context)
 		} else if (reference == CmlPackage.Literals.ENUMERATION_LITERAL__LITERAL) {
 			return scopeForEnumLiteral(context)
-		} else 	if (reference == CmlPackage.Literals.ACTOR__PARTY) {
+		} else if (reference == CmlPackage.Literals.ACTOR__PARTY) {
 			if (context instanceof Actor) {
-				val attributes = context.containingClass.attributes;
-				val candidates = attributes.filter(a|(a.type.typeOf as Class)?.classHierarchyWithObject.exists[conformsToParty])
+				var attributes = context.containingClass.attributes;
+				var candidates = attributes.filter(
+					a |
+						(a.type.typeOf as Class)?.classHierarchyWithObject.exists[conformsToParty]
+				)
 				return Scopes.scopeFor(candidates)
 			}
 		} else if (reference == CmlPackage.Literals.ATOMIC_ACTION__ACTION) {
 			if (context instanceof AtomicAction) {
-				val clause = EcoreUtil2.getContainerOfType(context, Clause)
+				var clause = EcoreUtil2.getContainerOfType(context, Clause)
 				if (clause?.actor?.party?.type !== null) {
-					val allActions = (clause.actor.party.type.type as Class).operations
+					var allActions = (clause.actor.party.type.type as Class).operations
 					return Scopes.scopeFor(allActions)
-					//return Scopes.scopeFor(allActions.filter[context.args.size == args.size])
+				// return Scopes.scopeFor(allActions.filter[context.args.size == args.size])
 				}
-				/*if (clause?.actor?.party?.type !== null) {
-					val allActions = (clause.actor.party.typeOf as Class).operations
-					return Scopes.scopeFor(allActions)
-					//return Scopes.scopeFor(allActions.filter[context.args.size == args.size])
-				}*/
 			}
-		}
-		else if (reference == CmlPackage.Literals.ATOMIC_ACTION__ARGS) {
+		} else if (reference == CmlPackage.Literals.ATOMIC_ACTION__ARGS) {
 			if (context instanceof AtomicAction) {
 				if (context.action !== null) {
-					val args = EcoreUtil2.getAllContentsOfType(context.action, Parameter)
+					var args = EcoreUtil2.getAllContentsOfType(context.action, Parameter)
 					return Scopes.scopeFor(args);
 				}
 			}
 		}
-		
+
 		return super.getScope(context, reference)
 	}
-	
+
 	def protected IScope scopeForLocalRef(EObject context) {
-		val container = context.eContainer
+		var container = context.eContainer
 		return switch (container) {
-			Operation:
-				Scopes.scopeFor(container.params)
+			AtomicAction:
+				Scopes.scopeFor(container.action.params, scopeForLocalRef(container))
+			Class: {
+				var parentScope = IScope::NULLSCOPE
+				var features = container.attributes
+				for (c : container.classHierarchyWithObject.toArray().reverseView) {
+					parentScope = Scopes::scopeFor((c as Class).attributes, parentScope)
+				}
+				return Scopes::scopeFor(features, parentScope)
+			}
 			default:
 				scopeForLocalRef(container)
 		}
 	}
-	
+
 	def protected IScope scopeForMemberSelection(MemberSelection sel) {
-		val type = sel.receiver.typeFor
+		var type = sel.receiver.typeFor
 
 		if (type === null || type.isPrimitive)
 			return IScope.NULLSCOPE
 
 		if (type instanceof Class) {
 			var parentScope = IScope::NULLSCOPE
-				if (type === null || type.isPrimitive)
-					return parentScope
-				if (type instanceof Class) {
-					val features = (type as Class).selectedFeatures(sel)
-					val hierarchy = type.classHierarchyWithObject.toArray().reverseView
-					println(hierarchy)
-					for (c : type.classHierarchyWithObject.toArray().reverseView) {
-					  	parentScope = Scopes::scopeFor((c as Class).selectedFeatures(sel), parentScope)
-					}
-					return Scopes::scopeFor(features, parentScope)
-				}
+
+			var features = type.selectedFeatures(sel)
+			for (c : type.classHierarchyWithObject.toArray().reverseView) {
+				parentScope = Scopes::scopeFor((c as Class).selectedFeatures(sel), parentScope)
+			}
+			return Scopes::scopeFor(features, parentScope)
+
 		}
 	}
-	
+
 	def protected IScope scopeForEnumLiteral(EObject context) {
 		if (context instanceof EnumerationLiteral) {
 			var parentScope = IScope::NULLSCOPE
@@ -131,27 +116,10 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 				return parentScope
 		}
 	}
-	
-	/*
-	
-	override getScope(EObject context, EReference reference) {
-		if (reference == CmlPackage.Literals.MEMBER_SELECTION__MEMBER) {
-			if (context instanceof MemberSelection) {
-				var parentScope = IScope::NULLSCOPE
-				var type = context.receiver.typeFor
-				if (type === null || type.isPrimitiveType)
-					return parentScope
-				if (type instanceof Class) {
-					val features = (type as Class).selectedFeatures(context)
-					for (c : type.classHierarchyWithObject.reverseView) {
-					  	parentScope = Scopes::scopeFor(c.selectedFeatures(context), parentScope)
-					}
-					return Scopes::scopeFor(features, parentScope)
-				}
-			}
-		}
+
+	def protected IScope scopeForClass(Class c) {
 	}
-*/
+
 	def selectedFeatures(Class type, MemberSelection sel) {
 		if (sel.methodinvocation)
 			type.operations + type.attributes

@@ -3,6 +3,7 @@ namespace cml.lang
 class Object
 	objectOp()
 class Contract extends Object
+	anyone : Party
 	globals : Global
 	contractOp()
 class Party extends Object
@@ -15,7 +16,7 @@ class Integer extends Object
 class Boolean extends Object
 class Real extends Object
 class DateTime extends Object
-class Duration extends Time
+class Duration extends Object
 class Array extends Object
 class Global extends Object
 	now : DateTime
