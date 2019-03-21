@@ -21,6 +21,7 @@ import org.eclipse.emf.ecore.EReference
 import org.eclipse.xtext.EcoreUtil2
 import org.eclipse.xtext.scoping.IScope
 import org.eclipse.xtext.scoping.Scopes
+import at.ac.univie.swa.cml.Primitive
 
 /**
  * This class contains custom scoping description.
@@ -36,25 +37,21 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 
 	override getScope(EObject context, EReference reference) {
 		if (reference == CmlPackage.Literals.LOCAL_REFERENCE__REF) {
-			scopeForLocalRef(context)
+			return scopeForLocalRef(context)
 		} else if (context instanceof MemberSelection) {
 			return scopeForMemberSelection(context)
 		} else if (reference == CmlPackage.Literals.ENUMERATION_LITERAL__LITERAL) {
 			return scopeForEnumLiteral(context)
 		} else if (reference == CmlPackage.Literals.ACTOR__PARTY) {
 			if (context instanceof Actor) {
-				var attributes = context.containingClass.attributes;
-				var candidates = attributes.filter(
-					a |
-						(a.type.typeOf as Class)?.classHierarchyWithObject.exists[conformsToParty]
-				)
-				return Scopes.scopeFor(candidates)
+				//var candidates = context.containingClass.attributes.filter(a | a.typeOf.classHierarchyWithObject.exists[conformsToParty])
+				return Scopes.scopeFor(context.containingClass.attributes)
 			}
 		} else if (reference == CmlPackage.Literals.ATOMIC_ACTION__ACTION) {
 			if (context instanceof AtomicAction) {
 				var clause = EcoreUtil2.getContainerOfType(context, Clause)
 				if (clause?.actor?.party?.type !== null) {
-					var allActions = (clause.actor.party.type.type as Class).operations
+					var allActions = clause.actor.party.typeOf.operations
 					return Scopes.scopeFor(allActions)
 				// return Scopes.scopeFor(allActions.filter[context.args.size == args.size])
 				}
@@ -73,16 +70,16 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 
 	def protected IScope scopeForLocalRef(EObject context) {
 		var container = context.eContainer
+		// println(container.class.name)
 		return switch (container) {
 			AtomicAction:
 				Scopes.scopeFor(container.action.params, scopeForLocalRef(container))
 			Class: {
 				var parentScope = IScope::NULLSCOPE
-				var features = container.attributes
 				for (c : container.classHierarchyWithObject.toArray().reverseView) {
 					parentScope = Scopes::scopeFor((c as Class).attributes, parentScope)
 				}
-				return Scopes::scopeFor(features, parentScope)
+				return Scopes::scopeFor(container.attributes, parentScope)
 			}
 			default:
 				scopeForLocalRef(container)
@@ -97,12 +94,10 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 
 		if (type instanceof Class) {
 			var parentScope = IScope::NULLSCOPE
-
-			var features = type.selectedFeatures(sel)
 			for (c : type.classHierarchyWithObject.toArray().reverseView) {
 				parentScope = Scopes::scopeFor((c as Class).selectedFeatures(sel), parentScope)
 			}
-			return Scopes::scopeFor(features, parentScope)
+			return Scopes::scopeFor(type.selectedFeatures(sel), parentScope)
 
 		}
 	}
@@ -115,9 +110,6 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 			} else
 				return parentScope
 		}
-	}
-
-	def protected IScope scopeForClass(Class c) {
 	}
 
 	def selectedFeatures(Class type, MemberSelection sel) {

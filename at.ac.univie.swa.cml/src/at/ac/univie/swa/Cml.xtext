@@ -215,11 +215,8 @@ UnaryExpression returns Expression:
 
 SelectionExpression returns Expression:
 	PrimaryExpression 
-	(=>({MemberSelection.receiver=current} '.') member=[Feature]
-	(=>methodinvocation ?= '(' (args += Expression (',' args += Expression)* )?  ')' )?
-	//|=>({MemberSelection.receiver=current} isCollectionOperation?='->') coll=CollectionOperation
-	//(=>methodinvocation ?= '(' (args += Expression (',' args += Expression)* )?  ')' )?
-	);
+	(=> ({MemberSelection.receiver=current} '.') member=[Feature] 
+		(=> methodinvocation?='(' (args+=Expression (',' args+=Expression)*)? ')')?)*;
 
 PrimaryExpression returns Expression:	
 	LiteralExpression |
