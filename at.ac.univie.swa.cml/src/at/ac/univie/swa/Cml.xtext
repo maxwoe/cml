@@ -24,7 +24,7 @@ Contract returns Class:
 		 expr+=Expr)*
 	END;
 	
-Expr: // for testing
+Expr:
 	'exp' exp=Expression;
 	
 Feature:
