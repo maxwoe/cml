@@ -23,6 +23,7 @@ class CmlLib {
 	public val static LIB_PARTY = LIB_PACKAGE + ".Party"
 	public val static LIB_ASSET = LIB_PACKAGE + ".Asset"
 	public val static LIB_EVENT = LIB_PACKAGE + ".Event"
+	public val static LIB_ENUM = LIB_PACKAGE + ".Enum"
 	public val static LIB_CONTRACT = LIB_PACKAGE + ".Contract"
 	public val static LIB_COLLECTION = LIB_PACKAGE + ".Collection"
 	public val static LIB_SET = LIB_PACKAGE + ".Set"
@@ -78,6 +79,10 @@ class CmlLib {
 	
 	def getArrayClass(EObject context) {
 		getCmlClass(context, LIB_ARRAY)
+	}
+	
+	def getCmlEnumClass(EObject context) {
+		getCmlClass(context, LIB_ENUM)
 	}
 	
 	def getCmlClass(EObject context, String qn) {

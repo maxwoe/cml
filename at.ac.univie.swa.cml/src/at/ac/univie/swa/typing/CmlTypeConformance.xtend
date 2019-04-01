@@ -3,7 +3,6 @@ package at.ac.univie.swa.typing
 import at.ac.univie.swa.CmlLib
 import at.ac.univie.swa.CmlModelUtil
 import at.ac.univie.swa.cml.Class
-import at.ac.univie.swa.cml.Enumeration
 import at.ac.univie.swa.cml.Type
 import com.google.inject.Inject
 import org.eclipse.xtext.naming.IQualifiedNameProvider
@@ -16,12 +15,8 @@ class CmlTypeConformance {
 
 	def isConformant(Type c1, Type c2) {
 		switch (c1) {
-			Enumeration:
-				return c1 == c2
 			Class:
 				switch (c2) {
-					Enumeration:
-						false
 					Class:
 						return c1 == NULL_TYPE || // null can be assigned to everything
 							(conformToLibraryTypes(c1, c2)) || 
@@ -75,6 +70,10 @@ class CmlTypeConformance {
 	
 	def conformsToParty(Class c) {
 		c.fullyQualifiedName.toString == CmlLib::LIB_PARTY
+	}
+	
+	def conformsToEnum(Class c) {
+		c.fullyQualifiedName.toString == CmlLib::LIB_ENUM
 	}
 	
 	def conformsToAsset(Class c) {

@@ -9,19 +9,18 @@ import at.ac.univie.swa.cml.AtomicAction
 import at.ac.univie.swa.cml.Class
 import at.ac.univie.swa.cml.Clause
 import at.ac.univie.swa.cml.CmlPackage
-import at.ac.univie.swa.cml.Enumeration
 import at.ac.univie.swa.cml.EnumerationLiteral
 import at.ac.univie.swa.cml.MemberSelection
 import at.ac.univie.swa.cml.Parameter
 import at.ac.univie.swa.typing.CmlTypeConformance
 import at.ac.univie.swa.typing.CmlTypeProvider
+import java.util.Enumeration
 import javax.inject.Inject
 import org.eclipse.emf.ecore.EObject
 import org.eclipse.emf.ecore.EReference
 import org.eclipse.xtext.EcoreUtil2
 import org.eclipse.xtext.scoping.IScope
 import org.eclipse.xtext.scoping.Scopes
-import at.ac.univie.swa.cml.Primitive
 
 /**
  * This class contains custom scoping description.
@@ -44,8 +43,8 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 			return scopeForEnumLiteral(context)
 		} else if (reference == CmlPackage.Literals.ACTOR__PARTY) {
 			if (context instanceof Actor) {
-				//var candidates = context.containingClass.attributes.filter(a | a.typeOf.classHierarchyWithObject.exists[conformsToParty])
-				return Scopes.scopeFor(context.containingClass.attributes)
+				var candidates = context.containingClass.attributes.filter(a | a.typeOf.classHierarchyWithObject.exists[conformsToParty])
+				return Scopes.scopeFor(candidates)
 			}
 		} else if (reference == CmlPackage.Literals.ATOMIC_ACTION__ACTION) {
 			if (context instanceof AtomicAction) {
@@ -105,8 +104,12 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 	def protected IScope scopeForEnumLiteral(EObject context) {
 		if (context instanceof EnumerationLiteral) {
 			var parentScope = IScope::NULLSCOPE
-			if (context.enumeration instanceof Enumeration) {
-				return Scopes::scopeFor(context.enumeration.elements, parentScope)
+			
+			if (context.enumeration === null || context.enumeration.isPrimitive)
+				return parentScope
+			
+			if (context.enumeration.classHierarchyWithObject.exists[conformsToEnum]) {
+				return Scopes::scopeFor(context.enumeration.enumElements, parentScope)
 			} else
 				return parentScope
 		}

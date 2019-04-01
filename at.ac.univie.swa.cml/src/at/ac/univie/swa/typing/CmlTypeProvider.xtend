@@ -49,7 +49,7 @@ class CmlTypeProvider {
 
 	val ep = CmlPackage::eINSTANCE
 
-	def Type typeFor(Expression e) {
+	def Class typeFor(Expression e) {
 		switch (e) {
 			SelfExpression:
 				return e.containingClass
@@ -115,7 +115,7 @@ class CmlTypeProvider {
 		}
 	}
 
-	def Type expectedType(Expression exp) {
+	def Class expectedType(Expression exp) {
 		val container = exp.eContainer
 		val feature = exp.eContainingFeature
 		switch (container) {

@@ -11,6 +11,7 @@ class Party extends Object
 class Asset extends Object
 class Event extends Object
 
+abstract class Enum extends Object
 class String extends Object
 class Integer extends Object
 class Boolean extends Object

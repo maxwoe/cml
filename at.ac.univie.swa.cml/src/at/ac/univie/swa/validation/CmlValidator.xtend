@@ -8,7 +8,6 @@ import at.ac.univie.swa.cml.Attribute
 import at.ac.univie.swa.cml.Class
 import at.ac.univie.swa.cml.CmlPackage
 import at.ac.univie.swa.cml.CmlProgram
-import at.ac.univie.swa.cml.Enumeration
 import at.ac.univie.swa.cml.Expression
 import at.ac.univie.swa.cml.MemberSelection
 import at.ac.univie.swa.cml.NamedElement
@@ -79,7 +78,7 @@ class CmlValidator extends AbstractCmlValidator {
 	
 	@Check 
 	def void checkIdentityDefinition(Class c) {
-		if (c.id === null && !c.classHierarchy.exists[id !== null]) {
+		if (c.id === null && !c.kind.equals("class") && !c.classHierarchy.exists[id !== null]) {
 			error("'" + c.name + "' is not abstract. It must define and identifying attribute.",
 				CmlPackage::eINSTANCE.class_Superclass,
 				HIERARCHY_CYCLE,
@@ -91,16 +90,12 @@ class CmlValidator extends AbstractCmlValidator {
 	def void checkNoDuplicateClasses(CmlProgram cmlp) {
 		checkNoDuplicateElements(cmlp.classes, "class")
 	}
-	
-	@Check 
-	def void checkNoDuplicateEnumerations(CmlProgram cmlp) {
-		checkNoDuplicateElements(cmlp.enumerations, "enumeration")
-	}
 
 	@Check 
 	def void checkNoDuplicateFeatures(Class c) {
 		checkNoDuplicateElements(c.attributes, "attribute")
 		checkNoDuplicateElements(c.operations, "operation")
+		checkNoDuplicateElements(c.enumElements, "enumeration literal")
 	}
 
 	@Check 
@@ -108,11 +103,6 @@ class CmlValidator extends AbstractCmlValidator {
 		checkNoDuplicateElements(o.params, "parameter")
 	}
 
-	@Check
-	def void checkNoDuplicateEnumerationLiterals(Enumeration e) {
-		checkNoDuplicateElements(e.elements, "enumeration literal")
-	}
-	
 	/*
 	@Check
 	def void checkCorrectPropertyType(Feature feature){

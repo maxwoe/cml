@@ -7,11 +7,7 @@ generate cml 'http://swa.univie.ac.at/Cml'
 CmlProgram:
 	('namespace' name=QualifiedName)?
 	imports+=Import*
-	(classes+=Class |
-	parties+=Party |
-	assets+=Asset |
-	events+=Event |
-	enumerations+=Enumeration |
+	(model+=ModelElement |
 	contracts+=Contract)*;
 
 Import:
@@ -28,13 +24,16 @@ Expr:
 	'exp' exp=Expression;
 	
 Feature:
-	AttributeWithInitExpr | Operation | Clause;
+	AttributeWithInitExpr | Operation | Clause | EnumerationElement;
 	
 FeatureAttribute returns Feature:  
 	Attribute;
 	
 FeatureAttributeAndOperation returns Feature:
 	Attribute | Operation;
+
+FeatureEnumeration returns Feature:
+	EnumerationElement;
 	
 Operation:
 	visibility=Visibility? name=ID '(' (params+=Parameter (',' params+=Parameter)*)? ')' (':' type=ReturnType)?;
@@ -52,7 +51,7 @@ enum Visibility:
 	PUBLIC='public' | PRIVATE='private' | PROTECTED='protected';
 
 Type:
-	Class | Enumeration | Collection | Array;
+	Class | Collection | Array;
 
 Attribute:
 	name=ID (':'|isReference?='->') type=Container;
@@ -72,7 +71,7 @@ Collection:
 CollectionType:
 	{Set} name='Set' | {Bag} name='Bag' /* | {Sequence} name='Sequence' | {OrderedSet} name='OrderedSet'*/;
 
-ContractModel:
+ModelElement:
 	Class | Party | Asset | Event | Enumeration;
 
 Class:
@@ -99,10 +98,10 @@ Event returns Class:
 		features+=FeatureAttribute+
 	END)?;
 
-Enumeration:
-	'enum' name=ID
+Enumeration returns Class:
+	kind='enum' name=ID
 	BEGIN
-		elements+=EnumerationElement*
+		features+=FeatureEnumeration+
 	END;
 
 EnumerationElement:
@@ -240,7 +239,7 @@ LiteralExpression returns Expression:
 	{DurationLiteral} value=INT unit=TimeUnit |
 	{DateTimeLiteral} value=DATE |
 	{NullLiteral} 'null' |
-	{EnumerationLiteral} enumeration=[Enumeration|QualifiedName] '::' literal=[EnumerationElement];
+	{EnumerationLiteral} enumeration=[Class|QualifiedName] '::' literal=[EnumerationElement];
 
 enum TimeUnit: 
 	MINUTE='minutes'|

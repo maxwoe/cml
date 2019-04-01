@@ -6,7 +6,6 @@ import at.ac.univie.swa.cml.Class
 import at.ac.univie.swa.cml.CmlProgram
 import at.ac.univie.swa.cml.Collection
 import at.ac.univie.swa.cml.Container
-import at.ac.univie.swa.cml.Enumeration
 import at.ac.univie.swa.cml.Feature
 import at.ac.univie.swa.cml.Operation
 import at.ac.univie.swa.cml.Primitive
@@ -16,25 +15,30 @@ import com.google.inject.Inject
 import org.eclipse.emf.ecore.EObject
 
 import static extension org.eclipse.xtext.EcoreUtil2.*
+import at.ac.univie.swa.cml.EnumerationElement
 
 class CmlModelUtil {
 
 	@Inject extension CmlLib
 
+	def classes(CmlProgram p) {
+		p.model.filter(Class)
+	}
+	
+	def enumElements(Class c) {
+		c.features.filter(EnumerationElement)
+	}
+	
 	def attributes(Class c) {
 		c.features.filter(Attribute)
 	}
-
+	
 	def operations(Class c) {
 		c.features.filter(Operation)
 	}
 
 	def containingClass(EObject e) {
 		e.getContainerOfType(Class)
-	}
-
-	def containingEnumeration(EObject e) {
-		e.getContainerOfType(Enumeration)
 	}
 
 	def containingCmlProgram(EObject e) {
@@ -67,11 +71,10 @@ class CmlModelUtil {
 	def typeName(Type t) {
 		switch (t) {
 			Class: t.name
-			Enumeration: t.name
 		}
 	}
 
-	def typeOf(Feature f) {
+	def Class typeOf(Feature f) {
 		switch (f) {
 			Attribute: typeOf(f)
 			Operation: typeOf(f)
@@ -85,7 +88,10 @@ class CmlModelUtil {
 	def typeOf(Container c) {
 		switch (c) {
 			Primitive:
-				c.type as Class
+				if (c.type instanceof Class)
+					c.type as Class
+				else
+					c.cmlObjectClass
 			Collection:
 				switch (c.collectionType.name) {
 					case "Set": c.setClass
@@ -122,6 +128,7 @@ class CmlModelUtil {
 			case "party": visited.add(c.cmlPartyClass)
 			case "asset": visited.add(c.cmlAssetClass)
 			case "event": visited.add(c.cmlEventClass)
+			case "enum": visited.add(c.cmlEnumClass)
 			case "contract": visited.add(c.cmlContractClass)
 		}
 
