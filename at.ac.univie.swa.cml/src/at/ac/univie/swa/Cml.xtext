@@ -12,19 +12,9 @@ CmlProgram:
 
 Import:
 	'import' importedNamespace = QualifiedNameWithWildcard;
-	
-Contract returns Class:
-	kind='contract' name=ID ('extends' superclass=[Class|QualifiedName])?
-	BEGIN
-		(features+=Feature |
-		 expr+=Expr)*
-	END;
-	
-Expr:
-	'exp' exp=Expression;
-	
+			
 Feature:
-	AttributeWithInitExpr | Operation | Clause | EnumerationElement;
+	Attribute | Operation | Clause | EnumerationElement;
 	
 FeatureAttribute returns Feature:  
 	Attribute;
@@ -32,11 +22,41 @@ FeatureAttribute returns Feature:
 FeatureAttributeAndOperation returns Feature:
 	Attribute | Operation;
 
+FeatureAttributeAndClause returns Feature:
+	AttributeWithInitExpr | Clause;
+	
 FeatureEnumeration returns Feature:
 	EnumerationElement;
 	
 Operation:
-	visibility=Visibility? name=ID '(' (params+=Parameter (',' params+=Parameter)*)? ')' (':' type=ReturnType)?;
+	visibility=Visibility? name=ID '(' (params+=Parameter (',' params+=Parameter)*)? ')' (':' type=ReturnType)?
+	body=Block;
+
+Block:
+	{Block} 
+	BEGIN 
+		statements+=Statement* 
+	END;
+
+Statement:
+	VariableDeclaration |
+	Return |
+	Expression |
+	IfStatement;
+
+VariableDeclaration:
+	type=Container name=ID '=' expression=Expression;
+
+Return:
+	{Return} 'return' expression=Expression;
+
+IfStatement:
+	'if' '(' expression=Expression ')' thenBlock=IfBlock
+	(=>'else' elseBlock=IfBlock)?;
+
+IfBlock returns Block:
+	statements+=Statement | 
+	Block;
 
 Parameter:
 	type=Container name=ID;
@@ -80,14 +100,20 @@ Class:
 		features+=FeatureAttributeAndOperation*
 	END)?;
 
-Party returns Class:
-	kind='party' name=ID ('identified' 'by' id=[Attribute])? ('extends' superclass=[Class|QualifiedName])? 
+Contract returns Class:
+	kind='contract' name=ID ('extends' superclass=[Class|QualifiedName])?
 	BEGIN
-		 features+=FeatureAttributeAndOperation+
+		features+=FeatureAttributeAndClause*
+	END;
+	
+Party returns Class:
+	kind='party' name=ID ('identifier' id=[Attribute])? ('extends' superclass=[Class|QualifiedName])? 
+	BEGIN
+		 features+=FeatureAttribute+
 	END;
 	
 Asset returns Class:
-	kind='asset' name=ID ('identified' 'by' id=[Attribute])? ('extends' superclass=[Class|QualifiedName])? 
+	kind='asset' name=ID ('identifier' id=[Attribute])? ('extends' superclass=[Class|QualifiedName])? 
 	BEGIN
 		features+=FeatureAttribute+
 	END;
@@ -149,7 +175,7 @@ AtomicCompoundAction returns CompoundAction:
 	'(' CompoundAction ')' | AtomicAction;
 
 AtomicAction:
-	action=[Operation] '(' (args+=[Parameter] (',' args+=[Parameter])*)? ')'
+	name=ID '(' (params+=Parameter (',' params+=Parameter)*)? ')' (':' type=ReturnType)?
 	(BEGIN
 		'pre' preCondition=Expression
 		('post' postCondition=Expression)?
@@ -222,14 +248,14 @@ PrimaryExpression returns Expression:
 	{SelfExpression} 'self' |
 	{SuperExpression} 'super' |
 	{CallerExpression} 'caller' |
-	{LocalReference} ref=[Local] |
+	{SymbolReference} ref=[Symbol] |
 	'(' Expression ')';
 	
-Local:
-	Attribute | Parameter;
+Symbol:
+	Attribute | Parameter | VariableDeclaration;
 
 NamedElement:
-	Class | Feature | Local | Enumeration | EnumerationElement;
+	Class | Feature | Symbol;
 	
 LiteralExpression returns Expression:
 	{IntegerLiteral} value=INT |

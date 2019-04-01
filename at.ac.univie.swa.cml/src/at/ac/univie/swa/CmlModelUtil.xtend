@@ -16,13 +16,28 @@ import org.eclipse.emf.ecore.EObject
 
 import static extension org.eclipse.xtext.EcoreUtil2.*
 import at.ac.univie.swa.cml.EnumerationElement
+import at.ac.univie.swa.cml.Block
+import at.ac.univie.swa.cml.Return
+import at.ac.univie.swa.cml.Clause
 
 class CmlModelUtil {
 
 	@Inject extension CmlLib
 
+	def returnStatement(Operation o) {
+		o.body.returnStatement
+	}
+
+	def returnStatement(Block b) {
+		b.statements.filter(Return).head
+	}
+
 	def classes(CmlProgram p) {
 		p.model.filter(Class)
+	}
+	
+	def clauses(Class c) {
+		c.features.filter(Clause)
 	}
 	
 	def enumElements(Class c) {

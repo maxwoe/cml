@@ -38,6 +38,10 @@ class CmlTypeConformance {
 		(c1.conformsToDuration && c2.conformsToDuration)
 	}
 
+	def conformsToVoid(Class c) {
+		c == VOID_TYPE 
+	}
+	
 	def conformsToString(Class c) {
 		c == STRING_TYPE || 
 		c.fullyQualifiedName.toString == CmlLib::LIB_STRING

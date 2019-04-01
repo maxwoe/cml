@@ -21,6 +21,9 @@ import org.eclipse.emf.ecore.EReference
 import org.eclipse.xtext.EcoreUtil2
 import org.eclipse.xtext.scoping.IScope
 import org.eclipse.xtext.scoping.Scopes
+import at.ac.univie.swa.cml.Block
+import at.ac.univie.swa.cml.VariableDeclaration
+import at.ac.univie.swa.cml.Operation
 
 /**
  * This class contains custom scoping description.
@@ -35,8 +38,8 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 	@Inject extension CmlTypeConformance
 
 	override getScope(EObject context, EReference reference) {
-		if (reference == CmlPackage.Literals.LOCAL_REFERENCE__REF) {
-			return scopeForLocalRef(context)
+		if (reference == CmlPackage.Literals.SYMBOL_REFERENCE__REF) {
+			return scopeForSymbolRef(context)
 		} else if (context instanceof MemberSelection) {
 			return scopeForMemberSelection(context)
 		} else if (reference == CmlPackage.Literals.ENUMERATION_LITERAL__LITERAL) {
@@ -46,7 +49,7 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 				var candidates = context.containingClass.attributes.filter(a | a.typeOf.classHierarchyWithObject.exists[conformsToParty])
 				return Scopes.scopeFor(candidates)
 			}
-		} else if (reference == CmlPackage.Literals.ATOMIC_ACTION__ACTION) {
+		} /*else if (reference == CmlPackage.Literals.ATOMIC_ACTION__ACTION) {
 			if (context instanceof AtomicAction) {
 				var clause = EcoreUtil2.getContainerOfType(context, Clause)
 				if (clause?.actor?.party?.type !== null) {
@@ -62,17 +65,23 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 					return Scopes.scopeFor(args);
 				}
 			}
-		}
+		}*/
 
 		return super.getScope(context, reference)
 	}
 
-	def protected IScope scopeForLocalRef(EObject context) {
+	def protected IScope scopeForSymbolRef(EObject context) {
 		var container = context.eContainer
 		// println(container.class.name)
 		return switch (container) {
+			Operation:
+				Scopes.scopeFor(container.params, scopeForSymbolRef(container))
 			AtomicAction:
-				Scopes.scopeFor(container.action.params, scopeForLocalRef(container))
+				Scopes.scopeFor(container.params, scopeForSymbolRef(container))
+			Block:
+				Scopes.scopeFor(
+					container.statements.takeWhile[it != context].filter(VariableDeclaration),
+					scopeForSymbolRef(container))
 			Class: {
 				var parentScope = IScope::NULLSCOPE
 				for (c : container.classHierarchyWithObject.toArray().reverseView) {
@@ -81,7 +90,7 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 				return Scopes::scopeFor(container.attributes, parentScope)
 			}
 			default:
-				scopeForLocalRef(container)
+				scopeForSymbolRef(container)
 		}
 	}
 

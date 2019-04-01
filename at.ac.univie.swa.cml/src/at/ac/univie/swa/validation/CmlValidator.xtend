@@ -5,6 +5,7 @@ package at.ac.univie.swa.validation
 
 import at.ac.univie.swa.CmlModelUtil
 import at.ac.univie.swa.cml.Attribute
+import at.ac.univie.swa.cml.Block
 import at.ac.univie.swa.cml.Class
 import at.ac.univie.swa.cml.CmlPackage
 import at.ac.univie.swa.cml.CmlProgram
@@ -12,14 +13,19 @@ import at.ac.univie.swa.cml.Expression
 import at.ac.univie.swa.cml.MemberSelection
 import at.ac.univie.swa.cml.NamedElement
 import at.ac.univie.swa.cml.Operation
-import at.ac.univie.swa.cml.SelfExpression
+import at.ac.univie.swa.cml.Return
 import at.ac.univie.swa.cml.SuperExpression
+import at.ac.univie.swa.cml.VariableDeclaration
+import at.ac.univie.swa.scoping.CmlIndex
 import at.ac.univie.swa.typing.CmlTypeConformance
 import at.ac.univie.swa.typing.CmlTypeProvider
 import com.google.common.collect.HashMultimap
 import com.google.inject.Inject
 import org.eclipse.xtext.naming.IQualifiedNameProvider
 import org.eclipse.xtext.validation.Check
+import org.eclipse.xtext.validation.CheckType
+
+import static extension org.eclipse.xtext.EcoreUtil2.*
 
 /**
  * This class contains custom validation rules. 
@@ -32,21 +38,23 @@ class CmlValidator extends AbstractCmlValidator {
 	@Inject extension CmlModelUtil
 	@Inject extension CmlTypeProvider
 	@Inject extension CmlTypeConformance
-
-	public static val HIERARCHY_CYCLE = "HIERARCHY_CYCLE_DETECTED"
-	public static val DUPLICATE_CLASS = "DUPLICATE_CLASS" 
-	public static val DUPLICATE_ELEMENT = "DUPLICATE_ELEMENT" 
-	public static val WRONG_TYPE = "WRONG_TYPE"
-	public static val PROPERTY_SELECTION_ON_METHOD = "FIELD_SELECTION_ON_METHOD"
-	public static val WRONG_SUPER_USAGE = "WRONG_SUPER_USAGE"
-	public static val WRONG_SELF_USAGE = "WRONG_SELF_USAGE"
-	public static val MULTIPLICITY_INCONSISTENCY="MULTIPLICITY_INCONSISTENCY"
-	public static val INVALID_ABSTRACT_OPERATION = "INVALID_ABSTRACT_OPERATION"
-	public static val ABSTRACT_OP_INSIDE_NONABSTRACT_CLASS = "ABSTRACT_OP_INSIDE_NONABSTRACT_CLASS" 
-	public static val INCOMPATIBLE_TYPES = "INCOMPATIBLE_TYPES"	
-	public static val INCOMPATIBLE_TYPE = "INCOMPATIBLE_TYPE"	
-	public static val OPPOSITE_INCONSISTENCY = "OPPOSITE_INCONSISTENCY"
-	public static val DECLARATION_WITHIN_BLOCK = "DECLARATION_WITHIN_BLOCK"
+	@Inject extension CmlIndex
+	
+	protected static val ISSUE_CODE_PREFIX = "cml.lang."
+	public static val HIERARCHY_CYCLE = ISSUE_CODE_PREFIX + "HierarchyCycle"
+	public static val FIELD_SELECTION_ON_METHOD = ISSUE_CODE_PREFIX + "FieldSelectionOnMethod"
+	public static val METHOD_INVOCATION_ON_FIELD = ISSUE_CODE_PREFIX + "MethodInvocationOnField"
+	public static val UNREACHABLE_CODE = ISSUE_CODE_PREFIX + "UnreachableCode"
+	public static val MISSING_FINAL_RETURN = ISSUE_CODE_PREFIX + "MissingFinalReturn"
+	public static val DUPLICATE_ELEMENT = ISSUE_CODE_PREFIX + "DuplicateElement"
+	public static val INCOMPATIBLE_TYPES = ISSUE_CODE_PREFIX + "IncompatibleTypes"
+	public static val INVALID_ARGS = ISSUE_CODE_PREFIX + "InvalidArgs"
+	public static val WRONG_METHOD_OVERRIDE = ISSUE_CODE_PREFIX + "WrongMethodOverride"
+	public static val MEMBER_NOT_ACCESSIBLE = ISSUE_CODE_PREFIX + "MemberNotAccessible"
+	public static val DUPLICATE_CLASS = ISSUE_CODE_PREFIX + "DuplicateClass"
+	public static val WRONG_SUPER_USAGE = ISSUE_CODE_PREFIX + "WrongSuperUsage"
+	public static val REDUCED_ACCESSIBILITY = ISSUE_CODE_PREFIX + "ReducedAccessibility"
+	public static val OPPOSITE_INCONSISTENCY = ISSUE_CODE_PREFIX + "OppositeInconsistency"
 	
 	@Check
     def void checkNameStartsWithCapital(Class c) {
@@ -78,7 +86,7 @@ class CmlValidator extends AbstractCmlValidator {
 	
 	@Check 
 	def void checkIdentityDefinition(Class c) {
-		if (c.id === null && !c.kind.equals("class") && !c.classHierarchy.exists[id !== null]) {
+		if (c.id === null && (!c.kind.equals("class") || !c.isAbstract) && !c.classHierarchy.exists[id !== null]) {
 			error("'" + c.name + "' is not abstract. It must define and identifying attribute.",
 				CmlPackage::eINSTANCE.class_Superclass,
 				HIERARCHY_CYCLE,
@@ -95,14 +103,29 @@ class CmlValidator extends AbstractCmlValidator {
 	def void checkNoDuplicateFeatures(Class c) {
 		checkNoDuplicateElements(c.attributes, "attribute")
 		checkNoDuplicateElements(c.operations, "operation")
+		checkNoDuplicateElements(c.clauses, "clause")
 		checkNoDuplicateElements(c.enumElements, "enumeration literal")
 	}
-
+	
 	@Check 
-	def void checkNoDuplicateLocals(Operation o) {
+	def void checkNoDuplicateSymbols(Operation o) {
 		checkNoDuplicateElements(o.params, "parameter")
+		checkNoDuplicateElements(o.body.getAllContentsOfType(VariableDeclaration), "variable")
 	}
-
+	
+	// perform this check only on file save
+	@Check(CheckType.NORMAL)
+	def checkDuplicateClassesInFiles(CmlProgram p) {
+		val externalClasses = p.getVisibleExternalClassesDescriptions
+		for (c : p.classes) {
+			val className = c.fullyQualifiedName
+			if (externalClasses.containsKey(className)) {
+				error("The type " + c.name + " is already defined", c, CmlPackage.eINSTANCE.namedElement_Name,
+					DUPLICATE_CLASS)
+			}
+		}
+	}
+	
 	/*
 	@Check
 	def void checkCorrectPropertyType(Feature feature){
@@ -119,36 +142,60 @@ class CmlValidator extends AbstractCmlValidator {
 	}*/
 	
 	@Check
-	def void checkMemberSelection(MemberSelection sel){
-		if(sel !== null){
-//			if(sel.coll != null && !sel.methodinvocation){
-//				error("Collection Operation invocation without correct parentheses",
-//					CmlPackage::eINSTANCE.memberSelection_Methodinvocation,
-//					PROPERTY_SELECTION_ON_METHOD)
-//			}
-			if(sel.member !== null && sel.member instanceof Attribute && sel.methodinvocation)
-				error("Operation invocation on Attribute '" + sel.member.name + "'",
-					CmlPackage::eINSTANCE.memberSelection_Member,
-					PROPERTY_SELECTION_ON_METHOD)
-			if(sel.member !== null && sel.member instanceof Operation && !sel.methodinvocation)
-				error("Property selection on the Operation '" + sel.member.name + "'",
-					CmlPackage::eINSTANCE.memberSelection_Methodinvocation,
-					PROPERTY_SELECTION_ON_METHOD)
+	def void checkMemberSelection(MemberSelection sel) {
+		val member = sel.member
+
+		if (member instanceof Attribute && sel.methodinvocation)
+			error(
+				'''Method invocation on a field''', CmlPackage.eINSTANCE.memberSelection_Methodinvocation,
+				METHOD_INVOCATION_ON_FIELD)
+		else if (member instanceof Operation && !sel.methodinvocation)
+			error(
+				'''Field selection on a method''',
+				CmlPackage.eINSTANCE.memberSelection_Member,
+				FIELD_SELECTION_ON_METHOD
+			)
+	}
+	
+	@Check
+	def void checkUnreachableCode(Block block) {
+		val statements = block.statements
+		for (var i = 0; i < statements.length - 1; i++) {
+			if (statements.get(i) instanceof Return) {
+				error("Unreachable code", statements.get(i + 1), null, UNREACHABLE_CODE)
+				return
+			}
 		}
 	}
 
 	@Check
-	def void checkSuperAsReceiverOnly(SuperExpression e){
-		if(e.eContainingFeature != CmlPackage::eINSTANCE.memberSelection_Receiver)
-			error("'super' can only be used as a selection receiver (e.g., super.toString())",
-				null, WRONG_SUPER_USAGE)
+	def void checkMethodEndsWithReturn(Operation o) {
+		if (o.returnStatement === null && !o.typeOf.conformsToVoid) {
+			error("Method must end with a return statement", CmlPackage.eINSTANCE.operation_Body, MISSING_FINAL_RETURN)
+		}
 	}
+	
+	/* @Check
+	def void checkCorrectReturnUse(Return stmnt){
+		val returntype = stmnt.containingOperation.type
+		switch(returntype){
+			VoidType:
+				if(stmnt.expression !== null)
+					error("Return statement should be empty within void return type operation '" + stmnt.containingOperation.name + "'",
+						CmlPackage::eINSTANCE.return_Expression,
+						INCOMPATIBLE_TYPES)
+			default:
+				if(stmnt.expression === null)
+					error("Return statement should not be empty within operation '" + stmnt.containingOperation.name + "'",
+						null,
+						INCOMPATIBLE_TYPES)	
+		}
+	}*/
 
 	@Check
-	def void checkSelfAsReceiverOnly(SelfExpression e){
-		if(e.eContainingFeature != CmlPackage::eINSTANCE.memberSelection_Receiver)
-			error("'self' can only be used as a selection receiver (e.g., super.toString())",
-				null, WRONG_SELF_USAGE)
+	def void checkSuper(SuperExpression s) {
+		if (s.eContainingFeature != CmlPackage.eINSTANCE.memberSelection_Receiver)
+			error("'super' can be used only as member selection receiver", null, WRONG_SUPER_USAGE)
 	}
 	
 //	@Check
@@ -188,23 +235,6 @@ class CmlValidator extends AbstractCmlValidator {
 	
 	/* 
 	@Check
-	def void checkCorrectReturnUse(ReturnStmt stmt){
-		val returntype = stmt.containingOperation.type
-		switch(returntype){
-			VoidType:
-				if(stmt.expression != null)
-					error("Return statement should be empty within void return type operation '" + stmt.containingOperation.name + "'",
-						CmlPackage::eINSTANCE.returnStmt_Expression,
-						WRONG_TYPE)
-			CollectionType:
-				if(stmt.expression == null)
-					error("Return statement should not be empty within operation '" + stmt.containingOperation.name + "'",
-						null,
-						WRONG_TYPE)	
-		}
-	}
-	
-	@Check
 	def void checkNoDeclarationOutsideOfOperationBlock(VariableDeclaration decl){
 		if(decl.containingBlock instanceof ConditionalBlock)
 			error("Variable declaration allowed only in operations' top-level block", 
@@ -217,6 +247,14 @@ class CmlValidator extends AbstractCmlValidator {
 	def void checkCollectionLiteralWithSameType(CollectionLiteral lit){
 	}*/
 	
+	@Check
+	def void checkAttribute(Attribute a) {
+		if (a.isReference && !a.typeOf.kind.equals("asset") && !a.typeOf.kind.equals("party")) {
+			error("Relationship '" + a.name + "' cannot be to primitive type '" + a.type.typeOf.name, null,
+				OPPOSITE_INCONSISTENCY)
+		}
+	}
+
 	def private void checkNoDuplicateElements(Iterable<? extends NamedElement> elements, String desc) {
 		val multiMap = HashMultimap.create()
 

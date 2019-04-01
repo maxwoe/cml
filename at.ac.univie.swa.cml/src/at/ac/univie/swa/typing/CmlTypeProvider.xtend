@@ -15,7 +15,6 @@ import at.ac.univie.swa.cml.EqualityExpression
 import at.ac.univie.swa.cml.Expression
 import at.ac.univie.swa.cml.ImpliesExpression
 import at.ac.univie.swa.cml.IntegerLiteral
-import at.ac.univie.swa.cml.LocalReference
 import at.ac.univie.swa.cml.MemberSelection
 import at.ac.univie.swa.cml.MultiplicativeExpression
 import at.ac.univie.swa.cml.NullLiteral
@@ -33,6 +32,9 @@ import com.google.inject.Inject
 import at.ac.univie.swa.cml.Attribute
 import at.ac.univie.swa.cml.TimeConstraint
 import at.ac.univie.swa.cml.PeriodicTime
+import at.ac.univie.swa.cml.SymbolReference
+import at.ac.univie.swa.cml.Return
+import at.ac.univie.swa.cml.VariableDeclaration
 
 class CmlTypeProvider {
 	@Inject extension CmlLib
@@ -55,7 +57,7 @@ class CmlTypeProvider {
 				return e.containingClass
 			SuperExpression:
 				return e.containingClass.superclassOrObject
-			LocalReference:  
+			SymbolReference:  
 				e.ref.type.typeOf
 			NullLiteral:
 				return NULL_TYPE
@@ -78,8 +80,7 @@ class CmlTypeProvider {
 			AndExpression,
 			EqualityExpression,
 			RelationalExpression,
-			ImpliesExpression
-			:
+			ImpliesExpression:
 				return BOOLEAN_TYPE
 			AdditiveExpression,
 			MultiplicativeExpression:
@@ -119,6 +120,12 @@ class CmlTypeProvider {
 		val container = exp.eContainer
 		val feature = exp.eContainingFeature
 		switch (container) {
+			VariableDeclaration:
+				container.type.typeOf
+			Return:
+				container.containingOperation.typeOf
+			case feature == ep.ifStatement_Expression:
+				BOOLEAN_TYPE
 			PeriodicTime case feature == ep.periodicTime_Start,
 			PeriodicTime case feature == ep.periodicTime_End,
 			TimeConstraint case feature == ep.timeConstraint_Reference:
