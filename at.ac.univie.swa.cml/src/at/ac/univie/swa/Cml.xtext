@@ -92,28 +92,28 @@ Map:
 	mapType=('Map') '<' type=[Type|QualifiedName] '>';	
 	
 ModelElement:
-	Class | Party | Asset | Event | Enumeration;
+	Class | Party | Commodity | Event | Enumeration;
 
 Class:
-	(isAbstract?='abstract')? kind='class' ('<'typeVar=[Class|QualifiedName]|'?''>')? name=ID ('extends' superclass=[Class|QualifiedName])?
+	(abstract?='abstract')? kind='class' ('<'typeVar=[Class|QualifiedName]|'?''>')? name=ID ('extends' superclass=[Class|QualifiedName])?
 	(BEGIN
 		features+=FeatureAttributeAndOperation*
 	END)?;
 
 Contract returns Class:
-	(isAbstract?='abstract')? kind='contract' name=ID ('extends' superclass=[Class|QualifiedName])?
+	(abstract?='abstract')? kind='contract' name=ID ('extends' superclass=[Class|QualifiedName])?
 	BEGIN
 		features+=FeatureAttributeAndClause*
 	END;
 	
 Party returns Class:
-	(isAbstract?='abstract')? kind='party' name=ID ('identifier' id=[Attribute])? ('extends' superclass=[Class|QualifiedName])? 
+	(abstract?='abstract')? kind='party' name=ID ('identifier' id=[Attribute])? ('extends' superclass=[Class|QualifiedName])? 
 	BEGIN
 		 features+=FeatureAttribute+
 	END;
 	
-Asset returns Class:
-	(isAbstract?='abstract')? kind='asset' name=ID ('identifier' id=[Attribute])? ('extends' superclass=[Class|QualifiedName])? 
+Commodity returns Class:
+	(abstract?='abstract')? kind='commodity' name=ID ('identifier' id=[Attribute])? ('extends' superclass=[Class|QualifiedName])? 
 	BEGIN
 		features+=FeatureAttribute+
 	END;

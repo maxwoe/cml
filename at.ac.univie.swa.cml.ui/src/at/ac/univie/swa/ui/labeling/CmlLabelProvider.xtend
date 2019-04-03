@@ -28,7 +28,7 @@ class CmlLabelProvider extends DefaultEObjectLabelProvider {
 	}
 
 	def text(Feature f) {
-		new StyledString(f.featureAsString).append(new StyledString(" : " + f.typeOf.typeName,
+		new StyledString(f.featureAsString).append(new StyledString(" : " + f.inferType.typeName,
 			StyledString.DECORATIONS_STYLER))
 	}
 

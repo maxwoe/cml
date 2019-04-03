@@ -168,7 +168,7 @@ class CmlModelUtil {
 
 		switch (c.kind) {
 			case "party": visited.add(c.cmlPartyClass)
-			case "asset": visited.add(c.cmlAssetClass)
+			case "commodtiy": visited.add(c.cmlCommodityClass)
 			case "event": visited.add(c.cmlEventClass)
 			case "enum": visited.add(c.cmlEnumClass)
 			case "contract": visited.add(c.cmlContractClass)

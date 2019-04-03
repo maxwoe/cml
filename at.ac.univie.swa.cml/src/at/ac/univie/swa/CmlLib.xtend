@@ -21,7 +21,7 @@ class CmlLib {
 	public val static LIB_DURATION = LIB_PACKAGE + ".Duration"
 	public val static LIB_DATETIME = LIB_PACKAGE + ".DateTime"
 	public val static LIB_PARTY = LIB_PACKAGE + ".Party"
-	public val static LIB_ASSET = LIB_PACKAGE + ".Asset"
+	public val static LIB_COMMODITY = LIB_PACKAGE + ".Commodity"
 	public val static LIB_EVENT = LIB_PACKAGE + ".Event"
 	public val static LIB_ENUM = LIB_PACKAGE + ".Enum"
 	public val static LIB_CONTRACT = LIB_PACKAGE + ".Contract"
@@ -50,8 +50,8 @@ class CmlLib {
 		getCmlClass(context, LIB_PARTY)
 	}
 	
-	def getCmlAssetClass(EObject context) {
-		getCmlClass(context, LIB_ASSET)
+	def getCmlCommodityClass(EObject context) {
+		getCmlClass(context, LIB_COMMODITY)
 	}
 	
 	def getCmlEventClass(EObject context) {

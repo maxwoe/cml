@@ -5,7 +5,7 @@ class Contract extends Object
 	anyone : Party
 	globals : Global
 class Party extends Object
-class Asset extends Object
+class Commodity extends Object
 class Event extends Object
 
 abstract class Enum extends Object

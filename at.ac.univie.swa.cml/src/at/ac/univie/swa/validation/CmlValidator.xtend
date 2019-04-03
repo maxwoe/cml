@@ -89,7 +89,7 @@ class CmlValidator extends AbstractCmlValidator {
 	@Check 
 	def void checkIdentityDefinition(Class c) {
 		if ((c.kind.equals("party") || c.kind.equals("asset")) && c.id === null && !c.isAbstract && !c.classHierarchy.exists[id !== null]) {
-			error("'" + c.name + "' is not abstract. It must define and identifying attribute.",
+			error("'" + c.name + "' is not abstract. It must define an identifying attribute.",
 				null,
 				MISSING_IDENTITY_DEFINITION,
 				c.name)
@@ -248,10 +248,10 @@ class CmlValidator extends AbstractCmlValidator {
 	
 	@Check
 	def void checkAttribute(Attribute a) {
-		if ((a.isReference && a.type instanceof Primitive && !a.type.inferType.subclassOfParty && !a.type.inferType.subclassOfAsset)  ||
-			(a.isReference && a.type instanceof Primitive == false && !a.type.inferType.typeVar.subclassOfParty && !a.type.inferType.typeVar.subclassOfAsset))
+		if ((a.isReference && a.type instanceof Primitive && (a.type.inferType.isAbstract || (!a.type.inferType.subclassOfParty && !a.type.inferType.subclassOfCommodity)))  ||
+			(a.isReference && a.type instanceof Primitive == false && (a.type.inferType.typeVar.isAbstract || (!a.type.inferType.typeVar.subclassOfParty && !a.type.inferType.typeVar.subclassOfCommodity))))
 		{
-			error("Relationship '" + a.name + "' cannot be to type '" + a.type.inferType.typeName + "'", null,
+			error("Relationship '" + a.name + "' cannot be to type '" + a.type.inferType.typeName + "'",  null,
 				OPPOSITE_INCONSISTENCY)
 		}
 	}
