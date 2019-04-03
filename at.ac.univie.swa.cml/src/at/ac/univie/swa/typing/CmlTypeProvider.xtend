@@ -35,6 +35,9 @@ import at.ac.univie.swa.cml.UnaryExpression
 import at.ac.univie.swa.cml.VariableDeclaration
 import at.ac.univie.swa.cml.XorExpression
 import com.google.inject.Inject
+import at.ac.univie.swa.cml.AssignmentExpression
+import at.ac.univie.swa.cml.Switch
+import at.ac.univie.swa.cml.CasePart
 
 class CmlTypeProvider {
 	@Inject extension CmlLib
@@ -92,6 +95,8 @@ class CmlTypeProvider {
 				} else {
 					return BOOLEAN_TYPE
 				}
+			AssignmentExpression:
+				e.left.typeFor
 			MemberSelection:/* 
 				if (e.coll !== null && e.member === null) {
 					switch (e.coll) {
@@ -117,38 +122,44 @@ class CmlTypeProvider {
 		}
 	}
 
-	def Type expectedType(Expression exp) {
-		val container = exp.eContainer
-		val feature = exp.eContainingFeature
-		switch (container) {
-			AdditiveExpression case feature == ep.additiveExpression_Right:
-				container.left.typeFor
-			MultiplicativeExpression case feature == ep.multiplicativeExpression_Right:
-				container.left.typeFor
-			VariableDeclaration:
-				container.type.inferType
-			Return:
-				container.containingOperation.inferType
-			case feature == ep.ifStatement_Expression:
+	def Type expectedType(Expression e) {
+		val c = e.eContainer
+		val f = e.eContainingFeature
+		switch (c) {
+			CasePart case f == ep.casePart_Case:
+				c.containingSwitch.^switch.typeFor
+			AssignmentExpression case f == ep.assignmentExpression_Right:
+				c.left.typeFor
+			case f == ep.repeatLoop_Condition,
+			case f == ep.whileLoop_Condition,
+			case f == ep.if_Condition:
 				BOOLEAN_TYPE
-			PeriodicTime case feature == ep.periodicTime_Start,
-			PeriodicTime case feature == ep.periodicTime_End,
-			TimeConstraint case feature == ep.timeConstraint_Reference:
+			AdditiveExpression case f == ep.additiveExpression_Right:
+				c.left.typeFor
+			MultiplicativeExpression case f == ep.multiplicativeExpression_Right:
+				c.left.typeFor
+			VariableDeclaration:
+				c.type.inferType
+			Return:
+				c.containingOperation.inferType
+			PeriodicTime case f == ep.periodicTime_Start,
+			PeriodicTime case f == ep.periodicTime_End,
+			TimeConstraint case f == ep.timeConstraint_Reference:
 				DATETIME_TYPE
-			PeriodicTime case feature == ep.periodicTime_Period,
-			TimeConstraint case feature == ep.timeConstraint_Timeframe:
+			PeriodicTime case f == ep.periodicTime_Period,
+			TimeConstraint case f == ep.timeConstraint_Timeframe:
 				DURATION_TYPE
-			Attribute case feature == ep.attribute_InitExp:
-				container.type.inferType
-			RelationalExpression case feature == ep.relationalExpression_Right:
-				container.left.typeFor
-			EqualityExpression case feature == ep.equalityExpression_Right:
-				container.left.typeFor
-			MemberSelection case feature == ep.memberSelection_Args:
+			Attribute case f == ep.attribute_InitExp:
+				c.type.inferType
+			RelationalExpression case f == ep.relationalExpression_Right:
+				c.left.typeFor
+			EqualityExpression case f == ep.equalityExpression_Right:
+				c.left.typeFor
+			MemberSelection case f == ep.memberSelection_Args:
 				// assume that it refers to a method and that there
 				// is a parameter corresponding to the argument
 				try {
-					(container.member as Operation).params.get(container.args.indexOf(exp)).type.inferType
+					(c.member as Operation).params.get(c.args.indexOf(e)).type.inferType
 				} catch (Throwable t) {
 					null
 				}

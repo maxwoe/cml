@@ -27,6 +27,7 @@ import org.eclipse.xtext.validation.Check
 import org.eclipse.xtext.validation.CheckType
 
 import static extension org.eclipse.xtext.EcoreUtil2.*
+import at.ac.univie.swa.cml.VoidType
 
 /**
  * This class contains custom validation rules. 
@@ -177,7 +178,7 @@ class CmlValidator extends AbstractCmlValidator {
 		}
 	}
 	
-	/* @Check
+	@Check
 	def void checkCorrectReturnUse(Return stmnt){
 		val returntype = stmnt.containingOperation.type
 		switch(returntype){
@@ -192,7 +193,7 @@ class CmlValidator extends AbstractCmlValidator {
 						null,
 						INCOMPATIBLE_TYPES)	
 		}
-	}*/
+	}
 
 	@Check
 	def void checkSuper(SuperExpression s) {

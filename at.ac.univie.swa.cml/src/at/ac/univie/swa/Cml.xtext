@@ -32,32 +32,6 @@ Operation:
 	visibility=Visibility? name=ID '(' (params+=Parameter (',' params+=Parameter)*)? ')' (':' type=ReturnType)?
 	body=Block;
 
-Block:
-	{Block} 
-	BEGIN
-		statements+=Statement* 
-	END;
-
-Statement:
-	VariableDeclaration |
-	Return |
-	Expression |
-	IfStatement;
-
-VariableDeclaration:
-	type=Container name=ID '=' expression=Expression;
-
-Return:
-	{Return} 'return' expression=Expression;
-
-IfStatement:
-	'if' '(' expression=Expression ')' thenBlock=IfBlock
-	(=>'else' elseBlock=IfBlock)?;
-
-IfBlock returns Block:
-	statements+=Statement | 
-	Block;
-
 Parameter:
 	type=Container name=ID;
 	
@@ -77,7 +51,7 @@ Attribute:
 	name=ID (':'|isReference?='->') type=Container;
 
 AttributeWithInitExpr returns Attribute:
-	name=ID ':' type=Container ('=' initExp=Expression)?;
+	name=ID ':' type=Container ('=' initExp=Statement)?;
 
 Primitive:
 	type=[Type|QualifiedName];
@@ -176,6 +150,7 @@ AtomicCompoundAction returns CompoundAction:
 
 AtomicAction:
 	name=ID '(' (params+=Parameter (',' params+=Parameter)*)? ')' (':' type=ReturnType)?
+	(body=Block)?
 	(BEGIN
 		'pre' preCondition=Expression
 		('post' postCondition=Expression)?
@@ -206,7 +181,10 @@ ActionQuery:
 TimeQuery:
 	ClauseQuery | EventQuery | ActionQuery;
 		
-Expression: ImpliesExpression;
+Expression: AssignmentExpression;
+
+AssignmentExpression returns Expression:
+	ImpliesExpression ({AssignmentExpression.left=current} '=' right=Expression)?;
 	
 ImpliesExpression returns Expression:
 	XorExpression (=>({ImpliesExpression.left=current} op='implies') right=XorExpression)*;
@@ -241,22 +219,20 @@ UnaryExpression returns Expression:
 SelectionExpression returns Expression:
 	PrimaryExpression 
 	(=> ({MemberSelection.receiver=current} '.') member=[Feature] 
-		(=> methodinvocation?='(' (args+=Expression (',' args+=Expression)*)? ')')?)*;
+		(=> methodinvocation?='(' (args+=Expression (',' args+=Expression)*)? ')'		
+		)?
+	)*;
 
 PrimaryExpression returns Expression:	
 	LiteralExpression |
+	//BlockExpression |
+	//IfExpression |
 	{SelfExpression} 'self' |
 	{SuperExpression} 'super' |
 	{CallerExpression} 'caller' |
 	{SymbolReference} ref=[Symbol] |
 	'(' Expression ')';
-	
-Symbol:
-	Attribute | Parameter | VariableDeclaration;
 
-NamedElement:
-	Class | Feature | Symbol;
-	
 LiteralExpression returns Expression:
 	{IntegerLiteral} value=INT |
 	{BooleanLiteral} ('false' | 'true') |
@@ -267,12 +243,82 @@ LiteralExpression returns Expression:
 	{NullLiteral} 'null' |
 	{EnumerationLiteral} enumeration=[Class|QualifiedName] '::' literal=[EnumerationElement];
 
+	
 enum TimeUnit: 
 	MINUTE='minutes'|
 	HOUR='hours'|
 	DAY='days'|
 	WEEK='weeks'|
 	SECOND='seconds';
+	
+Symbol:
+	Attribute | Parameter | VariableDeclaration;
+
+NamedElement:
+	Class | Feature | Symbol;
+	
+/*
+BlockExpression returns Expression:
+	{BlockExpression}
+	BEGIN
+		(expressions+=ExpressionOrVarDeclaration)*
+	END;
+
+ExpressionOrVarDeclaration returns Expression:
+	VariableDeclaration | Expression;
+	
+IfExpression returns Expression:
+	{IfExpression}
+	'if' '(' if=Expression ')'
+	then=Expression
+	(=>'else' else=Expression)?;*/
+	
+Block:
+	{Block} 
+	BEGIN
+		statements+=Statement* 
+	END;
+
+Statement:
+	Expression |
+	VariableDeclaration |
+	If |
+	WhileLoop |
+	RepeatLoop |
+	Switch |
+	Return;
+
+ConditionalBlock returns Block:
+	statements+=Statement | 
+	Block;
+	
+If:
+	'if' '(' condition=Expression ')' thenBlock=ConditionalBlock 
+	(=>'else' elseBlock=ConditionalBlock )?;
+	
+WhileLoop:
+	'while' '(' condition=Expression ')' body=ConditionalBlock;
+	
+RepeatLoop:
+	'do' body=ConditionalBlock 'until' '(' condition=Expression ')';
+
+Switch:
+	'switch' '(' switch=Expression ')' 
+	BEGIN
+	(cases+=CasePart)*
+	('default' ':' default=Expression )?
+	END;
+
+CasePart:
+	('case' case=Expression)?
+		(':' then=Statement | fallThrough?=',');
+					
+Return:
+	{Return} 'return' (->expression=Expression)?;
+
+VariableDeclaration:
+	'var' type=Container name=ID ('=' expression=Expression)?;
+
 
 QualifiedName:
     ID ('.' ID)*;
