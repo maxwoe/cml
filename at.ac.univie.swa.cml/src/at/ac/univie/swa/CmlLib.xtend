@@ -29,6 +29,7 @@ class CmlLib {
 	public val static LIB_SET = LIB_PACKAGE + ".Set"
 	public val static LIB_BAG = LIB_PACKAGE + ".Bag"
 	public val static LIB_ARRAY = LIB_PACKAGE + ".Array"
+	public val static LIB_MAP = LIB_PACKAGE + ".Map"
 	public val static MAIN_LIB = "cml/lang/mainlib.cml"
 
 	def loadLib() {
@@ -69,6 +70,10 @@ class CmlLib {
 		getCmlClass(context, LIB_DURATION)
 	}
 	
+	def getCollectionClass(EObject context) {
+		getCmlClass(context, LIB_COLLECTION)
+	}
+	
 	def getSetClass(EObject context) {
 		getCmlClass(context, LIB_SET)
 	}
@@ -79,6 +84,10 @@ class CmlLib {
 	
 	def getArrayClass(EObject context) {
 		getCmlClass(context, LIB_ARRAY)
+	}
+	
+	def getMapClass(EObject context) {
+		getCmlClass(context, LIB_MAP)
 	}
 	
 	def getCmlEnumClass(EObject context) {

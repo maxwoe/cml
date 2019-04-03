@@ -39,7 +39,7 @@ class CmlTypeConformance {
 	}
 
 	def conformsToVoid(Class c) {
-		c == VOID_TYPE 
+		c == VOID_TYPE
 	}
 	
 	def conformsToString(Class c) {
@@ -92,16 +92,40 @@ class CmlTypeConformance {
 		c.fullyQualifiedName.toString == CmlLib::LIB_CONTRACT
 	}
 	
-	def conformsToCollection(Class c) {
-		c.classHierarchyWithObject.exists[c.fullyQualifiedName.toString == CmlLib::LIB_COLLECTION]
-	}
-	
 	def conformsToSet(Class c) {
 		c.fullyQualifiedName.toString == CmlLib::LIB_SET
 	}
 	
 	def conformsToBag(Class c) {
 		c.fullyQualifiedName.toString == CmlLib::LIB_BAG
+	}
+	
+	def isSubclassOfParty(Class c) {
+		c.classHierarchyWithObject.exists[conformsToParty]
+	}
+	
+	def isSubclassOfAsset(Class c) {
+		c.classHierarchyWithObject.exists[conformsToAsset]
+	}
+	
+	def isSubclassOfEvent(Class c) {
+		c.classHierarchyWithObject.exists[conformsToEvent]
+	}
+	
+	def isSubclassOfEnum(Class c) {
+		c.classHierarchyWithObject.exists[conformsToEnum]
+	}
+	
+	def isSubclassOfArray(Class c) {
+		c.classHierarchyWithObject.exists[conformsToAsset]
+	}
+	
+	def isSubclassOfMap(Class c) {
+		c.classHierarchyWithObject.exists[conformsToAsset]
+	}
+	
+	def isSubclassOfCollection(Class c) {
+		c.classHierarchyWithObject.exists[conformsToAsset]
 	}
 
 	def isSubclassOf(Class c1, Class c2) {

@@ -16,8 +16,6 @@ import org.eclipse.xtext.generator.IGeneratorContext
  */
 class CmlGenerator extends AbstractGenerator {
 	
-	
-	
     override void doGenerate(Resource resource, IFileSystemAccess2 fsa, IGeneratorContext context) {    
         for (e : resource.allContents.toIterable.filter(CmlProgram)) {		
             fsa.generateFile(resource.URI.trimFileExtension + ".sol", e.compile)         
@@ -27,9 +25,6 @@ class CmlGenerator extends AbstractGenerator {
     def compile(CmlProgram c) '''
 		pragma solidity >=0.4.22 <0.6.0;
 		
-		contract «c.contracts.findFirst[true].name» {
-			
-		}
 	'''
 
 }

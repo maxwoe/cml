@@ -34,7 +34,7 @@ Operation:
 
 Block:
 	{Block} 
-	BEGIN 
+	BEGIN
 		statements+=Statement* 
 	END;
 
@@ -65,13 +65,13 @@ ReturnType:
 	{VoidType} 'void' | Container;
 
 Container:
-	Primitive | Collection | Array;
+	Primitive | Collection | Array | Map;
 
 enum Visibility:
 	PUBLIC='public' | PRIVATE='private' | PROTECTED='protected';
 
 Type:
-	Class | Collection | Array;
+	Class | Collection | Array | Map;
 
 Attribute:
 	name=ID (':'|isReference?='->') type=Container;
@@ -86,34 +86,34 @@ Array:
 	type=[Type|QualifiedName] '[' (length=INT)? ']';
 
 Collection:
-	collectionType=CollectionType '<' type=[Type|QualifiedName] '>';
-	
-CollectionType:
-	{Set} name='Set' | {Bag} name='Bag' /* | {Sequence} name='Sequence' | {OrderedSet} name='OrderedSet'*/;
+	collectionType=('Set'|'Bag') '<' type=[Type|QualifiedName] '>';
 
+Map:
+	mapType=('Map') '<' type=[Type|QualifiedName] '>';	
+	
 ModelElement:
 	Class | Party | Asset | Event | Enumeration;
 
 Class:
-	(isAbstract?='abstract')? kind='class' /*('<'(typedVars+=ID (',' typedVars+=ID)*)?'>')?*/ name=ID ('extends' superclass=[Class|QualifiedName])?
+	(isAbstract?='abstract')? kind='class' ('<'typeVar=[Class|QualifiedName]|'?''>')? name=ID ('extends' superclass=[Class|QualifiedName])?
 	(BEGIN
 		features+=FeatureAttributeAndOperation*
 	END)?;
 
 Contract returns Class:
-	kind='contract' name=ID ('extends' superclass=[Class|QualifiedName])?
+	(isAbstract?='abstract')? kind='contract' name=ID ('extends' superclass=[Class|QualifiedName])?
 	BEGIN
 		features+=FeatureAttributeAndClause*
 	END;
 	
 Party returns Class:
-	kind='party' name=ID ('identifier' id=[Attribute])? ('extends' superclass=[Class|QualifiedName])? 
+	(isAbstract?='abstract')? kind='party' name=ID ('identifier' id=[Attribute])? ('extends' superclass=[Class|QualifiedName])? 
 	BEGIN
 		 features+=FeatureAttribute+
 	END;
 	
 Asset returns Class:
-	kind='asset' name=ID ('identifier' id=[Attribute])? ('extends' superclass=[Class|QualifiedName])? 
+	(isAbstract?='abstract')? kind='asset' name=ID ('identifier' id=[Attribute])? ('extends' superclass=[Class|QualifiedName])? 
 	BEGIN
 		features+=FeatureAttribute+
 	END;

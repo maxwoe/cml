@@ -6,24 +6,20 @@ package at.ac.univie.swa.scoping
 import at.ac.univie.swa.CmlModelUtil
 import at.ac.univie.swa.cml.Actor
 import at.ac.univie.swa.cml.AtomicAction
+import at.ac.univie.swa.cml.Block
 import at.ac.univie.swa.cml.Class
-import at.ac.univie.swa.cml.Clause
 import at.ac.univie.swa.cml.CmlPackage
 import at.ac.univie.swa.cml.EnumerationLiteral
 import at.ac.univie.swa.cml.MemberSelection
-import at.ac.univie.swa.cml.Parameter
+import at.ac.univie.swa.cml.Operation
+import at.ac.univie.swa.cml.VariableDeclaration
 import at.ac.univie.swa.typing.CmlTypeConformance
 import at.ac.univie.swa.typing.CmlTypeProvider
-import java.util.Enumeration
 import javax.inject.Inject
 import org.eclipse.emf.ecore.EObject
 import org.eclipse.emf.ecore.EReference
-import org.eclipse.xtext.EcoreUtil2
 import org.eclipse.xtext.scoping.IScope
 import org.eclipse.xtext.scoping.Scopes
-import at.ac.univie.swa.cml.Block
-import at.ac.univie.swa.cml.VariableDeclaration
-import at.ac.univie.swa.cml.Operation
 
 /**
  * This class contains custom scoping description.
@@ -46,27 +42,13 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 			return scopeForEnumLiteral(context)
 		} else if (reference == CmlPackage.Literals.ACTOR__PARTY) {
 			if (context instanceof Actor) {
-				var candidates = context.containingClass.attributes.filter(a | a.typeOf.classHierarchyWithObject.exists[conformsToParty])
-				return Scopes.scopeFor(candidates)
-			}
-		} /*else if (reference == CmlPackage.Literals.ATOMIC_ACTION__ACTION) {
-			if (context instanceof AtomicAction) {
-				var clause = EcoreUtil2.getContainerOfType(context, Clause)
-				if (clause?.actor?.party?.type !== null) {
-					var allActions = clause.actor.party.typeOf.operations
-					return Scopes.scopeFor(allActions)
-				// return Scopes.scopeFor(allActions.filter[context.args.size == args.size])
+				var parentScope = IScope::NULLSCOPE
+				for (c : context.containingClass.classHierarchyWithObject.toArray().reverseView) {
+					parentScope = Scopes::scopeFor((c as Class).attributes.filter[!inferType.isPrimitive && (inferType.subclassOfParty || inferType.conformsToParty)], parentScope)
 				}
+				return Scopes::scopeFor(context.containingClass.attributes.filter[!inferType.isPrimitive && (inferType.subclassOfParty || inferType.conformsToParty)], parentScope)
 			}
-		} else if (reference == CmlPackage.Literals.ATOMIC_ACTION__ARGS) {
-			if (context instanceof AtomicAction) {
-				if (context.action !== null) {
-					var args = EcoreUtil2.getAllContentsOfType(context.action, Parameter)
-					return Scopes.scopeFor(args);
-				}
-			}
-		}*/
-
+		}
 		return super.getScope(context, reference)
 	}
 
@@ -117,7 +99,7 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 			if (context.enumeration === null || context.enumeration.isPrimitive)
 				return parentScope
 			
-			if (context.enumeration.classHierarchyWithObject.exists[conformsToEnum]) {
+			if (context.enumeration.subclassOfEnum) {
 				return Scopes::scopeFor(context.enumeration.enumElements, parentScope)
 			} else
 				return parentScope

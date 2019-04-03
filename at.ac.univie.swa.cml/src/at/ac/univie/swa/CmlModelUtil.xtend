@@ -2,27 +2,31 @@ package at.ac.univie.swa
 
 import at.ac.univie.swa.cml.Array
 import at.ac.univie.swa.cml.Attribute
+import at.ac.univie.swa.cml.Block
 import at.ac.univie.swa.cml.Class
+import at.ac.univie.swa.cml.Clause
 import at.ac.univie.swa.cml.CmlProgram
 import at.ac.univie.swa.cml.Collection
 import at.ac.univie.swa.cml.Container
+import at.ac.univie.swa.cml.EnumerationElement
 import at.ac.univie.swa.cml.Feature
+import at.ac.univie.swa.cml.Map
 import at.ac.univie.swa.cml.Operation
 import at.ac.univie.swa.cml.Primitive
+import at.ac.univie.swa.cml.Return
 import at.ac.univie.swa.cml.Type
+import at.ac.univie.swa.typing.CmlTypeConformance
 import at.ac.univie.swa.typing.CmlTypeProvider
 import com.google.inject.Inject
 import org.eclipse.emf.ecore.EObject
 
 import static extension org.eclipse.xtext.EcoreUtil2.*
-import at.ac.univie.swa.cml.EnumerationElement
-import at.ac.univie.swa.cml.Block
-import at.ac.univie.swa.cml.Return
-import at.ac.univie.swa.cml.Clause
 
 class CmlModelUtil {
 
 	@Inject extension CmlLib
+	@Inject extension CmlTypeProvider
+	@Inject extension CmlTypeConformance
 
 	def returnStatement(Operation o) {
 		o.body.returnStatement
@@ -66,62 +70,85 @@ class CmlModelUtil {
 
 	def featureAsString(Feature f) {
 		f.name + if (f instanceof Operation)
-			"(" + f.params.map[type.typeName].join(", ") + ")"
+			"(" + f.params.map[type.inferType.typeName].join(", ") + ")"
 		else
 			""
 	}
 
 	def featureAsStringWithType(Feature f) {
-		f.featureAsString + " : " + f.typeOf.typeName
-	}
-
-	def typeName(Container c) {
-		switch (c) {
-			Primitive: typeName(c.type)
-			Collection: c.collectionType.name + "<" + typeName(c.type) + ">"
-			Array: typeName(c.type) + "[]"
-		}
+		f.featureAsString + " : " + f.inferType.typeName
 	}
 
 	def typeName(Type t) {
 		switch (t) {
-			Class: t.name
-		}
-	}
-
-	def Class typeOf(Feature f) {
-		switch (f) {
-			Attribute: typeOf(f)
-			Operation: typeOf(f)
-		}
-	}
-
-	def typeOf(Attribute a) {
-		typeOf(a.type)
-	}
-
-	def typeOf(Container c) {
-		switch (c) {
-			Primitive:
-				if (c.type instanceof Class)
-					c.type as Class
-				else
-					c.cmlObjectClass
-			Collection:
-				switch (c.collectionType.name) {
-					case "Set": c.setClass
-					case "Bag": c.bagClass
+			Class:
+				switch (t) {
+					case t.isPrimitive: t.name
+					case t.isConformant(t.mapClass),
+					case t.isConformant(t.collectionClass): t.name + "<" + t.typeVar.name + ">"
+					case t.isConformant(t.arrayClass): t.typeVar.name + "[]"
+					default: t.name
 				}
-			Array:
-				c.arrayClass
 		}
 	}
 
-	def typeOf(Operation op) {
+	def inferType(Feature f) {
+		switch (f) {
+			Attribute: inferType(f)
+			Operation: inferType(f)
+			EnumerationElement: f.cmlEnumClass
+		}
+	}
+
+	def inferType(Attribute a) {
+		inferType(a.type)
+	}
+	
+	def inferType(Operation op) {
 		switch (op.type) {
-			Container: return typeOf(op.type as Container)
+			Container: return inferType(op.type as Container)
 			default: return CmlTypeProvider.VOID_TYPE
 		}
+	}
+	
+	def Class inferType(Container c) {
+		switch (c) {
+			Primitive:
+				return c.type.toClass
+			Collection:
+				switch (c.collectionType) {
+					case "Set": {
+						var clazz = c.setClass
+						clazz.typeVar = c.type.toClass
+						return clazz
+					}
+					case "Bag": {
+						var clazz = c.bagClass
+						clazz.typeVar = c.type.toClass
+						return clazz
+					}
+				}
+			Array: {
+				var clazz = c.arrayClass
+				clazz.typeVar = c.type.toClass
+				return clazz
+			}
+			Map:
+				switch (c.mapType) {
+					case "Map": {
+						var clazz = c.mapClass
+						clazz.typeVar = c.type.toClass
+						return clazz
+					}
+				}
+		}
+	}
+	
+	def toClass(Type t) {
+		if (t instanceof Class)
+			return t
+		else
+			return CmlTypeProvider.NULL_TYPE
 	}
 
 	def classHierarchy(Class c) {

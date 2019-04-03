@@ -4,6 +4,7 @@ import at.ac.univie.swa.CmlLib
 import at.ac.univie.swa.CmlModelUtil
 import at.ac.univie.swa.cml.AdditiveExpression
 import at.ac.univie.swa.cml.AndExpression
+import at.ac.univie.swa.cml.Attribute
 import at.ac.univie.swa.cml.BooleanLiteral
 import at.ac.univie.swa.cml.Class
 import at.ac.univie.swa.cml.CmlFactory
@@ -20,21 +21,20 @@ import at.ac.univie.swa.cml.MultiplicativeExpression
 import at.ac.univie.swa.cml.NullLiteral
 import at.ac.univie.swa.cml.Operation
 import at.ac.univie.swa.cml.OrExpression
+import at.ac.univie.swa.cml.PeriodicTime
 import at.ac.univie.swa.cml.RealLiteral
 import at.ac.univie.swa.cml.RelationalExpression
+import at.ac.univie.swa.cml.Return
 import at.ac.univie.swa.cml.SelfExpression
 import at.ac.univie.swa.cml.StringLiteral
 import at.ac.univie.swa.cml.SuperExpression
+import at.ac.univie.swa.cml.SymbolReference
+import at.ac.univie.swa.cml.TimeConstraint
 import at.ac.univie.swa.cml.Type
 import at.ac.univie.swa.cml.UnaryExpression
+import at.ac.univie.swa.cml.VariableDeclaration
 import at.ac.univie.swa.cml.XorExpression
 import com.google.inject.Inject
-import at.ac.univie.swa.cml.Attribute
-import at.ac.univie.swa.cml.TimeConstraint
-import at.ac.univie.swa.cml.PeriodicTime
-import at.ac.univie.swa.cml.SymbolReference
-import at.ac.univie.swa.cml.Return
-import at.ac.univie.swa.cml.VariableDeclaration
 
 class CmlTypeProvider {
 	@Inject extension CmlLib
@@ -51,14 +51,14 @@ class CmlTypeProvider {
 
 	val ep = CmlPackage::eINSTANCE
 
-	def Class typeFor(Expression e) {
+	def Type typeFor(Expression e) {
 		switch (e) {
 			SelfExpression:
 				return e.containingClass
 			SuperExpression:
 				return e.containingClass.superclassOrObject
 			SymbolReference:  
-				e.ref.type.typeOf
+				e.ref.type.inferType
 			NullLiteral:
 				return NULL_TYPE
 			StringLiteral:
@@ -82,12 +82,13 @@ class CmlTypeProvider {
 			RelationalExpression,
 			ImpliesExpression:
 				return BOOLEAN_TYPE
-			AdditiveExpression,
+			AdditiveExpression:
+				e.left.typeFor
 			MultiplicativeExpression:
-				return INTEGER_TYPE
+				e.left.typeFor
 			UnaryExpression:
 				if (e.op == "+" || e.op == "-") {
-					return INTEGER_TYPE
+					return e.operand.typeFor
 				} else {
 					return BOOLEAN_TYPE
 				}
@@ -112,18 +113,22 @@ class CmlTypeProvider {
 						case "at": e.receiver.typeFor
 					}
 				} else if (e.coll === null && e.member !== null)*/
-					e.member.typeOf
+					e.member.inferType
 		}
 	}
 
-	def Class expectedType(Expression exp) {
+	def Type expectedType(Expression exp) {
 		val container = exp.eContainer
 		val feature = exp.eContainingFeature
 		switch (container) {
+			AdditiveExpression case feature == ep.additiveExpression_Right:
+				container.left.typeFor
+			MultiplicativeExpression case feature == ep.multiplicativeExpression_Right:
+				container.left.typeFor
 			VariableDeclaration:
-				container.type.typeOf
+				container.type.inferType
 			Return:
-				container.containingOperation.typeOf
+				container.containingOperation.inferType
 			case feature == ep.ifStatement_Expression:
 				BOOLEAN_TYPE
 			PeriodicTime case feature == ep.periodicTime_Start,
@@ -133,8 +138,8 @@ class CmlTypeProvider {
 			PeriodicTime case feature == ep.periodicTime_Period,
 			TimeConstraint case feature == ep.timeConstraint_Timeframe:
 				DURATION_TYPE
-			Attribute:
-				container.type.typeOf
+			Attribute case feature == ep.attribute_InitExp:
+				container.type.inferType
 			RelationalExpression case feature == ep.relationalExpression_Right:
 				container.left.typeFor
 			EqualityExpression case feature == ep.equalityExpression_Right:
@@ -143,7 +148,7 @@ class CmlTypeProvider {
 				// assume that it refers to a method and that there
 				// is a parameter corresponding to the argument
 				try {
-					(container.member as Operation).params.get(container.args.indexOf(exp)).type.typeOf
+					(container.member as Operation).params.get(container.args.indexOf(exp)).type.inferType
 				} catch (Throwable t) {
 					null
 				}

@@ -1,13 +1,10 @@
 namespace cml.lang
 
 class Object
-	objectOp()
 class Contract extends Object
 	anyone : Party
 	globals : Global
-	contractOp()
 class Party extends Object
-	partyOp()
 class Asset extends Object
 class Event extends Object
 
@@ -24,9 +21,6 @@ class Global extends Object
 	contractStart : DateTime
 	contractEnd : DateTime
 class Collection extends Object
-	collectionOp()
 class ^Set extends Collection
-	setOp()
 class ^Bag extends Collection
-	bagOp()
-class Map extends Object
+class ^Map extends Object

@@ -13,6 +13,7 @@ import at.ac.univie.swa.cml.Expression
 import at.ac.univie.swa.cml.MemberSelection
 import at.ac.univie.swa.cml.NamedElement
 import at.ac.univie.swa.cml.Operation
+import at.ac.univie.swa.cml.Primitive
 import at.ac.univie.swa.cml.Return
 import at.ac.univie.swa.cml.SuperExpression
 import at.ac.univie.swa.cml.VariableDeclaration
@@ -55,6 +56,7 @@ class CmlValidator extends AbstractCmlValidator {
 	public static val WRONG_SUPER_USAGE = ISSUE_CODE_PREFIX + "WrongSuperUsage"
 	public static val REDUCED_ACCESSIBILITY = ISSUE_CODE_PREFIX + "ReducedAccessibility"
 	public static val OPPOSITE_INCONSISTENCY = ISSUE_CODE_PREFIX + "OppositeInconsistency"
+	public static val MISSING_IDENTITY_DEFINITION = ISSUE_CODE_PREFIX + "MissingIdentityDefinition"
 	
 	@Check
     def void checkNameStartsWithCapital(Class c) {
@@ -79,18 +81,18 @@ class CmlValidator extends AbstractCmlValidator {
 		if (c.kind != c.superclass.kind) {
 			error("'" + c.name + "' must extend '" + c.kind + "'" ,
 				CmlPackage::eINSTANCE.class_Superclass,
-				HIERARCHY_CYCLE,
+				INCOMPATIBLE_TYPES,
 				c.superclass.name)
 		}
 	}
 	
 	@Check 
 	def void checkIdentityDefinition(Class c) {
-		if (c.id === null && (!c.kind.equals("class") || !c.isAbstract) && !c.classHierarchy.exists[id !== null]) {
+		if ((c.kind.equals("party") || c.kind.equals("asset")) && c.id === null && !c.isAbstract && !c.classHierarchy.exists[id !== null]) {
 			error("'" + c.name + "' is not abstract. It must define and identifying attribute.",
-				CmlPackage::eINSTANCE.class_Superclass,
-				HIERARCHY_CYCLE,
-				c.superclass.name)
+				null,
+				MISSING_IDENTITY_DEFINITION,
+				c.name)
 		}
 	}
 
@@ -170,7 +172,7 @@ class CmlValidator extends AbstractCmlValidator {
 
 	@Check
 	def void checkMethodEndsWithReturn(Operation o) {
-		if (o.returnStatement === null && !o.typeOf.conformsToVoid) {
+		if (o.returnStatement === null && !o.inferType.conformsToVoid) {
 			error("Method must end with a return statement", CmlPackage.eINSTANCE.operation_Body, MISSING_FINAL_RETURN)
 		}
 	}
@@ -224,9 +226,6 @@ class CmlValidator extends AbstractCmlValidator {
 		if (expectedType === null || actualType === null)
 			return; // nothing to check
 		if (!actualType.isConformant(expectedType)) {
-			/*error("Incompatible types. Expected '" + expectedType?.name
-					+ "' but was '" + actualType?.name + "'", null,
-					INCOMPATIBLE_TYPES);*/
 					error("Incompatible types. Expected '" + expectedType.typeName
 					+ "' but was '" + actualType.typeName + "'", null,
 					INCOMPATIBLE_TYPES);
@@ -249,8 +248,10 @@ class CmlValidator extends AbstractCmlValidator {
 	
 	@Check
 	def void checkAttribute(Attribute a) {
-		if (a.isReference && !a.typeOf.kind.equals("asset") && !a.typeOf.kind.equals("party")) {
-			error("Relationship '" + a.name + "' cannot be to primitive type '" + a.type.typeOf.name, null,
+		if ((a.isReference && a.type instanceof Primitive && !a.type.inferType.subclassOfParty && !a.type.inferType.subclassOfAsset)  ||
+			(a.isReference && a.type instanceof Primitive == false && !a.type.inferType.typeVar.subclassOfParty && !a.type.inferType.typeVar.subclassOfAsset))
+		{
+			error("Relationship '" + a.name + "' cannot be to type '" + a.type.inferType.typeName + "'", null,
 				OPPOSITE_INCONSISTENCY)
 		}
 	}
