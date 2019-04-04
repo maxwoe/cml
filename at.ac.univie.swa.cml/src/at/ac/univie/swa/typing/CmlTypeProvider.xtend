@@ -4,8 +4,10 @@ import at.ac.univie.swa.CmlLib
 import at.ac.univie.swa.CmlModelUtil
 import at.ac.univie.swa.cml.AdditiveExpression
 import at.ac.univie.swa.cml.AndExpression
+import at.ac.univie.swa.cml.AssignmentExpression
 import at.ac.univie.swa.cml.Attribute
 import at.ac.univie.swa.cml.BooleanLiteral
+import at.ac.univie.swa.cml.CasePart
 import at.ac.univie.swa.cml.Class
 import at.ac.univie.swa.cml.CmlFactory
 import at.ac.univie.swa.cml.CmlPackage
@@ -35,13 +37,11 @@ import at.ac.univie.swa.cml.UnaryExpression
 import at.ac.univie.swa.cml.VariableDeclaration
 import at.ac.univie.swa.cml.XorExpression
 import com.google.inject.Inject
-import at.ac.univie.swa.cml.AssignmentExpression
-import at.ac.univie.swa.cml.Switch
-import at.ac.univie.swa.cml.CasePart
 
 class CmlTypeProvider {
 	@Inject extension CmlLib
 	@Inject extension CmlModelUtil
+	@Inject extension CmlTypeConformance
 	
 	public static val STRING_TYPE = CmlFactory::eINSTANCE.createClass => [name = "String"]
 	public static val INTEGER_TYPE = CmlFactory::eINSTANCE.createClass => [name = "Integer"]
@@ -97,35 +97,22 @@ class CmlTypeProvider {
 				}
 			AssignmentExpression:
 				e.left.typeFor
-			MemberSelection:/* 
-				if (e.coll !== null && e.member === null) {
-					switch (e.coll) {
-						case "size": return INTEGER_TYPE
-						case "includes": return BOOLEAN_TYPE
-						case "excludes": return BOOLEAN_TYPE
-						case "count": return INTEGER_TYPE
-						case "includesAll": return BOOLEAN_TYPE
-						case "excludesAll": return BOOLEAN_TYPE
-						case "isEmpty": return BOOLEAN_TYPE
-						case "notEmpty": return BOOLEAN_TYPE
-						case "sum": return INTEGER_TYPE
-						case "exists": return BOOLEAN_TYPE
-						case "forAll": return BOOLEAN_TYPE
-						case "isUnique": return BOOLEAN_TYPE
-						case "collect": return COLLECTION_TYPE
-						case "select": return COLLECTION_TYPE
-						case "reject": return COLLECTION_TYPE
-						case "at": e.receiver.typeFor
+			MemberSelection: {
+				if (e.arrayAccess) {
+					var t = e.member.inferType
+					switch (t) {
+						case t.isConformant(t.arrayClass): return t.typeVar
 					}
-				} else if (e.coll === null && e.member !== null)*/
-					e.member.inferType
+				}
+				e.member.inferType
+			}
 		}
 	}
 
 	def Type expectedType(Expression e) {
 		val c = e.eContainer
 		val f = e.eContainingFeature
-		switch (c) {
+		switch (c) {		
 			CasePart case f == ep.casePart_Case:
 				c.containingSwitch.^switch.typeFor
 			AssignmentExpression case f == ep.assignmentExpression_Right:
@@ -151,6 +138,13 @@ class CmlTypeProvider {
 				DURATION_TYPE
 			Attribute case f == ep.attribute_InitExp:
 				c.type.inferType
+			case f == ep.if_ElseBlock,
+			case f == ep.if_ThenBlock:	{
+				var cc = c.eContainer
+				switch(cc) {
+					Attribute: cc.type.inferType
+				}
+			}				
 			RelationalExpression case f == ep.relationalExpression_Right:
 				c.left.typeFor
 			EqualityExpression case f == ep.equalityExpression_Right:

@@ -30,7 +30,7 @@ FeatureEnumeration returns Feature:
 	
 Operation:
 	visibility=Visibility? name=ID '(' (params+=Parameter (',' params+=Parameter)*)? ')' (':' type=ReturnType)?
-	body=Block;
+	(body=Block)?;
 
 Parameter:
 	type=Container name=ID;
@@ -57,19 +57,20 @@ Primitive:
 	type=[Type|QualifiedName];
 	
 Array:
-	type=[Type|QualifiedName] '[' (length=INT)? ']';
-
+	type=[Type|QualifiedName] ('[' lengths+=INT? ']')+;
+	
 Collection:
 	collectionType=('Set'|'Bag') '<' type=[Type|QualifiedName] '>';
 
 Map:
-	mapType=('Map') '<' type=[Type|QualifiedName] '>';	
+	mapType=('Map') '<' key=[Type|QualifiedName] ',' type=[Type|QualifiedName]'>';	
 	
 ModelElement:
 	Class | Party | Commodity | Event | Enumeration;
 
-Class:
-	(abstract?='abstract')? kind='class' ('<'typeVar=[Class|QualifiedName]|'?''>')? name=ID ('extends' superclass=[Class|QualifiedName])?
+Class: 
+	(abstract?='abstract')? kind='class' ('<'typeVar=[Class|QualifiedName]|'?' 
+	/* typeVars+=[Class|QualifiedName] (',' typeVars+=[Class|QualifiedName])* */'>')? name=ID ('extends' superclass=[Class|QualifiedName])?
 	(BEGIN
 		features+=FeatureAttributeAndOperation*
 	END)?;
@@ -204,9 +205,6 @@ EqualityExpression returns Expression :
 RelationalExpression returns Expression:
 	AdditiveExpression (=>({RelationalExpression.left=current} op=('>' | '<' | '>=' | '<=')) right=AdditiveExpression)*;
 
-//ConditionalOpExp returns Expression:
-//	AdditionOpExp ('if' {ConditionalOpExp.left=current} 'then' trueCase=AdditionOpExp 'else' falseCase=AdditionOpExp)? ;
-
 AdditiveExpression returns Expression: 
 	MultiplicativeExpression (=>({AdditiveExpression.left=current} op=('+' | '-')) right=MultiplicativeExpression)*;
 
@@ -217,11 +215,10 @@ UnaryExpression returns Expression:
 	{UnaryExpression} op=('not' | '!' | '-' | '+') operand=UnaryExpression | SelectionExpression;
 
 SelectionExpression returns Expression:
-	PrimaryExpression 
-	(=> ({MemberSelection.receiver=current} '.') member=[Feature] 
-		(=> methodinvocation?='(' (args+=Expression (',' args+=Expression)*)? ')'		
-		)?
-	)*;
+	PrimaryExpression
+	(=> ({MemberSelection.receiver=current} '.') member=[Feature]
+	(=> methodinvocation?='(' (args+=Expression (',' args+=Expression)*)? ')' |
+	=> (arrayAccess?='[' arraySelector+=Expression ']') => ('[' arraySelector+=Expression ']')*)?)*;
 
 PrimaryExpression returns Expression:	
 	LiteralExpression |
@@ -230,7 +227,7 @@ PrimaryExpression returns Expression:
 	{SelfExpression} 'self' |
 	{SuperExpression} 'super' |
 	{CallerExpression} 'caller' |
-	{SymbolReference} ref=[Symbol] |
+	{SymbolReference} ref=[Symbol] (arrayAccess?='[' index=Expression ']')? |
 	'(' Expression ')';
 
 LiteralExpression returns Expression:
@@ -241,8 +238,8 @@ LiteralExpression returns Expression:
 	{DurationLiteral} value=INT unit=TimeUnit |
 	{DateTimeLiteral} value=DATE |
 	{NullLiteral} 'null' |
-	{EnumerationLiteral} enumeration=[Class|QualifiedName] '::' literal=[EnumerationElement];
-
+	{EnumerationLiteral} enumeration=[Class|QualifiedName] '::' literal=[EnumerationElement] |
+	{SetLiteral} '{' (elements+=Expression (',' elements+=Expression )*)? '}';
 	
 enum TimeUnit: 
 	MINUTE='minutes'|
@@ -257,22 +254,6 @@ Symbol:
 NamedElement:
 	Class | Feature | Symbol;
 	
-/*
-BlockExpression returns Expression:
-	{BlockExpression}
-	BEGIN
-		(expressions+=ExpressionOrVarDeclaration)*
-	END;
-
-ExpressionOrVarDeclaration returns Expression:
-	VariableDeclaration | Expression;
-	
-IfExpression returns Expression:
-	{IfExpression}
-	'if' '(' if=Expression ')'
-	then=Expression
-	(=>'else' else=Expression)?;*/
-	
 Block:
 	{Block} 
 	BEGIN
@@ -285,6 +266,8 @@ Statement:
 	If |
 	WhileLoop |
 	RepeatLoop |
+	ForLoop |
+	ForEachLoop |
 	Switch |
 	Return;
 
@@ -293,20 +276,20 @@ ConditionalBlock returns Block:
 	Block;
 	
 If:
-	'if' '(' condition=Expression ')' thenBlock=ConditionalBlock 
-	(=>'else' elseBlock=ConditionalBlock )?;
+	'if' (('(' condition=Expression ')') | (-> condition=Expression)) thenBlock=ConditionalBlock
+	(=> 'else' elseBlock=ConditionalBlock)?;
 	
 WhileLoop:
-	'while' '(' condition=Expression ')' body=ConditionalBlock;
+	'while' (('(' condition=Expression ')') | (-> condition=Expression)) body=ConditionalBlock;
 	
 RepeatLoop:
-	'do' body=ConditionalBlock 'until' '(' condition=Expression ')';
+	'do' body=ConditionalBlock 'until' (('(' condition=Expression ')') | (-> condition=Expression));
 
 Switch:
-	'switch' '(' switch=Expression ')' 
+	'switch' (('(' switch=Expression ')') | (-> switch=Expression))
 	BEGIN
 	(cases+=CasePart)*
-	('default' ':' default=Expression )?
+	('default' ':' default=Expression)?
 	END;
 
 CasePart:
@@ -319,6 +302,12 @@ Return:
 VariableDeclaration:
 	'var' type=Container name=ID ('=' expression=Expression)?;
 
+ForLoop:
+	'for' '(' declaration=VariableDeclaration ',' condition=Expression ',' progression=Expression ')' block=Block;
+	
+ForEachLoop:
+	'foreach' (('(' elementId=ID 'in' expression=Expression ')' ) | (elementId=ID 'in' expression=Expression))
+	block=Block; 
 
 QualifiedName:
     ID ('.' ID)*;
@@ -326,7 +315,7 @@ QualifiedName:
 QualifiedNameWithWildcard:
     QualifiedName '.*'?;
 
-terminal DATE returns ecore::EDate: '0'..'9''0'..'9''0'..'9''0'..'9' '-' '0'..'9''0'..'9' '-' '0'..'9''0'..'9';
-terminal REAL returns ecore::EDouble: ('0'..'9')+'.'('0'..'9'+); 	
+terminal DATE: '0'..'9''0'..'9''0'..'9''0'..'9' '-' '0'..'9''0'..'9' '-' '0'..'9''0'..'9';
+terminal REAL: ('0'..'9')+'.'('0'..'9'+); 	
 terminal BEGIN: 'synthetic:BEGIN';  // increase indentation
 terminal END: 'synthetic:END';      // decrease indentation

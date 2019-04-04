@@ -72,6 +72,10 @@ class CmlModelUtil {
 	def containingSwitch(EObject e) {
 		e.getContainerOfType(Switch)
 	}
+	
+	def containingAttribute(EObject e) {
+		e.getContainerOfType(Attribute)
+	}
 
 	def featureAsString(Feature f) {
 		f.name + if (f instanceof Operation)
@@ -90,7 +94,7 @@ class CmlModelUtil {
 				switch (t) {
 					case t.isPrimitive: t.name
 					case t.isConformant(t.mapClass),
-					case t.isConformant(t.collectionClass): t.name + "<" + t.typeVar.name + ">"
+					case t.isConformant(t.collectionClass): t.name + "<" + (if(t.typeVar !== null) t.typeVar.name else '?') + ">"
 					case t.isConformant(t.arrayClass): t.typeVar.name + "[]"
 					default: t.name
 				}
@@ -146,6 +150,7 @@ class CmlModelUtil {
 						return clazz
 					}
 				}
+			default: CmlTypeProvider.NULL_TYPE
 		}
 	}
 	

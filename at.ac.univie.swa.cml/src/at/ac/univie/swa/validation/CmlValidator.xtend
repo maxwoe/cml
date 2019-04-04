@@ -186,9 +186,9 @@ class CmlValidator extends AbstractCmlValidator {
 				if(stmnt.expression !== null)
 					error("Return statement should be empty within void return type operation '" + stmnt.containingOperation.name + "'",
 						CmlPackage::eINSTANCE.return_Expression,
-						INCOMPATIBLE_TYPES)
+						INCOMPATIBLE_TYPES) 
 			default:
-				if(stmnt.expression === null)
+				if(stmnt.expression === null && returntype !== null)
 					error("Return statement should not be empty within operation '" + stmnt.containingOperation.name + "'",
 						null,
 						INCOMPATIBLE_TYPES)	
@@ -219,17 +219,25 @@ class CmlValidator extends AbstractCmlValidator {
 //		}
 //	}
 	
-	
 	@Check
-	def void checkCompatibleTypes(Expression exp) {
-		val actualType   = exp.typeFor
+	def void checkConformance(Expression exp) {
+		val actualType = exp.typeFor
 		val expectedType = exp.expectedType
 		if (expectedType === null || actualType === null)
 			return; // nothing to check
 		if (!actualType.isConformant(expectedType)) {
-					error("Incompatible types. Expected '" + expectedType.typeName
-					+ "' but was '" + actualType.typeName + "'", null,
-					INCOMPATIBLE_TYPES);
+			error("Incompatible types. Expected '" + expectedType.typeName + "' but was '" + actualType.typeName + "'",
+				null, INCOMPATIBLE_TYPES);
+		}
+	}
+
+	@Check def void checkMethodInvocationArguments(MemberSelection sel) {
+		val method = sel.member
+		if (method instanceof Operation) {
+			if (method.params.size != sel.args.size) {
+				error("Invalid number of arguments: expected " + method.params.size + " but was " + sel.args.size,
+					CmlPackage.eINSTANCE.memberSelection_Member, INVALID_ARGS)
+			}
 		}
 	}
 	

@@ -10,6 +10,7 @@ import at.ac.univie.swa.cml.Block
 import at.ac.univie.swa.cml.Class
 import at.ac.univie.swa.cml.CmlPackage
 import at.ac.univie.swa.cml.EnumerationLiteral
+import at.ac.univie.swa.cml.ForLoop
 import at.ac.univie.swa.cml.MemberSelection
 import at.ac.univie.swa.cml.Operation
 import at.ac.univie.swa.cml.VariableDeclaration
@@ -44,9 +45,9 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 			if (context instanceof Actor) {
 				var parentScope = IScope::NULLSCOPE
 				for (c : context.containingClass.classHierarchyWithObject.toArray().reverseView) {
-					parentScope = Scopes::scopeFor((c as Class).attributes.filter[!inferType.isPrimitive && (inferType.subclassOfParty || inferType.conformsToParty)], parentScope)
+					parentScope = Scopes::scopeFor((c as Class).attributes/*.filter[!inferType.isPrimitive && (inferType.subclassOfParty || inferType.conformsToParty)]*/, parentScope)
 				}
-				return Scopes::scopeFor(context.containingClass.attributes.filter[!inferType.isPrimitive && (inferType.subclassOfParty || inferType.conformsToParty)], parentScope)
+				return Scopes::scopeFor(context.containingClass.attributes/*.filter[!inferType.isPrimitive && (inferType.subclassOfParty || inferType.conformsToParty)]*/, parentScope)
 			}
 		}
 		return super.getScope(context, reference)
@@ -71,9 +72,12 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 				}
 				return Scopes::scopeFor(container.attributes, parentScope)
 			}
+			ForLoop:
+				Scopes.scopeFor(#[container.declaration], scopeForSymbolRef(container) )
 			default:
 				scopeForSymbolRef(container)
 		}
+		
 	}
 
 	def protected IScope scopeForMemberSelection(MemberSelection sel) {

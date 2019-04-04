@@ -11,16 +11,50 @@ class Event extends Object
 abstract class Enum extends Object
 class String extends Object
 class Integer extends Object
+	mod(Integer i) : Integer
+	max(Integer i) : Integer
+	min(Integer i) : Integer
+	abs() : Integer
+	toReal() : Real
 class Boolean extends Object
 class Real extends Object
+	abs() : Real
+	sqrt() : Real
+	exp() : Real
+	ceil() : Real	
+	floor() : Real
+	toInt() : Integer
 class DateTime extends Object
+	diffDuration(DateTime dt)
+	addDuration(DateTime dt)
+	subtractDuration(DateTime dt)
 class Duration extends Object
 class Array extends Object
+	count() : Integer
+	add(Object) : Object[]
+	rmv(Object) : Object[]
+	includes(Object): Boolean
+	includesAll(Object[]): Boolean
 class Global extends Object
 	now : DateTime
 	contractStart : DateTime
 	contractEnd : DateTime
 class Collection extends Object
+	size()
+	includes(Object o) : Boolean
+	excludes(Object o) : Boolean
+	count(Object o) : Integer
+	includesAll(Collection c) : Boolean
+	excludesAll(Collection c) : Boolean
+	isEmpty() : Boolean
+	notEmpty() : Boolean
+	sum() : Integer
+	//exists()
+	//forall()
+	//isUnique()
+	//sortedBy()
+	//iterate()
+	
 class ^Set extends Collection
 class ^Bag extends Collection
 class ^Map extends Object
