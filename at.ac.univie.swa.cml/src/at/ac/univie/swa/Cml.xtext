@@ -34,7 +34,7 @@ Operation:
 
 Parameter:
 	type=Container name=ID;
-	
+
 ReturnType:
 	{VoidType} 'void' | Container;
 
@@ -54,23 +54,31 @@ AttributeWithInitExpr returns Attribute:
 	name=ID ':' type=Container ('=' initExp=Statement)?;
 
 Primitive:
-	type=[Type|QualifiedName];
+	type=[TypeRef|QualifiedName];
 	
 Array:
-	type=[Type|QualifiedName] ('[' lengths+=INT? ']')+;
+	type=[TypeRef|QualifiedName] ('[' lengths+=INT? ']')+;
 	
 Collection:
-	collectionType=('Set'|'Bag') '<' type=[Type|QualifiedName] '>';
+	collectionType=[TypeRef|QualifiedName] '<' type=[TypeRef|QualifiedName] '>';
 
 Map:
-	mapType=('Map') '<' key=[Type|QualifiedName] ',' type=[Type|QualifiedName]'>';	
+	mapType=[TypeRef|QualifiedName] '<' key=[TypeRef|QualifiedName] ',' type=[TypeRef|QualifiedName]'>';	
+
+TypeRef:
+	Type | TypeVar;
+
+TypeVar:
+	name=ID;
+	
+TypeVarType returns TypeVar:
+	{TypeVar} type=[Class|QualifiedName];
 	
 ModelElement:
-	Class | Party | Commodity | Event | Enumeration;
+	Class | Party | Asset | Event | Enumeration;
 
 Class: 
-	(abstract?='abstract')? kind='class' ('<'typeVar=[Class|QualifiedName]|'?' 
-	/* typeVars+=[Class|QualifiedName] (',' typeVars+=[Class|QualifiedName])* */'>')? name=ID ('extends' superclass=[Class|QualifiedName])?
+	(abstract?='abstract')? kind='class' name=ID ('<'typeVars+=TypeVar (',' typeVars+=TypeVar)* '>')? ('extends' superclass=[Class|QualifiedName])?
 	(BEGIN
 		features+=FeatureAttributeAndOperation*
 	END)?;
@@ -87,8 +95,8 @@ Party returns Class:
 		 features+=FeatureAttribute+
 	END;
 	
-Commodity returns Class:
-	(abstract?='abstract')? kind='commodity' name=ID ('identifier' id=[Attribute])? ('extends' superclass=[Class|QualifiedName])? 
+Asset returns Class:
+	(abstract?='abstract')? kind='asset' name=ID ('identifier' id=[Attribute])? ('extends' superclass=[Class|QualifiedName])? 
 	BEGIN
 		features+=FeatureAttribute+
 	END;

@@ -80,8 +80,8 @@ class CmlTypeConformance {
 		c.fullyQualifiedName.toString == CmlLib::LIB_ENUM
 	}
 	
-	def conformsToCommodity(Class c) {
-		c.fullyQualifiedName.toString == CmlLib::LIB_COMMODITY
+	def conformsToAsset(Class c) {
+		c.fullyQualifiedName.toString == CmlLib::LIB_ASSET
 	}
 	
 	def conformsToEvent(Class c) {
@@ -100,12 +100,16 @@ class CmlTypeConformance {
 		c.fullyQualifiedName.toString == CmlLib::LIB_BAG
 	}
 	
+	def conformsToMap(Class c) {
+		c.fullyQualifiedName.toString == CmlLib::LIB_MAP
+	}
+	
 	def isSubclassOfParty(Class c) {
 		c.classHierarchyWithObject.exists[conformsToParty]
 	}
 	
 	def isSubclassOfCommodity(Class c) {
-		c.classHierarchyWithObject.exists[conformsToCommodity]
+		c.classHierarchyWithObject.exists[conformsToAsset]
 	}
 	
 	def isSubclassOfEvent(Class c) {

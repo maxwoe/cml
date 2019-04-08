@@ -255,6 +255,7 @@ class CmlValidator extends AbstractCmlValidator {
 	def void checkCollectionLiteralWithSameType(CollectionLiteral lit){
 	}*/
 	
+	/* 
 	@Check
 	def void checkAttribute(Attribute a) {
 		if ((a.isReference && a.type instanceof Primitive && (a.type.inferType.isAbstract || (!a.type.inferType.subclassOfParty && !a.type.inferType.subclassOfCommodity)))  ||
@@ -263,7 +264,7 @@ class CmlValidator extends AbstractCmlValidator {
 			error("Relationship '" + a.name + "' cannot be to type '" + a.type.inferType.typeName + "'",  null,
 				OPPOSITE_INCONSISTENCY)
 		}
-	}
+	}*/
 
 	def private void checkNoDuplicateElements(Iterable<? extends NamedElement> elements, String desc) {
 		val multiMap = HashMultimap.create()

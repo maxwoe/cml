@@ -101,7 +101,7 @@ class CmlTypeProvider {
 				if (e.arrayAccess) {
 					var t = e.member.inferType
 					switch (t) {
-						case t.isConformant(t.arrayClass): return t.typeVar
+						case t.isConformant(t.arrayClass): return t.typeVars.get(0).type
 					}
 				}
 				e.member.inferType

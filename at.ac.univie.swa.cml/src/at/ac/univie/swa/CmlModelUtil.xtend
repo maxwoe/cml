@@ -22,6 +22,9 @@ import org.eclipse.emf.ecore.EObject
 
 import static extension org.eclipse.xtext.EcoreUtil2.*
 import at.ac.univie.swa.cml.Switch
+import at.ac.univie.swa.cml.CmlFactory
+import at.ac.univie.swa.cml.TypeRef
+import at.ac.univie.swa.cml.TypeVar
 
 class CmlModelUtil {
 
@@ -94,8 +97,8 @@ class CmlModelUtil {
 				switch (t) {
 					case t.isPrimitive: t.name
 					case t.isConformant(t.mapClass),
-					case t.isConformant(t.collectionClass): t.name + "<" + (if(t.typeVar !== null) t.typeVar.name else '?') + ">"
-					case t.isConformant(t.arrayClass): t.typeVar.name + "[]"
+					case t.isConformant(t.collectionClass): t.name + "<" + t.typeVars.map[type?.name].join(", ") + ">"
+					case t.isConformant(t.arrayClass): t.typeVars.get(0).type.name + "[]"
 					default: t.name
 				}
 		}
@@ -124,41 +127,51 @@ class CmlModelUtil {
 		switch (c) {
 			Primitive:
 				return c.type.toClass
-			Collection:
-				switch (c.collectionType) {
-					case "Set": {
-						var clazz = c.setClass
-						clazz.typeVar = c.type.toClass
+			Collection: {
+				var clazz = c.collectionType.toClass
+				switch (clazz) {
+					case clazz.conformsToSet: {
+						clazz.typeVars.get(0).type = c.type.toClass
+						clazz.superclass.typeVars.get(0).type = c.type.toClass
 						return clazz
 					}
-					case "Bag": {
-						var clazz = c.bagClass
-						clazz.typeVar = c.type.toClass
+					case clazz.conformsToBag: {
+						clazz.typeVars.get(0).type = c.type.toClass
+						clazz.superclass.typeVars.get(0).type = c.type.toClass
 						return clazz
 					}
 				}
+			}
 			Array: {
 				var clazz = c.arrayClass
-				clazz.typeVar = c.type.toClass
+				clazz.typeVars.get(0).type = c.type.toClass
 				return clazz
 			}
-			Map:
-				switch (c.mapType) {
-					case "Map": {
-						var clazz = c.mapClass
-						clazz.typeVar = c.type.toClass
+			Map: {
+				var clazz = c.mapType.toClass
+				switch (clazz) {
+					case clazz.conformsToMap: {
+						clazz.typeVars.get(0).type = c.key.toClass
+						clazz.typeVars.get(1).type = c.type.toClass
 						return clazz
 					}
 				}
-			default: CmlTypeProvider.NULL_TYPE
+			}
+			default:
+				CmlTypeProvider.NULL_TYPE
 		}
 	}
 	
-	def toClass(Type t) {
-		if (t instanceof Class)
-			return t
-		else
-			return CmlTypeProvider.NULL_TYPE
+	def toClass(TypeRef t) {
+		switch(t) {
+			Type:
+				switch(t) {
+					Class: t
+					default: CmlTypeProvider.NULL_TYPE
+				}
+			TypeVar: t.type
+			default: CmlTypeProvider.NULL_TYPE
+		}
 	}
 
 	def classHierarchy(Class c) {
@@ -178,7 +191,7 @@ class CmlModelUtil {
 
 		switch (c.kind) {
 			case "party": visited.add(c.cmlPartyClass)
-			case "commodtiy": visited.add(c.cmlCommodityClass)
+			case "asset": visited.add(c.cmlCommodityClass)
 			case "event": visited.add(c.cmlEventClass)
 			case "enum": visited.add(c.cmlEnumClass)
 			case "contract": visited.add(c.cmlContractClass)
