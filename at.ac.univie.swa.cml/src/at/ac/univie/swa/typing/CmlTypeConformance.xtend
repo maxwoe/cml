@@ -35,7 +35,8 @@ class CmlTypeConformance {
 		(c1.conformsToBoolean && c2.conformsToBoolean) ||
 		(c1.conformsToReal && c2.conformsToReal) ||
 		(c1.conformsToDateTime && c2.conformsToDateTime) ||
-		(c1.conformsToDuration && c2.conformsToDuration)
+		(c1.conformsToDuration && c2.conformsToDuration) ||
+		(c1.conformsToError && c2.conformsToError)
 	}
 
 	def conformsToVoid(Class c) {
@@ -74,6 +75,11 @@ class CmlTypeConformance {
 	def conformsToDuration(Class c) {
 		c == DURATION_TYPE || 
 		c.fullyQualifiedName.toString == CmlLib::LIB_DURATION
+	}
+	
+	def conformsToError(Class c) {
+		c == ERROR_TYPE || 
+		c.fullyQualifiedName.toString == CmlLib::LIB_ERROR
 	}
 	
 	def conformsToParty(Class c) {

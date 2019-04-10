@@ -7,45 +7,45 @@ import at.ac.univie.swa.cml.AndExpression
 import at.ac.univie.swa.cml.AssignmentExpression
 import at.ac.univie.swa.cml.Attribute
 import at.ac.univie.swa.cml.BooleanLiteral
+import at.ac.univie.swa.cml.CallerExpression
 import at.ac.univie.swa.cml.CasePart
 import at.ac.univie.swa.cml.Class
 import at.ac.univie.swa.cml.CmlFactory
 import at.ac.univie.swa.cml.CmlPackage
 import at.ac.univie.swa.cml.DateTimeLiteral
 import at.ac.univie.swa.cml.DurationLiteral
+import at.ac.univie.swa.cml.ElementReferenceExpression
 import at.ac.univie.swa.cml.EnumerationLiteral
 import at.ac.univie.swa.cml.EqualityExpression
 import at.ac.univie.swa.cml.Expression
 import at.ac.univie.swa.cml.ImpliesExpression
 import at.ac.univie.swa.cml.IntegerLiteral
+import at.ac.univie.swa.cml.MemberFeatureCall
 import at.ac.univie.swa.cml.MultiplicativeExpression
 import at.ac.univie.swa.cml.NullLiteral
 import at.ac.univie.swa.cml.Operation
 import at.ac.univie.swa.cml.OrExpression
 import at.ac.univie.swa.cml.PeriodicTime
+import at.ac.univie.swa.cml.Primitive
 import at.ac.univie.swa.cml.RealLiteral
 import at.ac.univie.swa.cml.RelationalExpression
 import at.ac.univie.swa.cml.Return
 import at.ac.univie.swa.cml.SelfExpression
 import at.ac.univie.swa.cml.StringLiteral
 import at.ac.univie.swa.cml.SuperExpression
-//import at.ac.univie.swa.cml.SymbolReference
+import at.ac.univie.swa.cml.SymbolReference
+import at.ac.univie.swa.cml.Throw
 import at.ac.univie.swa.cml.TimeConstraint
 import at.ac.univie.swa.cml.Type
 import at.ac.univie.swa.cml.UnaryExpression
 import at.ac.univie.swa.cml.VariableDeclaration
 import at.ac.univie.swa.cml.XorExpression
 import com.google.inject.Inject
-import at.ac.univie.swa.cml.MemberFeatureCall
-import at.ac.univie.swa.cml.ElementReferenceExpression
-import at.ac.univie.swa.cml.SymbolReference
-import org.eclipse.xtext.naming.IQualifiedNameProvider
 
 class CmlTypeProvider {
 	@Inject extension CmlLib
 	@Inject extension CmlModelUtil
 	@Inject extension CmlTypeConformance
-	@Inject extension IQualifiedNameProvider
 	
 	public static val STRING_TYPE = CmlFactory::eINSTANCE.createClass => [name = "String"]
 	public static val INTEGER_TYPE = CmlFactory::eINSTANCE.createClass => [name = "Integer"]
@@ -55,11 +55,18 @@ class CmlTypeProvider {
 	public static val DURATION_TYPE = CmlFactory::eINSTANCE.createClass => [name = "Duration"]
 	public static val NULL_TYPE = CmlFactory::eINSTANCE.createClass => [name = "null"]
 	public static val VOID_TYPE = CmlFactory::eINSTANCE.createClass => [name = "void"]
+	public static val ERROR_TYPE = CmlFactory::eINSTANCE.createClass => [name = "Error"]
 
 	val ep = CmlPackage::eINSTANCE
 
 	def Type typeFor(Expression e) {
 		switch (e) {
+			CallerExpression: {
+				var party = e.containingClause.actor.party
+				if (party.type instanceof Primitive) {
+					return party.type.inferType
+				} else return party.type.inferType.deriveVarType
+			}
 			SelfExpression:
 				return e.containingClass
 			SuperExpression:
@@ -129,6 +136,8 @@ class CmlTypeProvider {
 		switch (c) {	
 			//ElementReferenceExpression:
 			//	c.reference.typeFor
+			Throw case f == ep.throw_Expression:
+				ERROR_TYPE
 			CasePart case f == ep.casePart_Case:
 				c.containingSwitch.^switch.typeFor
 			AssignmentExpression case f == ep.assignmentExpression_Right:

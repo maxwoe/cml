@@ -140,7 +140,7 @@ enum Deontic:
 	MUST='must' | MAY='may' | MUST_NOT= 'must_not';
 
 DeonticAction:
-	deontic=Deontic compoundAction=AtomicAction;
+	deontic=Deontic compoundAction=ClauseOperation;
 /* 
 CompoundAction:
 	OrCompoundAction;
@@ -157,7 +157,7 @@ AndCompoundAction returns CompoundAction:
 AtomicCompoundAction returns CompoundAction:
 	'(' CompoundAction ')' | AtomicAction;*/
 
-AtomicAction:
+ClauseOperation returns Operation:
 	name=ID '(' (params+=Parameter (',' params+=Parameter)*)? ')' (':' type=ReturnType)?
 	BEGIN 
 		('pre' preCondition=Expression)?
@@ -236,7 +236,7 @@ ElementReferenceExpression returns Expression:
 	
 PrimaryExpression returns Expression:	
 	LiteralExpression |
-	{SelfExpression} 'self' |
+	{SelfExpression} 'this' |
 	{SuperExpression} 'super' |
 	{CallerExpression} 'caller' |
 	{SymbolReference} ref=[Symbol] |
@@ -251,7 +251,8 @@ LiteralExpression returns Expression:
 	{DateTimeLiteral} value=DATE |
 	{NullLiteral} 'null' |
 	{EnumerationLiteral} enumeration=[Class|QualifiedName] '::' literal=[EnumerationElement] |
-	{SetLiteral} '{' (elements+=Expression (',' elements+=Expression )*)? '}';
+	{SetLiteral} '{' (elements+=Expression (',' elements+=Expression )*)? '}' |
+	{ArrayLiteral} '[' (elements+=Expression (',' elements+=Expression)*)? ']';
 	
 enum TimeUnit: 
 	MINUTE='minutes'|
@@ -284,6 +285,7 @@ Statement:
 	ForLoop |
 	ForEachLoop |
 	Switch |
+	Throw |
 	Return;
 
 ConditionalBlock returns Block:
@@ -307,10 +309,13 @@ Switch:
 	('default' ':' default=Expression)?
 	END;
 
+Throw:
+	'throw' expression=Expression;
+	
 CasePart:
 	('case' case=Expression)?
 		(':' then=Statement | fallThrough?=',');
-					
+
 Return:
 	{Return} 'return' (->expression=Expression)?;
 

@@ -23,7 +23,6 @@ import at.ac.univie.swa.typing.CmlTypeConformance
 import at.ac.univie.swa.typing.CmlTypeProvider
 import com.google.inject.Inject
 import org.eclipse.emf.ecore.EObject
-import org.eclipse.xtext.naming.IQualifiedNameProvider
 
 import static extension org.eclipse.emf.ecore.util.EcoreUtil.*
 import static extension org.eclipse.xtext.EcoreUtil2.*
@@ -82,8 +81,8 @@ class CmlModelUtil {
 		e.getContainerOfType(Attribute)
 	}
 	
-	def containingContainer(EObject e) {
-		e.getContainerOfType(Container)
+	def containingClause(EObject e) {
+		e.getContainerOfType(Clause)
 	}
 
 	def featureAsString(Feature f) {
@@ -190,13 +189,7 @@ class CmlModelUtil {
 			visited.add(current)
 			current = current.superclass
 		}
-
-		visited
-	}
-
-	def classHierarchyWithObject(Class c) {
-		val visited = classHierarchy(c)
-
+		
 		switch (c.kind) {
 			case "party": visited.add(c.cmlPartyClass)
 			case "asset": visited.add(c.cmlAssetClass)
@@ -204,6 +197,12 @@ class CmlModelUtil {
 			case "enum": visited.add(c.cmlEnumClass)
 			case "contract": visited.add(c.cmlContractClass)
 		}
+
+		visited
+	}
+
+	def classHierarchyWithObject(Class c) {
+		val visited = classHierarchy(c)
 
 		val object = c.getCmlObjectClass
 		if (object !== null)

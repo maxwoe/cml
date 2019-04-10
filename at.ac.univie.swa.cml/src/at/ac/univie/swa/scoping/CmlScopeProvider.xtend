@@ -5,7 +5,6 @@ package at.ac.univie.swa.scoping
 
 import at.ac.univie.swa.CmlModelUtil
 import at.ac.univie.swa.cml.Actor
-import at.ac.univie.swa.cml.AtomicAction
 import at.ac.univie.swa.cml.Block
 import at.ac.univie.swa.cml.Class
 import at.ac.univie.swa.cml.CmlPackage
@@ -39,7 +38,7 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 			return scopeForSymbolRef(context)
 		} else if (context instanceof MemberFeatureCall) {
 			return scopeForMemberFeatureCall(context)
-		} else if (reference == CmlPackage.Literals.ENUMERATION_LITERAL__LITERAL) {
+		} if (reference == CmlPackage.Literals.ENUMERATION_LITERAL__LITERAL) {
 			return scopeForEnumLiteral(context)
 		} else if (reference == CmlPackage.Literals.ACTOR__PARTY) {
 			if (context instanceof Actor) {
@@ -63,8 +62,6 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 				Scopes.scopeFor(
 					container.statements.takeWhile[it != context].filter(VariableDeclaration),
 					scopeForSymbolRef(container))
-			AtomicAction:
-				Scopes.scopeFor(container.params, scopeForSymbolRef(container))
 			Class: {
 				var parentScope = IScope::NULLSCOPE
 				for (c : container.classHierarchyWithObject.toArray().reverseView) {

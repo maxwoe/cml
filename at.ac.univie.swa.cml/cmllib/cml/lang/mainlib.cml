@@ -2,27 +2,38 @@ namespace cml.lang
 
 class Object
 	toString()
+	
 class Contract extends Object
 	anyone 	: Party
 	balance : Integer
 	globals : Global
-	balances : Map<Party, Integer>
-	deposit(Integer amount) : Boolean
-	transfer(Integer amount, Party target) : Boolean
-	withdraw(Integer amount) : Boolean
+	parties : Set<Party>
+	transfer(Integer amount, Party target, Party source) : Boolean
+	failure(String s) : Error 
+
 class Party extends Object
+	balance : Integer
+	deposit(Integer amount) : Boolean
+	withdraw(Integer amount) : Boolean
+	transfer(Integer amount, Party target) : Boolean
+	
 class Asset extends Object
+
 class Event extends Object
 
-abstract class Enum extends Object
+class Enum extends Object
+
 class String extends Object
+
 class Integer extends Object
 	mod(Integer i) : Integer
 	max(Integer i) : Integer
 	min(Integer i) : Integer
 	abs() : Integer
 	toReal() : Real
+	
 class Boolean extends Object
+
 class Real extends Object
 	abs() : Real
 	sqrt() : Real
@@ -30,46 +41,46 @@ class Real extends Object
 	ceil() : Real	
 	floor() : Real
 	toInt() : Integer
+	
 class DateTime extends Object
 	diffDuration(Duration d) : DateTime
 	addDuration(Duration d) : DateTime
 	subtractDuration(Duration d) : DateTime
+	
 class Duration extends Object
+
 class Array<T> extends Object
-	count() : Integer
-	add(T t) : T[]
-	rmv(T t) : T[]
-	includes(T t): Boolean
-	includesAll(T[] t): Boolean
+	size() : Integer
+	
 class Global extends Object
 	now : DateTime
 	contractStart : DateTime
 	contractEnd : DateTime
+	
 class Collection<T> extends Object
-	size() : Integer
-	includes(T t) : Boolean
-	excludes(T t) : Boolean
-	count(T t) : Integer
-	includesAll(Collection c) : Boolean
-	excludesAll(Collection c) : Boolean
+	add(T t) : Boolean
+	addAll(Collection<T> c) : Boolean
+	contains(T t) : Boolean
+	containsAll(Collection<T> c) : Boolean
 	isEmpty() : Boolean
-	notEmpty() : Boolean
-	sum() : Integer
-	//exists()
-	//forall()
-	//isUnique()
-	//sortedBy()
-	//iterate()
+	remove(T t) : Boolean
+	removeAll(Collection<T> c) : Boolean
+	retainAll(Collection<T> c)
+	size() : Integer
+	toArray() : Array<T>
 	
 class Set<T> extends Collection
+
 class Bag<T> extends Collection
+
 class Map<K,V> extends Object
-	size() : Integer
-	isEmpty() : Boolean
-	notEmpty() : Boolean
+	add(K key, V value) : V
+	clear()
 	containsKey(K key)
 	containsValue(V value)
-	clear()
-	add(K key, V value) : V
-	rmv(K key) : V
 	get(K key) : V
+	isEmpty() : Boolean
+	rmv(K key) : V
+	size() : Integer
+	
+class Error extends Object
