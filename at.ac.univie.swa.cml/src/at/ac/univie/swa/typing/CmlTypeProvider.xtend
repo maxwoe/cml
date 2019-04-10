@@ -18,7 +18,6 @@ import at.ac.univie.swa.cml.EqualityExpression
 import at.ac.univie.swa.cml.Expression
 import at.ac.univie.swa.cml.ImpliesExpression
 import at.ac.univie.swa.cml.IntegerLiteral
-import at.ac.univie.swa.cml.MemberSelection
 import at.ac.univie.swa.cml.MultiplicativeExpression
 import at.ac.univie.swa.cml.NullLiteral
 import at.ac.univie.swa.cml.Operation
@@ -30,25 +29,30 @@ import at.ac.univie.swa.cml.Return
 import at.ac.univie.swa.cml.SelfExpression
 import at.ac.univie.swa.cml.StringLiteral
 import at.ac.univie.swa.cml.SuperExpression
-import at.ac.univie.swa.cml.SymbolReference
+//import at.ac.univie.swa.cml.SymbolReference
 import at.ac.univie.swa.cml.TimeConstraint
 import at.ac.univie.swa.cml.Type
 import at.ac.univie.swa.cml.UnaryExpression
 import at.ac.univie.swa.cml.VariableDeclaration
 import at.ac.univie.swa.cml.XorExpression
 import com.google.inject.Inject
+import at.ac.univie.swa.cml.MemberFeatureCall
+import at.ac.univie.swa.cml.ElementReferenceExpression
+import at.ac.univie.swa.cml.SymbolReference
+import org.eclipse.xtext.naming.IQualifiedNameProvider
 
 class CmlTypeProvider {
 	@Inject extension CmlLib
 	@Inject extension CmlModelUtil
 	@Inject extension CmlTypeConformance
+	@Inject extension IQualifiedNameProvider
 	
 	public static val STRING_TYPE = CmlFactory::eINSTANCE.createClass => [name = "String"]
 	public static val INTEGER_TYPE = CmlFactory::eINSTANCE.createClass => [name = "Integer"]
 	public static val BOOLEAN_TYPE = CmlFactory::eINSTANCE.createClass => [name = "Boolean"]
+	public static val REAL_TYPE = CmlFactory::eINSTANCE.createClass => [name = "Real"]
 	public static val DATETIME_TYPE = CmlFactory::eINSTANCE.createClass => [name = "DateTime"]
 	public static val DURATION_TYPE = CmlFactory::eINSTANCE.createClass => [name = "Duration"]
-	public static val REAL_TYPE = CmlFactory::eINSTANCE.createClass => [name = "Real"]
 	public static val NULL_TYPE = CmlFactory::eINSTANCE.createClass => [name = "null"]
 	public static val VOID_TYPE = CmlFactory::eINSTANCE.createClass => [name = "void"]
 
@@ -60,8 +64,8 @@ class CmlTypeProvider {
 				return e.containingClass
 			SuperExpression:
 				return e.containingClass.superclassOrObject
-			SymbolReference:  
-				e.ref.type.inferType
+			SymbolReference:
+				return e.ref.type.inferType
 			NullLiteral:
 				return NULL_TYPE
 			StringLiteral:
@@ -90,29 +94,41 @@ class CmlTypeProvider {
 			MultiplicativeExpression:
 				e.left.typeFor
 			UnaryExpression:
-				if (e.op == "+" || e.op == "-") {
+				if (e.op == "-") {
 					return e.operand.typeFor
 				} else {
 					return BOOLEAN_TYPE
 				}
 			AssignmentExpression:
 				e.left.typeFor
-			MemberSelection: {
-				if (e.arrayAccess) {
-					var t = e.member.inferType
-					switch (t) {
-						case t.isConformant(t.arrayClass): return t.typeVars.get(0).type
-					}
+			ElementReferenceExpression: 
+				if (e.elementAccess) {
+					return e.reference.typeFor.deriveVarType
+				} else return e.reference.typeFor
+			MemberFeatureCall: {
+				if (e.elementAccess) {
+					return e.member.inferType.deriveVarType
 				}
-				e.member.inferType
+				return e.member.inferType
 			}
+			
+		}
+	}
+	
+	def deriveVarType(Type t) {
+		switch (t) {
+			Class case t.isConformant(t.cmlCollectionClass),
+			Class case t.isConformant(t.cmlArrayClass) : return t.typeVars.get(0).type
+			Class case t.isConformant(t.cmlMapClass): return t.typeVars.get(1).type
 		}
 	}
 
 	def Type expectedType(Expression e) {
 		val c = e.eContainer
 		val f = e.eContainingFeature
-		switch (c) {		
+		switch (c) {	
+			//ElementReferenceExpression:
+			//	c.reference.typeFor
 			CasePart case f == ep.casePart_Case:
 				c.containingSwitch.^switch.typeFor
 			AssignmentExpression case f == ep.assignmentExpression_Right:
@@ -149,9 +165,7 @@ class CmlTypeProvider {
 				c.left.typeFor
 			EqualityExpression case f == ep.equalityExpression_Right:
 				c.left.typeFor
-			MemberSelection case f == ep.memberSelection_Args:
-				// assume that it refers to a method and that there
-				// is a parameter corresponding to the argument
+			MemberFeatureCall case f == ep.memberFeatureCall_Args:
 				try {
 					(c.member as Operation).params.get(c.args.indexOf(e)).type.inferType
 				} catch (Throwable t) {

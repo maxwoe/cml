@@ -11,7 +11,7 @@ import at.ac.univie.swa.cml.Class
 import at.ac.univie.swa.cml.CmlPackage
 import at.ac.univie.swa.cml.EnumerationLiteral
 import at.ac.univie.swa.cml.ForLoop
-import at.ac.univie.swa.cml.MemberSelection
+import at.ac.univie.swa.cml.MemberFeatureCall
 import at.ac.univie.swa.cml.Operation
 import at.ac.univie.swa.cml.VariableDeclaration
 import at.ac.univie.swa.typing.CmlTypeConformance
@@ -37,8 +37,8 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 	override getScope(EObject context, EReference reference) {
 		if (reference == CmlPackage.Literals.SYMBOL_REFERENCE__REF) {
 			return scopeForSymbolRef(context)
-		} else if (context instanceof MemberSelection) {
-			return scopeForMemberSelection(context)
+		} else if (context instanceof MemberFeatureCall) {
+			return scopeForMemberFeatureCall(context)
 		} else if (reference == CmlPackage.Literals.ENUMERATION_LITERAL__LITERAL) {
 			return scopeForEnumLiteral(context)
 		} else if (reference == CmlPackage.Literals.ACTOR__PARTY) {
@@ -55,7 +55,7 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 
 	def protected IScope scopeForSymbolRef(EObject context) {
 		var container = context.eContainer
-		// println(container.class.name)
+		
 		return switch (container) {
 			Operation:
 				Scopes.scopeFor(container.params, scopeForSymbolRef(container))
@@ -77,11 +77,10 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 			default:
 				scopeForSymbolRef(container)
 		}
-		
 	}
 
-	def protected IScope scopeForMemberSelection(MemberSelection sel) {
-		var type = sel.receiver.typeFor
+	def protected IScope scopeForMemberFeatureCall(MemberFeatureCall mfc) {
+		var type = mfc.receiver.typeFor
 
 		if (type === null || type.isPrimitive)
 			return IScope.NULLSCOPE
@@ -89,10 +88,9 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 		if (type instanceof Class) {
 			var parentScope = IScope::NULLSCOPE
 			for (c : type.classHierarchyWithObject.toArray().reverseView) {
-				parentScope = Scopes::scopeFor((c as Class).selectedFeatures(sel), parentScope)
+				parentScope = Scopes::scopeFor((c as Class).selectedFeatures(mfc), parentScope)
 			}
-			return Scopes::scopeFor(type.selectedFeatures(sel), parentScope)
-
+			return Scopes::scopeFor(type.selectedFeatures(mfc), parentScope)
 		}
 	}
 
@@ -110,8 +108,8 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 		}
 	}
 
-	def selectedFeatures(Class type, MemberSelection sel) {
-		if (sel.methodinvocation)
+	def selectedFeatures(Class type, MemberFeatureCall mfc) {
+		if (mfc.operationCall)
 			type.operations + type.attributes
 		else
 			type.attributes + type.operations

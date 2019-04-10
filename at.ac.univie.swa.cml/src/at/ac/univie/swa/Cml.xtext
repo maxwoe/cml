@@ -220,22 +220,44 @@ MultiplicativeExpression returns Expression:
 	UnaryExpression (=>({MultiplicativeExpression.left=current} op=('*' | '/')) right=UnaryExpression)*;
 
 UnaryExpression returns Expression:
-	{UnaryExpression} op=('not' | '!' | '-' | '+') operand=UnaryExpression | SelectionExpression;
+	{UnaryExpression} op=('not' | '!' | '-' | '+') operand=UnaryExpression | PostfixExpression;
 
-SelectionExpression returns Expression:
-	PrimaryExpression
-	(=> ({MemberSelection.receiver=current} '.') member=[Feature]
-	(=> methodinvocation?='(' (args+=Expression (',' args+=Expression)*)? ')' |
-	=> (arrayAccess?='[' arraySelector+=Expression ']') => ('[' arraySelector+=Expression ']')*)?)*;
+//PrefixExpression returns Expr:
+//	{UnaryExpression} op=('!' | 'not' | '@pre' | '-') expr=PrefixExpression | AccessExpression;
 
+//CastedExpression returns Expression:
+//	PostfixExpression (=>({CastedExpression.target=current} 'as') type=Container)*;
+
+//CastExpression returns Expression:
+//	PrimaryExpression => ({TypeCastExpression.operand=current} 'as' type=[types::Type|QID])*;
+
+PostfixExpression returns Expression:
+	MemberFeatureCall =>({PostfixOperation.operand=current} op=("++" | "--"))?;
+
+//SelectionExpression returns Expression:
+//	MemberFeatureCall =>({SelectionExpression.container=current} '[' selector+=Expression ']' ('['selector+=Expression ']')* )?;
+
+MemberFeatureCall returns Expression:
+	ElementReferenceExpression (({MemberFeatureCall.receiver=current} '.') 
+	member=[Feature]  (=> operationCall?='(' (args+=Expression (',' args+=Expression)*)? ')' | =>
+	(elementAccess?='[' selector+=Expression ']') => ('[' selector+=Expression ']')*)?)*;
+
+ElementReferenceExpression returns Expression:
+	{ElementReferenceExpression} reference=PrimaryExpression (=> operationCall?='(' (args+=Expression (',' args+=Expression)*)? ')'
+		 | => (elementAccess?='[' selector+=Expression ']') => ('[' selector+=Expression']')*)?;
+
+/*MemberFeatureCall returns Expression:
+	PrimaryExpression 
+	(=> ({MemberFeatureCall.receiver=current} '.') member=[Feature] 
+		(=> operationCall?='(' (args+=Expression (',' args+=Expression)*)? ')' |
+	=> (elementAccess?='[' selector+=Expression ']') => ('[' selector+=Expression ']')*)?)*;*/
+	
 PrimaryExpression returns Expression:	
 	LiteralExpression |
-	//BlockExpression |
-	//IfExpression |
 	{SelfExpression} 'self' |
 	{SuperExpression} 'super' |
 	{CallerExpression} 'caller' |
-	{SymbolReference} ref=[Symbol] (arrayAccess?='[' index=Expression ']')? |
+	{SymbolReference} ref=[Symbol] |
 	'(' Expression ')';
 
 LiteralExpression returns Expression:

@@ -42,6 +42,10 @@ class CmlTypeConformance {
 		c == VOID_TYPE
 	}
 	
+	def conformsToNull(Class c) {
+		c == NULL_TYPE
+	}
+	
 	def conformsToString(Class c) {
 		c == STRING_TYPE || 
 		c.fullyQualifiedName.toString == CmlLib::LIB_STRING
@@ -102,6 +106,10 @@ class CmlTypeConformance {
 	
 	def conformsToMap(Class c) {
 		c.fullyQualifiedName.toString == CmlLib::LIB_MAP
+	}
+	
+	def conformsToArray(Class c) {
+		c.fullyQualifiedName.toString == CmlLib::LIB_ARRAY
 	}
 	
 	def isSubclassOfParty(Class c) {

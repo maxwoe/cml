@@ -5,6 +5,7 @@ import at.ac.univie.swa.cml.Attribute
 import at.ac.univie.swa.cml.Block
 import at.ac.univie.swa.cml.Class
 import at.ac.univie.swa.cml.Clause
+import at.ac.univie.swa.cml.CmlFactory
 import at.ac.univie.swa.cml.CmlProgram
 import at.ac.univie.swa.cml.Collection
 import at.ac.univie.swa.cml.Container
@@ -14,17 +15,18 @@ import at.ac.univie.swa.cml.Map
 import at.ac.univie.swa.cml.Operation
 import at.ac.univie.swa.cml.Primitive
 import at.ac.univie.swa.cml.Return
+import at.ac.univie.swa.cml.Switch
 import at.ac.univie.swa.cml.Type
+import at.ac.univie.swa.cml.TypeRef
+import at.ac.univie.swa.cml.TypeVar
 import at.ac.univie.swa.typing.CmlTypeConformance
 import at.ac.univie.swa.typing.CmlTypeProvider
 import com.google.inject.Inject
 import org.eclipse.emf.ecore.EObject
+import org.eclipse.xtext.naming.IQualifiedNameProvider
 
+import static extension org.eclipse.emf.ecore.util.EcoreUtil.*
 import static extension org.eclipse.xtext.EcoreUtil2.*
-import at.ac.univie.swa.cml.Switch
-import at.ac.univie.swa.cml.CmlFactory
-import at.ac.univie.swa.cml.TypeRef
-import at.ac.univie.swa.cml.TypeVar
 
 class CmlModelUtil {
 
@@ -79,6 +81,10 @@ class CmlModelUtil {
 	def containingAttribute(EObject e) {
 		e.getContainerOfType(Attribute)
 	}
+	
+	def containingContainer(EObject e) {
+		e.getContainerOfType(Container)
+	}
 
 	def featureAsString(Feature f) {
 		f.name + if (f instanceof Operation)
@@ -96,9 +102,9 @@ class CmlModelUtil {
 			Class:
 				switch (t) {
 					case t.isPrimitive: t.name
-					case t.isConformant(t.mapClass),
-					case t.isConformant(t.collectionClass): t.name + "<" + t.typeVars.map[type?.name].join(", ") + ">"
-					case t.isConformant(t.arrayClass): t.typeVars.get(0).type.name + "[]"
+					case t.isConformant(t.cmlMapClass),
+					case t.isConformant(t.cmlCollectionClass): t.name + "<" + t.typeVars.map[type?.name].join(", ") + ">"
+					case t.isConformant(t.cmlArrayClass): t.typeVars.get(0).type.name + "[]"
 					default: t.name
 				}
 		}
@@ -143,8 +149,9 @@ class CmlModelUtil {
 				}
 			}
 			Array: {
-				var clazz = c.arrayClass
+				var clazz = c.cmlArrayClass
 				clazz.typeVars.get(0).type = c.type.toClass
+				clazz.typeVars.add(CmlFactory::eINSTANCE.createTypeVar => [name = c.identification type = c.type.toClass])
 				return clazz
 			}
 			Map: {
@@ -176,8 +183,9 @@ class CmlModelUtil {
 
 	def classHierarchy(Class c) {
 		val visited = newLinkedHashSet()
-
+		
 		var current = c.superclass
+		
 		while (current !== null && !visited.contains(current)) {
 			visited.add(current)
 			current = current.superclass

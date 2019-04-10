@@ -70,23 +70,23 @@ class CmlLib {
 		getCmlClass(context, LIB_DURATION)
 	}
 	
-	def getCollectionClass(EObject context) {
+	def getCmlCollectionClass(EObject context) {
 		getCmlClass(context, LIB_COLLECTION)
 	}
 	
-	def getSetClass(EObject context) {
+	def getCmlSetClass(EObject context) {
 		getCmlClass(context, LIB_SET)
 	}
 	
-	def getBagClass(EObject context) {
+	def getCmlBagClass(EObject context) {
 		getCmlClass(context, LIB_BAG)
 	}
 	
-	def getArrayClass(EObject context) {
+	def getCmlArrayClass(EObject context) {
 		getCmlClass(context, LIB_ARRAY)
 	}
 	
-	def getMapClass(EObject context) {
+	def getCmlMapClass(EObject context) {
 		getCmlClass(context, LIB_MAP)
 	}
 	

@@ -4,6 +4,7 @@
 package at.ac.univie.swa
 
 import at.ac.univie.swa.scoping.CmlImportedNamespaceAwareLocalScopeProvider
+import at.ac.univie.swa.typing.CmlLinkerService
 import com.google.inject.Binder
 import com.google.inject.name.Names
 import org.eclipse.xtext.scoping.IScopeProvider
@@ -19,6 +20,11 @@ class CmlRuntimeModule extends AbstractCmlRuntimeModule {
 		.annotatedWith(Names.named(AbstractDeclarativeScopeProvider.NAMED_DELEGATE))
 		.to(CmlImportedNamespaceAwareLocalScopeProvider);
 	}
+	
+	override bindILinkingService() {
+		return CmlLinkerService
+	}
+	
 	/* 
 	override bindIGlobalScopeProvider() {
         ImportUriGlobalScopeProvider
