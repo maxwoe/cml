@@ -3,11 +3,15 @@ namespace cml.lang
 class Object
 	toString()
 class Contract extends Object
-	anyone : Party
-	balance : Real
+	anyone 	: Party
+	balance : Integer
 	globals : Global
+	balances : Map<Party, Integer>
+	deposit(Integer amount) : Boolean
+	transfer(Integer amount, Party target) : Boolean
+	withdraw(Integer amount) : Boolean
 class Party extends Object
-class Commodity extends Object
+class Asset extends Object
 class Event extends Object
 
 abstract class Enum extends Object
@@ -27,9 +31,9 @@ class Real extends Object
 	floor() : Real
 	toInt() : Integer
 class DateTime extends Object
-	diffDuration(DateTime dt)
-	addDuration(DateTime dt)
-	subtractDuration(DateTime dt)
+	diffDuration(Duration d) : DateTime
+	addDuration(Duration d) : DateTime
+	subtractDuration(Duration d) : DateTime
 class Duration extends Object
 class Array<T> extends Object
 	count() : Integer
@@ -42,7 +46,7 @@ class Global extends Object
 	contractStart : DateTime
 	contractEnd : DateTime
 class Collection<T> extends Object
-	size()
+	size() : Integer
 	includes(T t) : Boolean
 	excludes(T t) : Boolean
 	count(T t) : Integer

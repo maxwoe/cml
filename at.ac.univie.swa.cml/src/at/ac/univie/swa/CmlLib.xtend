@@ -50,7 +50,7 @@ class CmlLib {
 		getCmlClass(context, LIB_PARTY)
 	}
 	
-	def getCmlCommodityClass(EObject context) {
+	def getCmlAssetClass(EObject context) {
 		getCmlClass(context, LIB_ASSET)
 	}
 	

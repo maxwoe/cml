@@ -59,12 +59,12 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 		return switch (container) {
 			Operation:
 				Scopes.scopeFor(container.params, scopeForSymbolRef(container))
-			AtomicAction:
-				Scopes.scopeFor(container.params, scopeForSymbolRef(container))
 			Block:
 				Scopes.scopeFor(
 					container.statements.takeWhile[it != context].filter(VariableDeclaration),
 					scopeForSymbolRef(container))
+			AtomicAction:
+				Scopes.scopeFor(container.params, scopeForSymbolRef(container))
 			Class: {
 				var parentScope = IScope::NULLSCOPE
 				for (c : container.classHierarchyWithObject.toArray().reverseView) {
