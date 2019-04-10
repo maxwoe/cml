@@ -222,20 +222,8 @@ MultiplicativeExpression returns Expression:
 UnaryExpression returns Expression:
 	{UnaryExpression} op=('not' | '!' | '-' | '+') operand=UnaryExpression | PostfixExpression;
 
-//PrefixExpression returns Expr:
-//	{UnaryExpression} op=('!' | 'not' | '@pre' | '-') expr=PrefixExpression | AccessExpression;
-
-//CastedExpression returns Expression:
-//	PostfixExpression (=>({CastedExpression.target=current} 'as') type=Container)*;
-
-//CastExpression returns Expression:
-//	PrimaryExpression => ({TypeCastExpression.operand=current} 'as' type=[types::Type|QID])*;
-
 PostfixExpression returns Expression:
 	MemberFeatureCall =>({PostfixOperation.operand=current} op=("++" | "--"))?;
-
-//SelectionExpression returns Expression:
-//	MemberFeatureCall =>({SelectionExpression.container=current} '[' selector+=Expression ']' ('['selector+=Expression ']')* )?;
 
 MemberFeatureCall returns Expression:
 	ElementReferenceExpression (({MemberFeatureCall.receiver=current} '.') 
@@ -245,12 +233,6 @@ MemberFeatureCall returns Expression:
 ElementReferenceExpression returns Expression:
 	{ElementReferenceExpression} reference=PrimaryExpression (=> operationCall?='(' (args+=Expression (',' args+=Expression)*)? ')'
 		 | => (elementAccess?='[' selector+=Expression ']') => ('[' selector+=Expression']')*)?;
-
-/*MemberFeatureCall returns Expression:
-	PrimaryExpression 
-	(=> ({MemberFeatureCall.receiver=current} '.') member=[Feature] 
-		(=> operationCall?='(' (args+=Expression (',' args+=Expression)*)? ')' |
-	=> (elementAccess?='[' selector+=Expression ']') => ('[' selector+=Expression ']')*)?)*;*/
 	
 PrimaryExpression returns Expression:	
 	LiteralExpression |
