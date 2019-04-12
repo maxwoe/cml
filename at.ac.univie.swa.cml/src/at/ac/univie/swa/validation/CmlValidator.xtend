@@ -200,24 +200,6 @@ class CmlValidator extends AbstractCmlValidator {
 			error("'super' can be used only as member selection receiver", null, WRONG_SUPER_USAGE)
 	}
 	
-//	@Check
-//	def void checkValidArgumentForCollectionOperation(MemberSelection sel){
-//		if(sel.coll !== null && sel.coll === "at"){
-//			if(sel.args === null)
-//				error("Collection operation 'at' should have one argument of type integer",
-//					CmlPackage::eINSTANCE.memberSelection_Args,
-//					WRONG_TYPE)
-//			if(sel.args !== null && sel.args.size > 1)
-//				error("Collection operation 'at' should have only one argument of type integer",
-//					CmlPackage::eINSTANCE.memberSelection_Args,
-//					WRONG_TYPE)
-//			if(sel.args !== null && !sel.args.isEmpty && sel.args.get(0).typeFor != CmlTypeProvider.INTEGER_TYPE)
-//				error("Collection operation 'at' should have an argument of type integer",
-//					CmlPackage::eINSTANCE.memberSelection_Args,
-//					WRONG_TYPE)
-//		}
-//	}
-	
 	@Check
 	def void checkConformance(Expression exp) {
 		val actualType = exp.typeFor

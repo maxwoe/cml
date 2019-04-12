@@ -1,14 +1,11 @@
 grammar at.ac.univie.swa.Cml with org.eclipse.xtext.common.Terminals
 
-import 'http://www.eclipse.org/emf/2002/Ecore' as ecore
-
 generate cml 'http://swa.univie.ac.at/Cml'
 
 CmlProgram:
 	('namespace' name=QualifiedName)?
 	imports+=Import*
-	(model+=ModelElement |
-	contracts+=Contract)*;
+	declarations+=Declaration*;
 
 Import:
 	'import' importedNamespace = QualifiedNameWithWildcard;
@@ -74,8 +71,8 @@ TypeVar:
 TypeVarType returns TypeVar:
 	{TypeVar} type=[Class|QualifiedName];
 	
-ModelElement:
-	Class | Party | Asset | Event | Enumeration;
+Declaration:
+	Class | Party | Asset | Event | Enumeration | Contract;
 
 Class: 
 	(abstract?='abstract')? kind='class' name=ID ('<'typeVars+=TypeVar (',' typeVars+=TypeVar)* '>')? ('extends' superclass=[Class|QualifiedName])?
@@ -140,7 +137,7 @@ enum Deontic:
 	MUST='must' | MAY='may' | MUST_NOT= 'must_not';
 
 DeonticAction:
-	deontic=Deontic compoundAction=AtomicAction;
+	deontic=Deontic compoundAction=ClauseOperation;
 /* 
 CompoundAction:
 	OrCompoundAction;
@@ -157,7 +154,7 @@ AndCompoundAction returns CompoundAction:
 AtomicCompoundAction returns CompoundAction:
 	'(' CompoundAction ')' | AtomicAction;*/
 
-AtomicAction:
+ClauseOperation returns Operation:
 	name=ID '(' (params+=Parameter (',' params+=Parameter)*)? ')' (':' type=ReturnType)?
 	BEGIN 
 		('pre' preCondition=Expression)?
@@ -223,7 +220,7 @@ UnaryExpression returns Expression:
 	{UnaryExpression} op=('not' | '!' | '-' | '+') operand=UnaryExpression | PostfixExpression;
 
 PostfixExpression returns Expression:
-	MemberFeatureCall =>({PostfixOperation.operand=current} op=("++" | "--" | "@pre"))?;
+	MemberFeatureCall =>({PostfixExpression.operand=current} op=("++" | "--" | "@pre"))?;
 
 MemberFeatureCall returns Expression:
 	ElementReferenceExpression (({MemberFeatureCall.receiver=current} '.') 
@@ -244,14 +241,15 @@ PrimaryExpression returns Expression:
 
 LiteralExpression returns Expression:
 	{IntegerLiteral} value=INT |
-	{BooleanLiteral} ('false' | 'true') |
+	{BooleanLiteral} value=('false' | 'true') |
 	{StringLiteral} value=STRING |
 	{RealLiteral} value=REAL |
 	{DurationLiteral} value=INT unit=TimeUnit |
 	{DateTimeLiteral} value=DATE |
 	{NullLiteral} 'null' |
 	{EnumerationLiteral} enumeration=[Class|QualifiedName] '::' literal=[EnumerationElement] |
-	{SetLiteral} '{' (elements+=Expression (',' elements+=Expression )*)? '}';
+	{SetLiteral} '{' (elements+=Expression (',' elements+=Expression )*)? '}' |
+	{ArrayLiteral} '[' (elements+=Expression (',' elements+=Expression)*)? ']';
 	
 enum TimeUnit: 
 	MINUTE='minutes'|
@@ -284,6 +282,7 @@ Statement:
 	ForLoop |
 	ForEachLoop |
 	Switch |
+	Throw |
 	Return;
 
 ConditionalBlock returns Block:
@@ -307,10 +306,13 @@ Switch:
 	('default' ':' default=Expression)?
 	END;
 
+Throw:
+	'throw' expression=Expression;
+	
 CasePart:
 	('case' case=Expression)?
 		(':' then=Statement | fallThrough?=',');
-					
+
 Return:
 	{Return} 'return' (->expression=Expression)?;
 

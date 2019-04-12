@@ -35,7 +35,8 @@ class CmlTypeConformance {
 		(c1.conformsToBoolean && c2.conformsToBoolean) ||
 		(c1.conformsToReal && c2.conformsToReal) ||
 		(c1.conformsToDateTime && c2.conformsToDateTime) ||
-		(c1.conformsToDuration && c2.conformsToDuration)
+		(c1.conformsToDuration && c2.conformsToDuration) ||
+		(c1.conformsToError && c2.conformsToError)
 	}
 
 	def conformsToVoid(Class c) {
@@ -76,6 +77,11 @@ class CmlTypeConformance {
 		c.fullyQualifiedName.toString == CmlLib::LIB_DURATION
 	}
 	
+	def conformsToError(Class c) {
+		c == ERROR_TYPE || 
+		c.fullyQualifiedName.toString == CmlLib::LIB_ERROR
+	}
+	
 	def conformsToParty(Class c) {
 		c.fullyQualifiedName.toString == CmlLib::LIB_PARTY
 	}
@@ -112,11 +118,15 @@ class CmlTypeConformance {
 		c.fullyQualifiedName.toString == CmlLib::LIB_ARRAY
 	}
 	
+	def isSubclassOfContract(Class c) {
+		c.classHierarchyWithObject.exists[conformsToContract]
+	}
+	
 	def isSubclassOfParty(Class c) {
 		c.classHierarchyWithObject.exists[conformsToParty]
 	}
 	
-	def isSubclassOfCommodity(Class c) {
+	def isSubclassOfAsset(Class c) {
 		c.classHierarchyWithObject.exists[conformsToAsset]
 	}
 	

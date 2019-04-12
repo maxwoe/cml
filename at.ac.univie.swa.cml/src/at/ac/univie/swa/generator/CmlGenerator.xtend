@@ -3,29 +3,351 @@
  */
 package at.ac.univie.swa.generator
 
+import at.ac.univie.swa.CmlLib
+import at.ac.univie.swa.CmlModelUtil
+import at.ac.univie.swa.cml.AdditiveExpression
+import at.ac.univie.swa.cml.AndExpression
+import at.ac.univie.swa.cml.Antecedent
+import at.ac.univie.swa.cml.AssignmentExpression
+import at.ac.univie.swa.cml.Block
+import at.ac.univie.swa.cml.BooleanLiteral
+import at.ac.univie.swa.cml.Class
+import at.ac.univie.swa.cml.Clause
 import at.ac.univie.swa.cml.CmlProgram
+import at.ac.univie.swa.cml.Container
+import at.ac.univie.swa.cml.ElementReferenceExpression
+import at.ac.univie.swa.cml.EqualityExpression
+import at.ac.univie.swa.cml.Expression
+import at.ac.univie.swa.cml.If
+import at.ac.univie.swa.cml.IntegerLiteral
+import at.ac.univie.swa.cml.MemberFeatureCall
+import at.ac.univie.swa.cml.MultiplicativeExpression
+import at.ac.univie.swa.cml.Operation
+import at.ac.univie.swa.cml.OrExpression
+import at.ac.univie.swa.cml.PostfixExpression
+import at.ac.univie.swa.cml.RelationalExpression
+import at.ac.univie.swa.cml.Return
+import at.ac.univie.swa.cml.Statement
+import at.ac.univie.swa.cml.StringLiteral
+import at.ac.univie.swa.cml.Symbol
+import at.ac.univie.swa.cml.SymbolReference
+import at.ac.univie.swa.cml.UnaryExpression
+import at.ac.univie.swa.cml.VariableDeclaration
+import at.ac.univie.swa.typing.CmlTypeConformance
+import at.ac.univie.swa.typing.CmlTypeProvider
+import com.google.inject.Inject
+import java.util.List
 import org.eclipse.emf.ecore.resource.Resource
-import org.eclipse.xtext.generator.AbstractGenerator
+import org.eclipse.emf.ecore.resource.ResourceSet
 import org.eclipse.xtext.generator.IFileSystemAccess2
 import org.eclipse.xtext.generator.IGeneratorContext
+
+import static extension org.eclipse.emf.ecore.util.EcoreUtil.*
+import at.ac.univie.swa.cml.CallerExpression
+import at.ac.univie.swa.cml.Import
 
 /**
  * Generates code from your model files on save.
  * 
  * See https://www.eclipse.org/Xtext/documentation/303_runtime_concepts.html#code-generation
  */
-class CmlGenerator extends AbstractGenerator {
+class CmlGenerator extends AbstractGenerator2 {
 	
-    override void doGenerate(Resource resource, IFileSystemAccess2 fsa, IGeneratorContext context) {    
-        for (e : resource.allContents.toIterable.filter(CmlProgram)) {		
-            fsa.generateFile(resource.URI.trimFileExtension + ".sol", e.compile)         
+	@Inject extension CmlModelUtil
+	@Inject extension CmlLib
+	@Inject extension CmlTypeProvider
+	@Inject extension CmlTypeConformance
+	
+	override doGenerate(Resource resource, ResourceSet input, IFileSystemAccess2 fsa, IGeneratorContext context) {
+		val allResources = input.resources.map(r|r.allContents.toIterable.filter(CmlProgram)).flatten
+		for (p : resource.allContents.toIterable.filter(CmlProgram)) {
+			if(!p.contracts.empty)	
+            	fsa.generateFile(resource.URI.trimFileExtension.toPlatformString(true) + ".sol", p.compile(allResources))         
         }
-    }
+	}
  
-    def compile(CmlProgram c) '''
-		pragma solidity >=0.4.22 <0.7.0;
+ 	def retrieveImport(Iterable<CmlProgram> resources, Import i) {
+ 		if(i.importedNamespace !== CmlLib::LIB_PACKAGE)
+ 			resources.findFirst[name == i.copy.importedNamespace.replace(".*","")]
+ 	}
+ 	
+    def compile(CmlProgram program, Iterable<CmlProgram> allResources) '''
+	pragma solidity >=0.4.22 <0.7.0;
+	
+	«FOR contract : program.contracts»
+	contract «contract.name» {
 		
+		/*
+		 *  Enums
+		 */
+		«FOR i : program.imports»
+			«FOR e : allResources.retrieveImport(i).enums»
+				«e.compileEnum»
+			«ENDFOR»
+		«ENDFOR»
+		«FOR c : program.enums»
+			«c.compileEnum»
+		«ENDFOR»
+		
+		/*
+		 *  Structs
+		 */
+		«FOR i : program.imports»
+			«allResources.retrieveImport(i).compileModel»
+		«ENDFOR»
+		«FOR i : program.imports»
+			«program.compileModel»
+		«ENDFOR»	
+		/*
+		 *  State variables
+		 */	
+		address owner;
+		uint creationTime;
+		«FOR a : contract.attributes»
+		   	«a.compile»;
+		«ENDFOR»
+		
+		/*
+	 	 *  Events
+	 	 */
+		«FOR i : program.imports»
+			«FOR e : allResources.retrieveImport(i).events»
+				«e.compileEvent»
+			«ENDFOR»
+		«ENDFOR»
+		«FOR e : program.events»
+			«e.compileEvent»
+		«ENDFOR»
+		
+		/*
+		 *  Constructor
+		 */
+		constructor(«FOR party : program.parties SEPARATOR ', '»address _«program.name»«ENDFOR») public {
+			owner = msg.sender;
+			«FOR party : program.parties»
+				«program.name»= _«program.name»;
+			«ENDFOR»
+			creationTime = now;
+		}
+		
+		/*
+		 *  Functions
+		 */
+	 	«FOR clause : contract.clauses»
+	 		«IF clause.antecedent.general !== null»«clause.antecedent.compile»«ENDIF»
+	 		«clause.action.compoundAction.compile»
+		«ENDFOR»
+		«FOR i : program.imports»
+			«FOR e : allResources.retrieveImport(i).events»
+				«e.compileEventAsFunction»
+			«ENDFOR»
+		«ENDFOR»
+		«FOR e : program.events»
+			«e.compileEventAsFunction»
+		«ENDFOR»
+		function changeOwner(address _newOwner) public onlyBy(owner) {
+			owner = _newOwner;
+		}
+		
+		/// Fallback function
+		function() external payable {}
+		
+		/* 	 
+		 *  Modifiers
+	 	 */
+		modifier onlyBy(address _account) { 
+			require(msg.sender == _account, "Sender not authorized."); _;
+		}
+		
+		modifier onlyAfter(uint _time) {
+			require(now >= _time, "Function called too early."); _;
+		}
+		
+		modifier onlyBefore(uint _time) {
+			require(now < _time, "Function called too late."); _;
+		}
+	}
+	«ENDFOR»
+    '''
+          	
+    def compile(List<Symbol> symbols) '''
+    	«FOR s : symbols SEPARATOR ', '»«s.compile»«ENDFOR»'''
+    
+    def compile(Symbol s) '''
+    	«s.type.compile» « s.name»'''
+    
+    def compileModel(CmlProgram program) '''
+	«FOR c : program.classes»
+		«IF !c.isAbstract && (c.subclassOfParty || c.subclassOfAsset)»«c.compile»«ENDIF»
+	«ENDFOR»
 	'''
+	
+    def compile(Class c) '''
+	struct «c.name.toFirstUpper» {
+	   	«FOR f : c.classHierarchyAttributes.values»
+	   		«f.compile»;
+	   	«ENDFOR»
+	   	«FOR f : c.attributes»
+	   		«f.compile»;
+	   	«ENDFOR»
+	}
+	
+   ''' 
+    
+    def compile(Operation o) '''	
+	function «o.name»(«o.params.map[it as Symbol].compile») public {
+		// TODO: Implement code to «o.name» «FOR arg : o.params SEPARATOR ', '»«arg.name»«ENDFOR»
+		«FOR s : o.body.statements»
+		«compileStatement(s)»
+		«ENDFOR»
+	}
+	
+	'''
+	
+	def compile(Operation o, List<String> modifiers) '''	
+	function «o.name»(«o.params.map[it as Symbol].compile») public «FOR m : modifiers SEPARATOR ' '»«m»() «ENDFOR» {
+		// TODO: Implement code to «o.name» «FOR arg : o.params SEPARATOR ', '»«arg.name»«ENDFOR»
+	}
+	
+	'''
+	
+	def compileBlock(Block block) '''
+	{
+		«FOR s : block.statements»
+		«compileStatement(s)»
+		«ENDFOR»
+	}
+	'''
+	
+	def String compileStatement(Statement s) {
+		switch (s) {
+			VariableDeclaration: ''' «s.name» = «s.expression.compile»;'''
+			Return: "return " + s.expression.compile + ";"
+			If: '''
+			if («s.condition.compile»)
+				«s.thenBlock.compileBlock»
+			«IF s.elseBlock !== null»
+			else
+				«s.elseBlock.compileBlock»
+			«ENDIF»
+			'''
+			default: (s as Expression).compile + ";"
+		}
+	}
+
+	def compileEvent(Class c) '''
+	event «c.name.toFirstUpper»();'''
+	
+	def compileEventAsFunction(Class c) '''	
+	/// @notice trigger event «c.name»
+	function «c.name.toFirstLower»() public {
+		emit «c.name.toFirstUpper»();
+	}
+	
+	'''
+	
+	def compileEnum(Class c) '''
+	enum «c.name.toFirstUpper» { «FOR e : c.enumElements SEPARATOR ', '»«e.name»«ENDFOR» }
+	«c.name.toFirstUpper» «c.name.toFirstLower»;'''
+	
+    def compile(Container c) {
+    	var t = c.inferType
+    	switch (t) {
+			case t.conformsToInteger: "uint"
+			case t.conformsToBoolean: "bool"
+			case t.conformsToString: "bytes32"
+			case t.conformsToReal: "uint"
+			case t.conformsToDateTime: "uint"
+			case t.conformsToDuration: "uint"
+			case t.conformsToEnum: t.name
+			case t.conformsToSet: "???"
+			case t.conformsToMap: "mapping( ? => ? )"
+			case t.conformsToAsset: t.name
+			case t.conformsToParty: "address"
+			default: t.name
+		}
+	}
+	
+	def compile(Antecedent a) '''
+	/// @notice modifier for function «(a.eContainer as Clause).name»
+	modifier guard() {
+		require(«a.general.expression.compile»); _;
+	}
+	
+	'''
+	
+	def String compile(Expression exp) {
+		
+		switch (exp) {
+			AssignmentExpression: 
+				'''«(exp.left.compile)» = «(exp.right.compile)»'''
+			OrExpression: {
+				'''«(exp.left.compile)» || «(exp.right.compile)»'''
+			}
+			AndExpression: {
+				'''«(exp.left.compile)» && «(exp.right.compile)»'''
+			}
+			EqualityExpression: {
+				if (exp.op == '==')
+					'''«(exp.left.compile)» == «(exp.right.compile)»'''
+				else
+					'''«(exp.left.compile)» != «(exp.right.compile)»'''
+			}
+			RelationalExpression: {
+				val left = exp.left.compile
+				val right = exp.right.compile
+
+				switch (exp.op) {
+					case '<': '''«left» < «right»'''
+					case '>': '''«left» > «right»'''
+					case '>=': '''«left» >= «right»'''
+					case '<=': '''«left» <= «right»'''
+					default:
+						""
+				}
+			}
+			AdditiveExpression: {
+				if (exp.op == '+')
+					'''«(exp.left.compile)» + «(exp.right.compile)»'''
+				else
+					'''«(exp.left.compile)» - «(exp.right.compile)»'''
+			}
+			MultiplicativeExpression: {
+				val left = exp.left.compile
+				val right = exp.right.compile
+				if (exp.op == '*')
+					'''«left» * «right»''' 
+				else
+					'''«left» / «right»'''
+			}
+			UnaryExpression: {
+				if (exp.op == '+')
+					''' +«(exp.operand.compile)»'''
+				else
+					''' -«(exp.operand.compile)»'''
+			}
+			PostfixExpression: {
+				if (exp.op == '++')
+					'''«(exp.operand.compile)»++'''
+				else
+					'''«(exp.operand.compile)»--'''
+			}
+			IntegerLiteral: '''«exp.value»'''
+			BooleanLiteral: '''«exp.value»'''
+			StringLiteral: '''"«exp.value»"'''
+			SymbolReference: '''«exp.ref.name»'''
+			MemberFeatureCall: {
+				exp.receiver.compile + "." + exp.member.name +
+				if (exp.operationCall) {
+					"(" + exp.args.map[compile].join(", ") + ")"
+				} else {
+					""
+				}
+			}
+			ElementReferenceExpression: '''«exp.reference.compile»'''
+			CallerExpression: '''msg.sender'''
+		}
+	}
 
 }
 
