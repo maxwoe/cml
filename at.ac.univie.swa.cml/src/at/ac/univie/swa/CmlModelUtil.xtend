@@ -23,11 +23,8 @@ import at.ac.univie.swa.typing.CmlTypeProvider
 import com.google.inject.Inject
 import org.eclipse.emf.ecore.EObject
 
-import org.eclipse.emf.common.util.URI
 import static extension org.eclipse.emf.ecore.util.EcoreUtil.*
 import static extension org.eclipse.xtext.EcoreUtil2.*
-import org.eclipse.emf.ecore.util.EcoreUtil
-import at.ac.univie.swa.cml.CmlFactory
 
 class CmlModelUtil {
 
@@ -171,28 +168,8 @@ class CmlModelUtil {
 				}
 			}
 			Array: {
-				//var uri = URI.createURI("dummy:/array.cml")
-				var uri = URI.createURI("platform:/resource/at.ac.univie.swa.cml/cml/lang/mainlib.cml")
-				var resourceSet = c.cmlArrayClass.eResource().getResourceSet()
-				println(resourceSet)
-				var resource = resourceSet.getResource(uri, false);
-				var Class clazz = null
-				
-				if (resource === null) {
-					clazz = CmlFactory.eINSTANCE.createClass => [name = "Arrayy"]
-					//clazz = c.cmlArrayClass.copy
-					//clazz.typeVars.get(0).type = c.type.toClass
-					
-					//resource = resourceSet.createResource(uri);
-					resource.getContents().addAll(EcoreUtil.copyAll(resourceSet.getResource(URI.createURI("platform:/resource/at.ac.univie.swa.cml/cml/lang/mainlib.cml"), false).getContents()));
-					var contents = resource.getContents();
-					contents.add(clazz);
-				} else {
-					clazz = resource.getContents().get(0) as Class;
-				}
-
-				//var clazz = c.cmlArrayClass.copy
-				//clazz.typeVars.get(0).type = c.type.toClass
+				var clazz = c.cmlArrayClass
+				clazz.typeVars.get(0).type = c.type.toClass
 				return clazz
 			}
 			Map: {

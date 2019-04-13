@@ -85,12 +85,12 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 	def protected IScope scopeForMemberFeatureCall(MemberFeatureCall mfc) {
 		var type = mfc.receiver.typeFor
 
-		if (type === null || type.isPrimitive && !(type as Class).fullyQualifiedName.toString.equals("Array"))
+		if (type === null || type.isPrimitive)
 			return IScope.NULLSCOPE
 			
 		if (type instanceof Class) {
 			var parentScope = IScope::NULLSCOPE
-			for (c : type.classHierarchy.toArray().reverseView) {
+			for (c : type.classHierarchyWithObject.toArray().reverseView) {
 				parentScope = Scopes::scopeFor((c as Class).selectedFeatures(mfc), parentScope)
 			}
 			return Scopes::scopeFor(type.selectedFeatures(mfc), parentScope)
