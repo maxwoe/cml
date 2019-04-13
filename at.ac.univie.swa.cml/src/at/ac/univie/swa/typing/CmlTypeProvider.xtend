@@ -124,9 +124,9 @@ class CmlTypeProvider {
 	
 	def deriveVarType(Type t) {
 		switch (t) {
-			Class case t.isConformant(t.cmlCollectionClass),
-			Class case t.isConformant(t.cmlArrayClass) : return t.typeVars.get(0).type
-			Class case t.isConformant(t.cmlMapClass): return t.typeVars.get(1).type
+			Class case /*t.isConformant(t.cmlCollectionClass)*/ t.conformsToSet,
+			Class case /*t.isConformant(t.cmlArrayClass)*/t.conformsToArray : return t.typeVars.get(0).type
+			Class case /*t.isConformant(t.cmlMapClass)*/ t.conformsToMap: return t.typeVars.get(1).type
 		}
 	}
 

@@ -27,6 +27,7 @@ import org.eclipse.xtext.validation.Check
 import org.eclipse.xtext.validation.CheckType
 
 import static extension org.eclipse.xtext.EcoreUtil2.*
+import java.util.ArrayList
 
 /**
  * This class contains custom validation rules. 
@@ -103,7 +104,9 @@ class CmlValidator extends AbstractCmlValidator {
 
 	@Check 
 	def void checkNoDuplicateFeatures(Class c) {
-		checkNoDuplicateElements(c.attributes, "attribute")
+		val attributes = new ArrayList(c.classHierarchyAttributes.values);
+		attributes.addAll(c.attributes)
+		checkNoDuplicateElements(attributes, "attribute")
 		checkNoDuplicateElements(c.operations, "operation")
 		checkNoDuplicateElements(c.clauses, "clause")
 		checkNoDuplicateElements(c.enumElements, "enumeration literal")

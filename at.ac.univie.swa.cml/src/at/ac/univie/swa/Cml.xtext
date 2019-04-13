@@ -122,10 +122,10 @@ Clause:
 	END;
 
 Antecedent:
-	{Antecedent} temporal=TemporalConstraint? general=Constraint?;
+	{Antecedent} temporal=TimeConstraint? general=Constraint?;
 
-TemporalConstraint:
-	'due' constraint=TimeConstraint;
+TimeConstraint:
+	'due' closed?='within'? timeframe=Expression? period=PeriodicTime? precedence=TemporalPrecedence reference=(TimeQuery|Expression);
 	
 Constraint:
 	'given' expression=Expression;
@@ -157,14 +157,11 @@ AtomicCompoundAction returns CompoundAction:
 ClauseOperation returns Operation:
 	name=ID '(' (params+=Parameter (',' params+=Parameter)*)? ')' (':' type=ReturnType)?
 	BEGIN 
-		('pre' preCondition=Expression)?
+		('pre' precondition=Expression)?
 		body=BlockWithoutIndentation
-		('post' postCondition=Expression)?
+		('post' postcondition=Expression)?
 	END;
 	
-TimeConstraint:
-	closed?='within'? timeframe=Expression? period=PeriodicTime? precedence=TemporalPrecedence reference=(TimeQuery|Expression);
-
 PeriodicTime:
 	'every' period=Expression 'from' start=(TimeQuery|Expression) ('until' end=(TimeQuery|Expression))?;
 	

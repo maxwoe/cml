@@ -13,19 +13,26 @@ class CmlTypeConformance {
 	@Inject extension IQualifiedNameProvider
 	@Inject extension CmlModelUtil
 
-	def isConformant(Type c1, Type c2) {
+	def boolean isConformant(Type c1, Type c2) {
 		switch (c1) {
 			Class:
 				switch (c2) {
+					Class case c1.conformsToSet && c2.conformsToSet,
+					Class case c1.conformsToBag && c2.conformsToBag,
+					Class case c1.conformsToArray && c2.conformsToArray:
+						return isConformant(c1.typeVars.get(0).type, c2.typeVars?.get(0).type)
+					Class case c1.conformsToMap && c2.conformsToMap:
+						return isConformant(c1.typeVars.get(0).type, c2.typeVars?.get(0).type) &&
+							isConformant(c1.typeVars.get(1).type, c2.typeVars?.get(1).type)
 					Class:
 						return c1 == NULL_TYPE || // null can be assigned to everything
-							(conformToLibraryTypes(c1, c2)) || 
-							c1 == c2 ||
-							c2.fullyQualifiedName.toString == CmlLib::LIB_OBJECT || 
-							c1.isSubclassOf(c2)
-					default: false
+						(conformToLibraryTypes(c1, c2)) || c1 == c2 ||
+							c2.fullyQualifiedName.toString == CmlLib::LIB_OBJECT || c1.isSubclassOf(c2)
+					default:
+						false
 				}
-			default: false
+			default:
+				false
 		}
 	}
 
@@ -119,23 +126,23 @@ class CmlTypeConformance {
 	}
 	
 	def isSubclassOfContract(Class c) {
-		c.classHierarchyWithObject.exists[conformsToContract]
+		c.classHierarchy.exists[conformsToContract]
 	}
 	
 	def isSubclassOfParty(Class c) {
-		c.classHierarchyWithObject.exists[conformsToParty]
+		c.classHierarchy.exists[conformsToParty]
 	}
 	
 	def isSubclassOfAsset(Class c) {
-		c.classHierarchyWithObject.exists[conformsToAsset]
+		c.classHierarchy.exists[conformsToAsset]
 	}
 	
 	def isSubclassOfEvent(Class c) {
-		c.classHierarchyWithObject.exists[conformsToEvent]
+		c.classHierarchy.exists[conformsToEvent]
 	}
 	
 	def isSubclassOfEnum(Class c) {
-		c.classHierarchyWithObject.exists[conformsToEnum]
+		c.classHierarchy.exists[conformsToEnum]
 	}
 	
 	def isSubclassOf(Class c1, Class c2) {

@@ -45,6 +45,8 @@ import org.eclipse.xtext.generator.IGeneratorContext
 import static extension org.eclipse.emf.ecore.util.EcoreUtil.*
 import at.ac.univie.swa.cml.CallerExpression
 import at.ac.univie.swa.cml.Import
+import java.util.HashMap
+import java.util.LinkedHashMap
 
 /**
  * Generates code from your model files on save.
@@ -61,8 +63,8 @@ class CmlGenerator extends AbstractGenerator2 {
 	override doGenerate(Resource resource, ResourceSet input, IFileSystemAccess2 fsa, IGeneratorContext context) {
 		val allResources = input.resources.map(r|r.allContents.toIterable.filter(CmlProgram)).flatten
 		for (p : resource.allContents.toIterable.filter(CmlProgram)) {
-			if(!p.contracts.empty)	
-            	fsa.generateFile(resource.URI.trimFileExtension.toPlatformString(true) + ".sol", p.compile(allResources))         
+//			if(!p.contracts.empty)	
+//            	fsa.generateFile(resource.URI.trimFileExtension.toPlatformString(true) + ".sol", p.compile(allResources))         
         }
 	}
  
@@ -134,7 +136,6 @@ class CmlGenerator extends AbstractGenerator2 {
 		 *  Functions
 		 */
 	 	«FOR clause : contract.clauses»
-	 		«IF clause.antecedent.general !== null»«clause.antecedent.compile»«ENDIF»
 	 		«clause.action.compoundAction.compile»
 		«ENDFOR»
 		«FOR i : program.imports»
@@ -149,12 +150,15 @@ class CmlGenerator extends AbstractGenerator2 {
 			owner = _newOwner;
 		}
 		
-		/// Fallback function
+		// Fallback function
 		function() external payable {}
 		
 		/* 	 
 		 *  Modifiers
 	 	 */
+		«FOR clause : contract.clauses»
+			«clause.antecedent.compile»
+		«ENDFOR»
 		modifier onlyBy(address _account) { 
 			require(msg.sender == _account, "Sender not authorized."); _;
 		}
@@ -195,8 +199,9 @@ class CmlGenerator extends AbstractGenerator2 {
    ''' 
     
     def compile(Operation o) '''	
-	function «o.name»(«o.params.map[it as Symbol].compile») public {
-		// TODO: Implement code to «o.name» «FOR arg : o.params SEPARATOR ', '»«arg.name»«ENDFOR»
+	function «o.name»(«o.params.map[it as Symbol].compile») public «FOR m : o.deriveModifiers.entrySet SEPARATOR ' '»«m.key»(«m.value.join(", ")»)«ENDFOR» {
+«««		// TODO: Implement code to «o.name» «FOR arg : o.params SEPARATOR ', '»«arg.name»«ENDFOR»
+		require(«o.precondition.compile»);
 		«FOR s : o.body.statements»
 		«compileStatement(s)»
 		«ENDFOR»
@@ -204,12 +209,16 @@ class CmlGenerator extends AbstractGenerator2 {
 	
 	'''
 	
-	def compile(Operation o, List<String> modifiers) '''	
-	function «o.name»(«o.params.map[it as Symbol].compile») public «FOR m : modifiers SEPARATOR ' '»«m»() «ENDFOR» {
-		// TODO: Implement code to «o.name» «FOR arg : o.params SEPARATOR ', '»«arg.name»«ENDFOR»
+	def deriveModifiers(Operation o) {
+		var modifiers = new LinkedHashMap<String, List<String>>(); 
+		var party = o.containingClause.actor.party
+		if(party != "anyone")
+			modifiers.put("onlyBy", #[party.name])
+		if(o.containingClause.antecedent.temporal !== null)
+			modifiers.put("guard_"+o.name, emptyList)
+			
+		modifiers
 	}
-	
-	'''
 	
 	def compileBlock(Block block) '''
 	{
@@ -239,7 +248,7 @@ class CmlGenerator extends AbstractGenerator2 {
 	event «c.name.toFirstUpper»();'''
 	
 	def compileEventAsFunction(Class c) '''	
-	/// @notice trigger event «c.name»
+	// @notice trigger event «c.name»
 	function «c.name.toFirstLower»() public {
 		emit «c.name.toFirstUpper»();
 	}
@@ -269,9 +278,18 @@ class CmlGenerator extends AbstractGenerator2 {
 	}
 	
 	def compile(Antecedent a) '''
-	/// @notice modifier for function «(a.eContainer as Clause).name»
+	// @notice modifier for function «a.containingClause.name»
 	modifier guard() {
+«««		require(«a.general.temporal.compile»);
 		require(«a.general.expression.compile»); _;
+	}
+	
+	'''
+	
+	def compileModifier(Expression e) '''
+	// @notice modifier for function «e.containingOperation.name»
+	modifier guard_«e.containingOperation.name»() {
+		require(«e.compile»); _;
 	}
 	
 	'''
