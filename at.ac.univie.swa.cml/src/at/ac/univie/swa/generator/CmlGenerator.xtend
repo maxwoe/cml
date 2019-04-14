@@ -11,14 +11,17 @@ import at.ac.univie.swa.cml.Antecedent
 import at.ac.univie.swa.cml.AssignmentExpression
 import at.ac.univie.swa.cml.Block
 import at.ac.univie.swa.cml.BooleanLiteral
+import at.ac.univie.swa.cml.CallerExpression
 import at.ac.univie.swa.cml.Class
-import at.ac.univie.swa.cml.Clause
 import at.ac.univie.swa.cml.CmlProgram
 import at.ac.univie.swa.cml.Container
+import at.ac.univie.swa.cml.DateTimeLiteral
+import at.ac.univie.swa.cml.DurationLiteral
 import at.ac.univie.swa.cml.ElementReferenceExpression
 import at.ac.univie.swa.cml.EqualityExpression
 import at.ac.univie.swa.cml.Expression
 import at.ac.univie.swa.cml.If
+import at.ac.univie.swa.cml.Import
 import at.ac.univie.swa.cml.IntegerLiteral
 import at.ac.univie.swa.cml.MemberFeatureCall
 import at.ac.univie.swa.cml.MultiplicativeExpression
@@ -31,11 +34,13 @@ import at.ac.univie.swa.cml.Statement
 import at.ac.univie.swa.cml.StringLiteral
 import at.ac.univie.swa.cml.Symbol
 import at.ac.univie.swa.cml.SymbolReference
+import at.ac.univie.swa.cml.TimeConstraint
 import at.ac.univie.swa.cml.UnaryExpression
 import at.ac.univie.swa.cml.VariableDeclaration
 import at.ac.univie.swa.typing.CmlTypeConformance
 import at.ac.univie.swa.typing.CmlTypeProvider
 import com.google.inject.Inject
+import java.util.LinkedHashMap
 import java.util.List
 import org.eclipse.emf.ecore.resource.Resource
 import org.eclipse.emf.ecore.resource.ResourceSet
@@ -43,10 +48,6 @@ import org.eclipse.xtext.generator.IFileSystemAccess2
 import org.eclipse.xtext.generator.IGeneratorContext
 
 import static extension org.eclipse.emf.ecore.util.EcoreUtil.*
-import at.ac.univie.swa.cml.CallerExpression
-import at.ac.univie.swa.cml.Import
-import java.util.HashMap
-import java.util.LinkedHashMap
 
 /**
  * Generates code from your model files on save.
@@ -63,8 +64,8 @@ class CmlGenerator extends AbstractGenerator2 {
 	override doGenerate(Resource resource, ResourceSet input, IFileSystemAccess2 fsa, IGeneratorContext context) {
 		val allResources = input.resources.map(r|r.allContents.toIterable.filter(CmlProgram)).flatten
 		for (p : resource.allContents.toIterable.filter(CmlProgram)) {
-//			if(!p.contracts.empty)	
-//            	fsa.generateFile(resource.URI.trimFileExtension.toPlatformString(true) + ".sol", p.compile(allResources))         
+			if(!p.contracts.empty)	
+            	fsa.generateFile(resource.URI.trimFileExtension.toPlatformString(true) + ".sol", p.compile(allResources))         
         }
 	}
  
@@ -157,18 +158,22 @@ class CmlGenerator extends AbstractGenerator2 {
 		 *  Modifiers
 	 	 */
 		«FOR clause : contract.clauses»
-			«clause.antecedent.compile»
+«««			«clause.antecedent.compile»
 		«ENDFOR»
 		modifier onlyBy(address _account) { 
 			require(msg.sender == _account, "Sender not authorized."); _;
 		}
 		
-		modifier onlyAfter(uint _time) {
-			require(now >= _time, "Function called too early."); _;
+		modifier onlyAfter(uint _time, uint _duration, bool _within) {
+			if(!_within)
+				require(now > _time + _duration, "Function called too early.");
+			else require(_time + _duration > now && now > _time, "Function not called within expected timeframe."); _;
 		}
 		
-		modifier onlyBefore(uint _time) {
-			require(now < _time, "Function called too late."); _;
+		modifier onlyBefore(uint _time, uint _duration, bool _within) {
+			if(!_within)
+				require(now < _time - _duration, "Function called too late.");
+			else require(_time - _duration < now && now < _time, "Function not called within expected timeframe."); _;
 		}
 	}
 	«ENDFOR»
@@ -201,7 +206,7 @@ class CmlGenerator extends AbstractGenerator2 {
     def compile(Operation o) '''	
 	function «o.name»(«o.params.map[it as Symbol].compile») public «FOR m : o.deriveModifiers.entrySet SEPARATOR ' '»«m.key»(«m.value.join(", ")»)«ENDFOR» {
 «««		// TODO: Implement code to «o.name» «FOR arg : o.params SEPARATOR ', '»«arg.name»«ENDFOR»
-		require(«o.precondition.compile»);
+		«IF o.precondition !== null»require(«o.precondition.compile»);«ENDIF»
 		«FOR s : o.body.statements»
 		«compileStatement(s)»
 		«ENDFOR»
@@ -212,11 +217,19 @@ class CmlGenerator extends AbstractGenerator2 {
 	def deriveModifiers(Operation o) {
 		var modifiers = new LinkedHashMap<String, List<String>>(); 
 		var party = o.containingClause.actor.party
+		var tc = o.containingClause.antecedent.temporal
 		if(party != "anyone")
 			modifiers.put("onlyBy", #[party.name])
-		if(o.containingClause.antecedent.temporal !== null)
-			modifiers.put("guard_"+o.name, emptyList)
-			
+		if(tc !== null) {
+			if(tc.reference instanceof Expression) {
+				if(tc.timeframe === null)
+					modifiers.put("only" + tc.precedence.literal.toFirstUpper, #[(tc.reference as Expression).compile, "0", "false"])
+				if(tc.closed == false && tc.timeframe !== null)
+					modifiers.put("only" + tc.precedence.literal.toFirstUpper, #[(tc.reference as Expression).compile, tc.timeframe.compile, "false"])
+				if(tc.closed == true && tc.timeframe !== null)
+					modifiers.put("only" + tc.precedence.literal.toFirstUpper, #[(tc.reference as Expression).compile, tc.timeframe.compile, "true"])
+			}
+		}
 		modifiers
 	}
 	
@@ -278,9 +291,9 @@ class CmlGenerator extends AbstractGenerator2 {
 	}
 	
 	def compile(Antecedent a) '''
-	// @notice modifier for function «a.containingClause.name»
+	// @notice modifier for clause «a.containingClause.name»
 	modifier guard() {
-«««		require(«a.general.temporal.compile»);
+		«IF a.temporal !== null»require(«a.temporal.compile»)«ENDIF»;
 		require(«a.general.expression.compile»); _;
 	}
 	
@@ -293,6 +306,16 @@ class CmlGenerator extends AbstractGenerator2 {
 	}
 	
 	'''
+	
+	def compile(TimeConstraint tc) {
+		var modifiers = new LinkedHashMap<String, List<String>>(); 
+		if(tc.closed == false && tc.timeframe === null) {
+			if(tc.precedence == "after" && tc.reference instanceof Expression)
+				modifiers.put("onlyAfter", #[(tc.reference as Expression).compile, "0"])
+			if(tc.precedence == "before" && tc.reference instanceof Expression)
+				modifiers.put("onlyBefore", #[(tc.reference as Expression).compile, "0"])
+		}
+	}
 	
 	def String compile(Expression exp) {
 		
@@ -354,16 +377,28 @@ class CmlGenerator extends AbstractGenerator2 {
 			BooleanLiteral: '''«exp.value»'''
 			StringLiteral: '''"«exp.value»"'''
 			SymbolReference: '''«exp.ref.name»'''
-			MemberFeatureCall: {
-				exp.receiver.compile + "." + exp.member.name +
-				if (exp.operationCall) {
-					"(" + exp.args.map[compile].join(", ") + ")"
-				} else {
-					""
-				}
-			}
+			DateTimeLiteral: '''«exp.value»'''
+			DurationLiteral: '''«exp.value» «exp.unit»'''
+			MemberFeatureCall: exp.featureCallTransformation
 			ElementReferenceExpression: '''«exp.reference.compile»'''
 			CallerExpression: '''msg.sender'''
+		}
+	}
+	
+	def featureCallTransformation(MemberFeatureCall mfc) {
+		val t = mfc.member.inferType
+		switch (t) {	
+			case t.conformsToDateTime: {
+				if (mfc.operationCall)
+					switch(mfc.member.name) {
+						case "addDuration" : mfc.receiver.compile + " + " + mfc.args.get(0).compile
+				} else mfc.receiver.compile + "." + mfc.member.name
+			}
+			default:
+				mfc.receiver.compile + "." + mfc.member.name +
+				if (mfc.operationCall) {
+					"(" + mfc.args.map[compile].join(", ") + ")"
+				} else ""
 		}
 	}
 

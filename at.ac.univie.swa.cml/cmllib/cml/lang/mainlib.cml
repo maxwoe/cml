@@ -3,11 +3,13 @@ namespace cml.lang
 class Object
 	toString()
 class Contract extends Object
-	anyone 	: Party
 	balance : Integer
-	globals : Global
-	parties : Set<Party>
-	failure(String s) : Error 
+	anyone 	: Party
+	now : DateTime
+	contractStart : DateTime
+	contractEnd : DateTime
+	failure(String s) : Error
+	//globals : Global
 
 class Party extends Object
 	balance : Integer
@@ -41,9 +43,7 @@ class Duration extends Object
 class Array<T> extends Object
 	size() : Integer
 class Global extends Object
-	now : DateTime
-	contractStart : DateTime
-	contractEnd : DateTime
+
 class Collection<T> extends Object
 	add(T t) : Boolean
 	addAll(Collection<T> c) : Boolean
