@@ -3,12 +3,14 @@
  */
 package at.ac.univie.swa
 
+import at.ac.univie.swa.generator.IGenerator3
 import at.ac.univie.swa.scoping.CmlImportedNamespaceAwareLocalScopeProvider
 import at.ac.univie.swa.typing.CmlLinkerService
 import com.google.inject.Binder
 import com.google.inject.name.Names
 import org.eclipse.xtext.scoping.IScopeProvider
 import org.eclipse.xtext.scoping.impl.AbstractDeclarativeScopeProvider
+import at.ac.univie.swa.generator.CmlGenerator
 
 /**
  * Use this class to register components to be used at runtime / without the Equinox extension registry.
@@ -25,6 +27,10 @@ class CmlRuntimeModule extends AbstractCmlRuntimeModule {
 		return CmlLinkerService
 	}
 	
+	def Class<? extends IGenerator3> bindIGenerator3 () {
+        return CmlGenerator
+    }
+
 	/* 
 	override bindIGlobalScopeProvider() {
         ImportUriGlobalScopeProvider

@@ -27,6 +27,7 @@ import org.eclipse.xtext.validation.Check
 import org.eclipse.xtext.validation.CheckType
 
 import static extension org.eclipse.xtext.EcoreUtil2.*
+import java.util.ArrayList
 
 /**
  * This class contains custom validation rules. 
@@ -103,7 +104,9 @@ class CmlValidator extends AbstractCmlValidator {
 
 	@Check 
 	def void checkNoDuplicateFeatures(Class c) {
-		checkNoDuplicateElements(c.attributes, "attribute")
+		val attributes = new ArrayList(c.classHierarchyAttributes.values);
+		attributes.addAll(c.attributes)
+		checkNoDuplicateElements(attributes, "attribute")
 		checkNoDuplicateElements(c.operations, "operation")
 		checkNoDuplicateElements(c.clauses, "clause")
 		checkNoDuplicateElements(c.enumElements, "enumeration literal")
@@ -199,24 +202,6 @@ class CmlValidator extends AbstractCmlValidator {
 		if (s.eContainingFeature != CmlPackage.eINSTANCE.memberFeatureCall_Receiver)
 			error("'super' can be used only as member selection receiver", null, WRONG_SUPER_USAGE)
 	}
-	
-//	@Check
-//	def void checkValidArgumentForCollectionOperation(MemberSelection sel){
-//		if(sel.coll !== null && sel.coll === "at"){
-//			if(sel.args === null)
-//				error("Collection operation 'at' should have one argument of type integer",
-//					CmlPackage::eINSTANCE.memberSelection_Args,
-//					WRONG_TYPE)
-//			if(sel.args !== null && sel.args.size > 1)
-//				error("Collection operation 'at' should have only one argument of type integer",
-//					CmlPackage::eINSTANCE.memberSelection_Args,
-//					WRONG_TYPE)
-//			if(sel.args !== null && !sel.args.isEmpty && sel.args.get(0).typeFor != CmlTypeProvider.INTEGER_TYPE)
-//				error("Collection operation 'at' should have an argument of type integer",
-//					CmlPackage::eINSTANCE.memberSelection_Args,
-//					WRONG_TYPE)
-//		}
-//	}
 	
 	@Check
 	def void checkConformance(Expression exp) {

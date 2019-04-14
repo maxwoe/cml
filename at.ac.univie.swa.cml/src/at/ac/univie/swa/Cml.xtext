@@ -1,14 +1,11 @@
 grammar at.ac.univie.swa.Cml with org.eclipse.xtext.common.Terminals
 
-import 'http://www.eclipse.org/emf/2002/Ecore' as ecore
-
 generate cml 'http://swa.univie.ac.at/Cml'
 
 CmlProgram:
 	('namespace' name=QualifiedName)?
 	imports+=Import*
-	(model+=ModelElement |
-	contracts+=Contract)*;
+	declarations+=Declaration*;
 
 Import:
 	'import' importedNamespace = QualifiedNameWithWildcard;
@@ -74,8 +71,8 @@ TypeVar:
 TypeVarType returns TypeVar:
 	{TypeVar} type=[Class|QualifiedName];
 	
-ModelElement:
-	Class | Party | Asset | Event | Enumeration;
+Declaration:
+	Class | Party | Asset | Event | Enumeration | Contract;
 
 Class: 
 	(abstract?='abstract')? kind='class' name=ID ('<'typeVars+=TypeVar (',' typeVars+=TypeVar)* '>')? ('extends' superclass=[Class|QualifiedName])?
@@ -125,10 +122,10 @@ Clause:
 	END;
 
 Antecedent:
-	{Antecedent} temporal=TemporalConstraint? general=Constraint?;
+	{Antecedent} temporal=TimeConstraint? general=Constraint?;
 
-TemporalConstraint:
-	'due' constraint=TimeConstraint;
+TimeConstraint:
+	'due' closed?='within'? timeframe=Expression? period=PeriodicTime? precedence=TemporalPrecedence reference=(TimeQuery|Expression);
 	
 Constraint:
 	'given' expression=Expression;
@@ -160,14 +157,11 @@ AtomicCompoundAction returns CompoundAction:
 ClauseOperation returns Operation:
 	name=ID '(' (params+=Parameter (',' params+=Parameter)*)? ')' (':' type=ReturnType)?
 	BEGIN 
-		('pre' preCondition=Expression)?
+		('pre' precondition=Expression)?
 		body=BlockWithoutIndentation
-		('post' postCondition=Expression)?
+		('post' postcondition=Expression)?
 	END;
 	
-TimeConstraint:
-	closed?='within'? timeframe=Expression? period=PeriodicTime? precedence=TemporalPrecedence reference=(TimeQuery|Expression);
-
 PeriodicTime:
 	'every' period=Expression 'from' start=(TimeQuery|Expression) ('until' end=(TimeQuery|Expression))?;
 	
@@ -223,7 +217,7 @@ UnaryExpression returns Expression:
 	{UnaryExpression} op=('not' | '!' | '-' | '+') operand=UnaryExpression | PostfixExpression;
 
 PostfixExpression returns Expression:
-	MemberFeatureCall =>({PostfixOperation.operand=current} op=("++" | "--" | "@pre"))?;
+	MemberFeatureCall =>({PostfixExpression.operand=current} op=("++" | "--" | "@pre"))?;
 
 MemberFeatureCall returns Expression:
 	ElementReferenceExpression (({MemberFeatureCall.receiver=current} '.') 
@@ -244,7 +238,7 @@ PrimaryExpression returns Expression:
 
 LiteralExpression returns Expression:
 	{IntegerLiteral} value=INT |
-	{BooleanLiteral} ('false' | 'true') |
+	{BooleanLiteral} value=('false' | 'true') |
 	{StringLiteral} value=STRING |
 	{RealLiteral} value=REAL |
 	{DurationLiteral} value=INT unit=TimeUnit |

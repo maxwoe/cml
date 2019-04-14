@@ -3,6 +3,7 @@
  */
 package at.ac.univie.swa.scoping
 
+import at.ac.univie.swa.CmlLib
 import at.ac.univie.swa.CmlModelUtil
 import at.ac.univie.swa.cml.Actor
 import at.ac.univie.swa.cml.Block
@@ -18,8 +19,11 @@ import at.ac.univie.swa.typing.CmlTypeProvider
 import javax.inject.Inject
 import org.eclipse.emf.ecore.EObject
 import org.eclipse.emf.ecore.EReference
+import org.eclipse.xtext.naming.IQualifiedNameProvider
 import org.eclipse.xtext.scoping.IScope
 import org.eclipse.xtext.scoping.Scopes
+import org.eclipse.emf.ecore.util.EcoreUtil
+import java.util.Collections
 
 /**
  * This class contains custom scoping description.
@@ -32,6 +36,8 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 	@Inject extension CmlTypeProvider
 	@Inject extension CmlModelUtil
 	@Inject extension CmlTypeConformance
+	@Inject extension CmlLib
+	@Inject extension IQualifiedNameProvider
 
 	override getScope(EObject context, EReference reference) {
 		if (reference == CmlPackage.Literals.SYMBOL_REFERENCE__REF) {
@@ -81,7 +87,7 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 
 		if (type === null || type.isPrimitive)
 			return IScope.NULLSCOPE
-
+			
 		if (type instanceof Class) {
 			var parentScope = IScope::NULLSCOPE
 			for (c : type.classHierarchyWithObject.toArray().reverseView) {

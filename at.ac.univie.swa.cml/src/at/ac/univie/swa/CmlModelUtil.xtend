@@ -5,7 +5,6 @@ import at.ac.univie.swa.cml.Attribute
 import at.ac.univie.swa.cml.Block
 import at.ac.univie.swa.cml.Class
 import at.ac.univie.swa.cml.Clause
-import at.ac.univie.swa.cml.CmlFactory
 import at.ac.univie.swa.cml.CmlProgram
 import at.ac.univie.swa.cml.Collection
 import at.ac.univie.swa.cml.Container
@@ -42,7 +41,27 @@ class CmlModelUtil {
 	}
 
 	def classes(CmlProgram p) {
-		p.model.filter(Class)
+		p.declarations.filter(Class)
+	}
+	
+	def parties(CmlProgram p) {
+		p.classes.filter[kind=="party"]
+	}
+	
+	def assets(CmlProgram p) {
+		p.classes.filter[kind=="asset"]
+	}
+	
+	def events(CmlProgram p) {
+		p.classes.filter[kind=="event"]
+	}
+	
+	def enums(CmlProgram p) {
+		p.classes.filter[kind=="enum"]
+	}
+	
+	def contracts(CmlProgram p) {
+		p.classes.filter[kind=="contract"]
 	}
 	
 	def clauses(Class c) {
@@ -101,9 +120,10 @@ class CmlModelUtil {
 			Class:
 				switch (t) {
 					case t.isPrimitive: t.name
-					case t.isConformant(t.cmlMapClass),
-					case t.isConformant(t.cmlCollectionClass): t.name + "<" + t.typeVars.map[type?.name].join(", ") + ">"
-					case t.isConformant(t.cmlArrayClass): t.typeVars.get(0).type.name + "[]"
+					case t.conformsToMap,
+					case t.conformsToSet,
+					case t.conformsToBag: t.name + "<" + t.typeVars.map[type?.name].join(", ") + ">"
+					case t.conformsToArray: t.typeVars.get(0).type.name + "[]"
 					default: t.name
 				}
 		}
@@ -150,7 +170,6 @@ class CmlModelUtil {
 			Array: {
 				var clazz = c.cmlArrayClass
 				clazz.typeVars.get(0).type = c.type.toClass
-				clazz.typeVars.add(CmlFactory::eINSTANCE.createTypeVar => [name = c.identification type = c.type.toClass])
 				return clazz
 			}
 			Map: {
@@ -217,6 +236,10 @@ class CmlModelUtil {
 		// the one already present in the superclasses
 		// if the methods have the same name
 		c.classHierarchyWithObject.toList.reverseView.map[operations].flatten.toMap[name]
+	}
+	
+	def classHierarchyAttributes(Class c) {
+		c.classHierarchyWithObject.toList.reverseView.map[attributes].flatten.toMap[name]
 	}
 
 	def classHierarchyFeatures(Class c) {
