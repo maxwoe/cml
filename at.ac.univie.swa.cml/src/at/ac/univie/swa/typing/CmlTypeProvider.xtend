@@ -5,6 +5,7 @@ import at.ac.univie.swa.CmlModelUtil
 import at.ac.univie.swa.cml.AdditiveExpression
 import at.ac.univie.swa.cml.AndExpression
 import at.ac.univie.swa.cml.AssignmentExpression
+import at.ac.univie.swa.cml.Attribute
 import at.ac.univie.swa.cml.BooleanLiteral
 import at.ac.univie.swa.cml.Class
 import at.ac.univie.swa.cml.CmlFactory
@@ -20,18 +21,26 @@ import at.ac.univie.swa.cml.MultiplicativeExpression
 import at.ac.univie.swa.cml.NullLiteral
 import at.ac.univie.swa.cml.Operation
 import at.ac.univie.swa.cml.OrExpression
+import at.ac.univie.swa.cml.PeriodicTime
 import at.ac.univie.swa.cml.RealLiteral
 import at.ac.univie.swa.cml.RelationalExpression
-import at.ac.univie.swa.cml.Return
+import at.ac.univie.swa.cml.ReturnStatement
 import at.ac.univie.swa.cml.StringLiteral
 import at.ac.univie.swa.cml.SuperExpression
 import at.ac.univie.swa.cml.SymbolReference
 import at.ac.univie.swa.cml.ThisExpression
+import at.ac.univie.swa.cml.ThrowStatement
+import at.ac.univie.swa.cml.TimeConstraint
 import at.ac.univie.swa.cml.Type
 import at.ac.univie.swa.cml.UnaryExpression
 import at.ac.univie.swa.cml.VariableDeclaration
 import at.ac.univie.swa.cml.XorExpression
 import com.google.inject.Inject
+import at.ac.univie.swa.cml.ThrowStatement
+import at.ac.univie.swa.cml.ReturnStatement
+import at.ac.univie.swa.cml.CastedExpression
+import at.ac.univie.swa.cml.CallerExpression
+import at.ac.univie.swa.cml.EnsureStatement
 
 class CmlTypeProvider {
 	@Inject extension CmlLib
@@ -47,17 +56,14 @@ class CmlTypeProvider {
 	public static val NULL_TYPE = CmlFactory::eINSTANCE.createClass => [name = "null"]
 	public static val VOID_TYPE = CmlFactory::eINSTANCE.createClass => [name = "void"]
 	public static val ERROR_TYPE = CmlFactory::eINSTANCE.createClass => [name = "Error"]
+	public static val UNDEFINED_TYPE = CmlFactory::eINSTANCE.createClass => [name = "Undefined"]
 
 	val ep = CmlPackage::eINSTANCE
 
 	def Type typeFor(Expression e) {
 		switch (e) {
-//			CallerExpression: {
-//				e.containingClause.actor.party.type
-//				if (party.type instanceof Primitive) {
-//					return party.type.inferType
-//				} else return party.type.inferType.deriveVarType
-//			}
+			CallerExpression: 
+				return e.getCmlPartyClass()
 			ThisExpression:
 				return e.containingClass
 			SuperExpression:
@@ -87,28 +93,37 @@ class CmlTypeProvider {
 			RelationalExpression,
 			ImpliesExpression:
 				return BOOLEAN_TYPE
-			AdditiveExpression:
-				e.left.typeFor
-			MultiplicativeExpression:
-				e.left.typeFor
-			UnaryExpression:
-				if (e.op == "-") {
-					return e.operand.typeFor
-				} else {
-					return BOOLEAN_TYPE
+			AdditiveExpression: {
+				val type = e.left.typeFor
+				if (type.isConformant(INTEGER_TYPE))
+					return INTEGER_TYPE
+				else if(type.isConformant(REAL_TYPE)) return REAL_TYPE else return UNDEFINED_TYPE
+			}
+			MultiplicativeExpression: {
+				val type = e.left.typeFor
+				if (type.isConformant(INTEGER_TYPE))
+					return INTEGER_TYPE
+				else if(type.isConformant(REAL_TYPE)) return REAL_TYPE else return UNDEFINED_TYPE
+			}
+			UnaryExpression: 
+				switch (e.op) {
+					case ('not'),
+					case ('!'):
+						return BOOLEAN_TYPE
+					case ('+'),
+					case ('-'): {
+						val type = e.operand.typeFor
+						if(type.isConformant(INTEGER_TYPE)) return INTEGER_TYPE else if(type.
+							isConformant(REAL_TYPE)) return REAL_TYPE else return UNDEFINED_TYPE
+					}
 				}
 			AssignmentExpression:
-				e.left.typeFor
-//			ElementReferenceExpression: 
-//				if (e.elementAccess) {
-//					return e.reference.typeFor.deriveVarType
-//				} else return e.reference.typeFor
+				return e.left.typeFor
 			MemberSelection: {
-//				if (e.elementAccess) {
-//					return e.member.inferType.deriveVarType
-//				}
 				return e.member.inferType
 			}
+			CastedExpression:
+				return e.type
 			
 		}
 	}
@@ -125,42 +140,35 @@ class CmlTypeProvider {
 		val c = e.eContainer
 		val f = e.eContainingFeature
 		switch (c) {	
-			//ElementReferenceExpression:
-			//	c.reference.typeFor
-//			Throw case f == ep.throw_Expression:
-//				ERROR_TYPE
+			EnsureStatement case f == ep.ensureStatement_ThrowExpression:
+				ERROR_TYPE
+			ThrowStatement case f == ep.throwStatement_Expression:
+				ERROR_TYPE
 //			CasePart case f == ep.casePart_Case:
 //				c.containingSwitch.^switch.typeFor
 			AssignmentExpression case f == ep.assignmentExpression_Right:
 				c.left.typeFor
 //			case f == ep.repeatLoop_Condition,
 //			case f == ep.whileLoop_Condition,
-//			case f == ep.if_Condition:
-//				BOOLEAN_TYPE
+			case f == ep.ifStatement_Condition:
+				BOOLEAN_TYPE
 			AdditiveExpression case f == ep.additiveExpression_Right:
 				c.left.typeFor
 			MultiplicativeExpression case f == ep.multiplicativeExpression_Right:
 				c.left.typeFor
 			VariableDeclaration:
 				c.type
-			Return:
+			ReturnStatement:
 				c.containingOperation.type
-//			PeriodicTime case f == ep.periodicTime_Start,
-//			PeriodicTime case f == ep.periodicTime_End,
-//			TimeConstraint case f == ep.timeConstraint_Reference:
-//				DATETIME_TYPE
-//			PeriodicTime case f == ep.periodicTime_Period,
-//			TimeConstraint case f == ep.timeConstraint_Timeframe:
-//				DURATION_TYPE
-//			Attribute case f == ep.attribute_InitExp:
-//				c.type.inferType
-//			case f == ep.if_ElseBlock,
-//			case f == ep.if_ThenBlock:	{
-//				var cc = c.eContainer
-//				switch(cc) {
-//					Attribute: cc.type.inferType
-//				}
-//			}				
+			PeriodicTime case f == ep.periodicTime_Start,
+			PeriodicTime case f == ep.periodicTime_End,
+			TimeConstraint case f == ep.timeConstraint_Reference:
+				DATETIME_TYPE
+			PeriodicTime case f == ep.periodicTime_Period,
+			TimeConstraint case f == ep.timeConstraint_Timeframe:
+				DURATION_TYPE
+			//Attribute case f == ep.attribute_InitExp:
+			//	c.type.inferType			
 			RelationalExpression case f == ep.relationalExpression_Right:
 				c.left.typeFor
 			EqualityExpression case f == ep.equalityExpression_Right:

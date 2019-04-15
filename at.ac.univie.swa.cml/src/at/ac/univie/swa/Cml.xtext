@@ -102,13 +102,13 @@ enum TemporalPrecedence:
 	AFTER='after';
 
 ClauseQuery:
-	'clause' ref=[Clause] 'fulfilled';
+	'clause' ref=[Clause];
 
 EventQuery:
-	'event' ref=[Attribute] 'occurred';
+	'event' ref=[Attribute];
 
 ActionQuery:
-	multiplicity=('all' | 'any' | 'this')? partyRef=[Attribute] query='executed' actionRef=[Operation];
+	multiplicity=('all' | 'any' | 'this')? partyRef=[Attribute] query='did' actionRef=[Operation];
 
 TimeQuery:
 	ClauseQuery | EventQuery | ActionQuery;
@@ -151,30 +151,30 @@ Block:
 Statement:
 	VariableDeclaration |
 	IfStatement |
-	Ensure |
-	Throw |
-	Return |
+	EnsureStatement |
+	ThrowStatement |
+	ReturnStatement |
 	Expression;
 
 VariableDeclaration:
 	'var' TypedDeclaration '=' expression=Expression;
 
-Return:
+ReturnStatement:
 	'return' expression=Expression;
 
 IfStatement:
-	'if' '(' expression=Expression ')' thenBlock=IfBlock
-	(=> 'else' elseBlock=IfBlock)?;
-
-IfBlock returns Block:
-	statements+=Statement
-	| Block;
-
-Throw:
+	'if' (('(' condition=Expression ')') | (-> condition=Expression)) thenBlock=ConditionalBlock
+	(=> 'else' elseBlock=ConditionalBlock)?;
+	
+ConditionalBlock returns Block:
+	statements+=Statement | 
+	Block;
+	
+ThrowStatement:
 	'throw' expression=Expression;
 
-Ensure:
-	'ensure' expression=Expression;
+EnsureStatement:
+	'ensure' expression=Expression (=>'else' throwExpression=Expression)?;
 
 fragment TypedDeclaration *:
 	type=[Class|QualifiedName] name=ID;
@@ -223,9 +223,17 @@ UnaryExpression returns Expression:
 CastedExpression returns Expression:
 	PostfixExpression (=> ({CastedExpression.target=current} 'as') type=[Class|QualifiedName])*;
 
-PostfixExpression returns Expression:
-	SelectionExpression => ({PostfixExpression.operand=current} op=("++" | "--" | "@pre"))?;
+//PostfixExpression returns Expression:
+//	SelectionExpression => ({PostfixExpression.operand=current} op=("++" | "--" | "@pre"))?;
 
+PostfixExpression returns Expression:
+	SelectionExpression
+	(=> ({PostfixExpression.operand=current}
+	op=("++" | "--" | "@pre"))
+	|
+	=> ({ArrayAccessExpression.array=current}
+	'[' indexes+=Expression ']' (=> '[' indexes+=Expression ']')*))?;
+ 
 SelectionExpression returns Expression:
 	PrimaryExpression
 	(=> ({MemberSelection.receiver=current} '.') member=[Feature]

@@ -13,7 +13,8 @@ import at.ac.univie.swa.cml.Expression
 import at.ac.univie.swa.cml.MemberSelection
 import at.ac.univie.swa.cml.NamedElement
 import at.ac.univie.swa.cml.Operation
-import at.ac.univie.swa.cml.Return
+import at.ac.univie.swa.cml.ReturnStatement
+import at.ac.univie.swa.cml.SuperExpression
 import at.ac.univie.swa.cml.VariableDeclaration
 import at.ac.univie.swa.scoping.CmlIndex
 import at.ac.univie.swa.typing.CmlTypeConformance
@@ -26,7 +27,6 @@ import org.eclipse.xtext.validation.Check
 import org.eclipse.xtext.validation.CheckType
 
 import static extension org.eclipse.xtext.EcoreUtil2.*
-import at.ac.univie.swa.cml.SuperExpression
 
 /**
  * This class contains custom validation rules. 
@@ -165,7 +165,7 @@ class CmlValidator extends AbstractCmlValidator {
 	def void checkUnreachableCode(Block block) {
 		val statements = block.statements
 		for (var i = 0; i < statements.length - 1; i++) {
-			if (statements.get(i) instanceof Return) {
+			if (statements.get(i) instanceof ReturnStatement) {
 				error("Unreachable code", statements.get(i + 1), null, UNREACHABLE_CODE)
 				return
 			}
@@ -180,7 +180,7 @@ class CmlValidator extends AbstractCmlValidator {
 	}
 	
 	@Check
-	def void checkCorrectReturnUse(Return stmnt){
+	def void checkCorrectReturnUse(ReturnStatement stmnt){
 		val returntype = stmnt.containingOperation.type
 		switch(returntype){
 //			VoidType:

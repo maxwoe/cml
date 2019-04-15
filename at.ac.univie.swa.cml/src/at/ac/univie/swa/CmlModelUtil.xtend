@@ -8,7 +8,7 @@ import at.ac.univie.swa.cml.EnumerationElement
 import at.ac.univie.swa.cml.Feature
 import at.ac.univie.swa.cml.NamedElement
 import at.ac.univie.swa.cml.Operation
-import at.ac.univie.swa.cml.Return
+import at.ac.univie.swa.cml.ReturnStatement
 import at.ac.univie.swa.typing.CmlTypeConformance
 import at.ac.univie.swa.typing.CmlTypeProvider
 import com.google.inject.Inject
@@ -16,6 +16,8 @@ import org.eclipse.emf.ecore.EObject
 
 import static extension org.eclipse.xtext.EcoreUtil2.*
 import at.ac.univie.swa.cml.Clause
+import at.ac.univie.swa.cml.VariableDeclaration
+import at.ac.univie.swa.cml.ReturnStatement
 
 class CmlModelUtil {
 
@@ -28,7 +30,7 @@ class CmlModelUtil {
 	}
 
 	def returnStatement(Block b) {
-		b.statements.filter(Return).head
+		b.statements.filter(ReturnStatement).head
 	}
 
 	def classes(CmlProgram p) {
@@ -91,9 +93,9 @@ class CmlModelUtil {
 		e.getContainerOfType(Attribute)
 	}
 	
-//	def containingClause(EObject e) {
-//		e.getContainerOfType(Clause)
-//	}
+	def containingClause(EObject e) {
+		e.getContainerOfType(Clause)
+	}
 
 	def featureAsString(Feature f) {
 		f.name + if (f instanceof Operation)
@@ -133,6 +135,7 @@ class CmlModelUtil {
 			Attribute: s.type
 			Operation: s.type
 			EnumerationElement: s.cmlEnumClass
+			VariableDeclaration: s.type
 		}
 	}
 	
