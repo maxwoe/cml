@@ -10,61 +10,127 @@ CmlProgram:
 Declaration:
 	Class | Party | Asset | Event | Enumeration | Contract;
 
-Class: 
+Class:
 	(abstract?='abstract')? kind='class' name=ID ('extends' superclass=[Class|QualifiedName])?
 	(BEGIN
-		features+=FeatureAttributeAndOperation*
+	features+=FeatureAttributeAndOperation*
 	END)?;
 
 Contract returns Class:
 	(abstract?='abstract')? kind='contract' name=ID ('extends' superclass=[Class|QualifiedName])?
 	BEGIN
-		features+=FeatureAttributeAndOperation*
+	features+=FeatureAttributeAndOperationAndClause*
 	END;
-	
+
 Party returns Class:
-	(abstract?='abstract')? kind='party' name=ID ('identifier' id=[Attribute])? ('extends' superclass=[Class|QualifiedName])? 
+	(abstract?='abstract')? kind='party' name=ID ('identifier' id=[Attribute])? ('extends' superclass=[Class|QualifiedName])?
 	BEGIN
-		 features+=FeatureAttribute+
+	features+=FeatureAttribute+
 	END;
-	
+
 Asset returns Class:
-	(abstract?='abstract')? kind='asset' name=ID ('identifier' id=[Attribute])? ('extends' superclass=[Class|QualifiedName])? 
+	(abstract?='abstract')? kind='asset' name=ID ('identifier' id=[Attribute])? ('extends' superclass=[Class|QualifiedName])?
 	BEGIN
-		features+=FeatureAttribute+
+	features+=FeatureAttribute+
 	END;
 
 Event returns Class:
 	kind='event' name=ID
 	(BEGIN
-		features+=FeatureAttribute+
+	features+=FeatureAttribute+
 	END)?;
 
 Enumeration returns Class:
 	kind='enum' name=ID
 	BEGIN
-		features+=FeatureEnumeration+
+	features+=FeatureEnumeration+
 	END;
 
 EnumerationElement:
-	name = ID;
+	name=ID;
 
-Type: Class;
+Clause:
+	'clause' name=ID
+	BEGIN
+	antecedent=Antecedent
+	actor=Actor
+	action=DeonticAction
+	END;
+
+Antecedent:
+	{Antecedent} temporal=TimeConstraint? general=Constraint?;
+
+TimeConstraint:
+	'due' closed?='within'? timeframe=Expression? period=PeriodicTime? precedence=TemporalPrecedence reference=(TimeQuery
+	| Expression);
+
+Constraint:
+	'given' expression=Expression;
+
+Actor:
+	'party' party=[Attribute];
+
+enum Deontic:
+	MUST='must' | MAY='may' | MUST_NOT='must_not';
+
+DeonticAction:
+	deontic=Deontic compoundAction=CompoundAction;
+
+CompoundAction:
+	OrCompoundAction;
+
+OrCompoundAction returns CompoundAction:
+	SeqCompoundAction ({OrCompoundAction.left=current} op=('or') right=SeqCompoundAction)*;
+
+SeqCompoundAction returns CompoundAction:
+	AndCompoundAction ({SeqCompoundAction.left=current} op=('then') right=AndCompoundAction)*;
+
+AndCompoundAction returns CompoundAction:
+	AtomicCompoundAction ({AndCompoundAction.left=current} op=('and') right=AtomicCompoundAction)*;
+
+AtomicCompoundAction returns CompoundAction:
+	'(' CompoundAction ')' | reference=[Operation];
+
+PeriodicTime:
+	'every' period=Expression 'from' start=(TimeQuery | Expression) ('until' end=(TimeQuery | Expression))?;
+
+enum TemporalPrecedence:
+	BEFORE='before' |
+	BEFORE_OR_EQUALS='beforeOrEquals' |
+	EQUALS='equals' |
+	AFTER_OR_EQUALS='afterOrEquals' |
+	AFTER='after';
+
+ClauseQuery:
+	'clause' ref=[Clause] 'fulfilled';
+
+EventQuery:
+	'event' ref=[Attribute] 'occurred';
+
+ActionQuery:
+	multiplicity=('all' | 'any' | 'this')? partyRef=[Attribute] query='executed' actionRef=[Operation];
+
+TimeQuery:
+	ClauseQuery | EventQuery | ActionQuery;
+
+Type:
+	Class;
+
 Import:
 	'import' importedNamespace=QualifiedNameWithWildcard;
 
 Feature:
-	Attribute | Operation /* | Clause*/ | EnumerationElement;
-	
+	Attribute | Operation | Clause | EnumerationElement;
+
 FeatureAttribute returns Feature:
 	Attribute;
-	
+
 FeatureAttributeAndOperation returns Feature:
 	Attribute | Operation;
 
-//FeatureAttributeAndClause returns Feature:
-//	AttributeWithInitExpr  | Clause;
-	
+FeatureAttributeAndOperationAndClause returns Feature:
+	FeatureAttributeAndOperation | Clause;
+
 FeatureEnumeration returns Feature:
 	EnumerationElement;
 
@@ -84,9 +150,11 @@ Block:
 
 Statement:
 	VariableDeclaration |
+	IfStatement |
+	Ensure |
+	Throw |
 	Return |
-	Expression |
-	IfStatement;
+	Expression;
 
 VariableDeclaration:
 	'var' TypedDeclaration '=' expression=Expression;
@@ -96,11 +164,17 @@ Return:
 
 IfStatement:
 	'if' '(' expression=Expression ')' thenBlock=IfBlock
-	(=>'else' elseBlock=IfBlock)?;
+	(=> 'else' elseBlock=IfBlock)?;
 
 IfBlock returns Block:
 	statements+=Statement
 	| Block;
+
+Throw:
+	'throw' expression=Expression;
+
+Ensure:
+	'ensure' expression=Expression;
 
 fragment TypedDeclaration *:
 	type=[Class|QualifiedName] name=ID;
@@ -108,73 +182,73 @@ fragment TypedDeclaration *:
 NamedElement:
 	Class | Feature | VariableDeclaration;
 
-Expression: AssignmentExpression;
+Expression:
+	AssignmentExpression;
 
 AssignmentExpression returns Expression:
 	ImpliesExpression ({AssignmentExpression.left=current} '=' right=Expression)?;
-	
+
 ImpliesExpression returns Expression:
-	XorExpression (=>({ImpliesExpression.left=current} op='implies') right=XorExpression)*;
+	XorExpression (=> ({ImpliesExpression.left=current} op='implies') right=XorExpression)*;
 
 XorExpression returns Expression:
-	OrExpression (=>({XorExpression.left=current} op='xor') right=OrExpression)*;
+	OrExpression (=> ({XorExpression.left=current} op='xor') right=OrExpression)*;
 
 OrExpression returns Expression:
-	AndExpression (=>({OrExpression.left=current} op='or') right=AndExpression)*;
+	AndExpression (=> ({OrExpression.left=current} op='or') right=AndExpression)*;
 
 AndExpression returns Expression:
-	EqualityExpression (=>({AndExpression.left=current} op='and') right=EqualityExpression)*;
+	EqualityExpression (=> ({AndExpression.left=current} op='and') right=EqualityExpression)*;
 
-EqualityExpression returns Expression :
-	RelationalExpression (=>({EqualityExpression.left=current} op=('=='|'!=')) right=RelationalExpression)*;
+EqualityExpression returns Expression:
+	RelationalExpression (=> ({EqualityExpression.left=current} op=('==' | '!=')) right=RelationalExpression)*;
 
 RelationalExpression returns Expression:
 	OtherOperatorExpression
-	(=>({InstanceOfExpression.expression=current} 'instanceof') type=[Class|QualifiedName] |
-	 =>({RelationalExpression.left=current} op=('>' | '<' | '>=' | '<=')) right=OtherOperatorExpression)*;
+	(=> ({InstanceOfExpression.expression=current} 'instanceof') type=[Class|QualifiedName] |
+	=> ({RelationalExpression.left=current} op=('>' | '<' | '>=' | '<=')) right=OtherOperatorExpression)*;
 
 OtherOperatorExpression returns Expression:
-	AdditiveExpression (=>({OtherOperatorExpression.leftOperand=current} op='=>') right=AdditiveExpression)*;
-	
-AdditiveExpression returns Expression: 
-	MultiplicativeExpression (=>({AdditiveExpression.left=current} op=('+' | '-')) right=MultiplicativeExpression)*;
+	AdditiveExpression (=> ({OtherOperatorExpression.leftOperand=current} op='=>') right=AdditiveExpression)*;
 
-MultiplicativeExpression returns Expression: 
-	UnaryExpression (=>({MultiplicativeExpression.left=current} op=('*' | '/')) right=UnaryExpression)*;
+AdditiveExpression returns Expression:
+	MultiplicativeExpression (=> ({AdditiveExpression.left=current} op=('+' | '-')) right=MultiplicativeExpression)*;
+
+MultiplicativeExpression returns Expression:
+	UnaryExpression (=> ({MultiplicativeExpression.left=current} op=('*' | '/')) right=UnaryExpression)*;
 
 UnaryExpression returns Expression:
 	{UnaryExpression} op=('not' | '!' | '-' | '+') operand=UnaryExpression | CastedExpression;
-	
+
 CastedExpression returns Expression:
-	PostfixExpression (=>({CastedExpression.target=current} 'as') type=[Class|QualifiedName])*;
+	PostfixExpression (=> ({CastedExpression.target=current} 'as') type=[Class|QualifiedName])*;
 
 PostfixExpression returns Expression:
-	SelectionExpression =>({PostfixExpression.operand=current} op=("++" | "--" | "@pre"))?;
+	SelectionExpression => ({PostfixExpression.operand=current} op=("++" | "--" | "@pre"))?;
 
 SelectionExpression returns Expression:
 	PrimaryExpression
-	(=>({MemberSelection.receiver=current} '.') member=[Feature]
-	(=>methodinvocation ?= '(' (args += Expression (',' args += Expression)* )?  ')' )?
-	memberCallArguments+=Closure?	
-	)*;
+	(=> ({MemberSelection.receiver=current} '.') member=[Feature]
+	(=> methodinvocation?='(' (args+=Expression (',' args+=Expression)*)? ')')?
+	memberCallArguments+=Closure?)*;
 
 Closure returns Expression:
-	=>({Closure}
+	=> ({Closure}
 	'[')
-		(expressions+=ExpressionOrVarDeclaration)*
+	(expressions+=ExpressionOrVarDeclaration)*
 	']';
 
 ExpressionOrVarDeclaration returns Expression:
 	VariableDeclaration | Expression;
-	
-PrimaryExpression returns Expression:	
+
+PrimaryExpression returns Expression:
 	LiteralExpression |
 	{ThisExpression} 'this' |
 	{SuperExpression} 'super' |
 	{CallerExpression} 'caller' |
 	{SymbolReference} symbol=[NamedElement] |
 	{Enumeration} enumeration=[NamedElement] '::' literal=[EnumerationElement] |
-	{New} 'new' type=[Class|QualifiedName] '--' |
+	{New} 'new' type=[Class|QualifiedName] '(' ')' |
 	'(' Expression ')';
 
 LiteralExpression returns Expression:
@@ -185,23 +259,29 @@ LiteralExpression returns Expression:
 	{DurationLiteral} value=INT unit=TimeUnit |
 	{DateTimeLiteral} value=DATE |
 	{NullLiteral} 'null' |
-	{SetLiteral} '{' (elements+=Expression (',' elements+=Expression )*)? '}' |
+	{SetLiteral} '{' (elements+=Expression (',' elements+=Expression)*)? '}' |
 	{ArrayLiteral} '[' (elements+=Expression (',' elements+=Expression)*)? ']';
 
-enum TimeUnit: 
-	MINUTE='minutes'|
-	HOUR='hours'|
-	DAY='days'|
-	WEEK='weeks'|
+enum TimeUnit:
+	MINUTE='minutes' |
+	HOUR='hours' |
+	DAY='days' |
+	WEEK='weeks' |
 	SECOND='seconds';
-	
+
 QualifiedName:
-    ID ('.' ID)*;
+	ID ('.' ID)*;
 
 QualifiedNameWithWildcard:
-    QualifiedName '.*'?;
+	QualifiedName '.*'?;
 
-terminal DATE: '0'..'9''0'..'9''0'..'9''0'..'9' '-' '0'..'9''0'..'9' '-' '0'..'9''0'..'9';
-terminal REAL: ('0'..'9')+'.'('0'..'9'+); 	
-terminal BEGIN: 'synthetic:BEGIN';  // increase indentation
-terminal END: 'synthetic:END';      // decrease indentation
+terminal DATE:
+	'0'..'9' '0'..'9' '0'..'9' '0'..'9' '-' '0'..'9' '0'..'9' '-' '0'..'9' '0'..'9';
+
+terminal REAL:
+	('0'..'9')+ '.' ('0'..'9'+);
+
+terminal BEGIN:
+	'synthetic:BEGIN'; // increase indentation
+terminal END:
+	'synthetic:END'; // decrease indentation

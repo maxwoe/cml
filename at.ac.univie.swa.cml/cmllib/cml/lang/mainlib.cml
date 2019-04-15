@@ -9,7 +9,6 @@ class Contract extends Object
 	DateTime contractStart
 	DateTime contractEnd
 	Error failure(String s) 
-	//Global globals
 
 class Party extends Object
 	Integer balance

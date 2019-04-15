@@ -25,6 +25,7 @@ import org.eclipse.xtext.scoping.Scopes
 import com.google.common.base.Predicate
 import org.eclipse.xtext.scoping.impl.FilteringScope
 import at.ac.univie.swa.cml.Enumeration
+import org.eclipse.xtext.scoping.impl.SimpleScope
 
 /**
  * This class contains custom scoping description.
@@ -88,9 +89,10 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 			Class: {
 				var parentScope = IScope::NULLSCOPE
 				for (c : container.classHierarchyWithObject.toArray().reverseView) {
-					parentScope = Scopes::scopeFor((c as Class).attributes, parentScope)
+					parentScope = Scopes::scopeFor((c as Class).attributes + (c as Class).operations, parentScope)
 				}
-				return Scopes::scopeFor(container.attributes, scopeForSymbolRef(container, reference))
+				parentScope =  Scopes::scopeFor(container.attributes + container.operations, parentScope)
+				new SimpleScope(scopeForSymbolRef(container, reference), parentScope.allElements)
 			}
 //			ForLoop:
 //				Scopes.scopeFor(#[container.declaration], scopeForSymbolRef(container) )

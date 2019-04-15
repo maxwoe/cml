@@ -5,14 +5,44 @@ package at.ac.univie.swa.generator
 
 import at.ac.univie.swa.CmlLib
 import at.ac.univie.swa.CmlModelUtil
+import at.ac.univie.swa.cml.AdditiveExpression
+import at.ac.univie.swa.cml.AndExpression
+import at.ac.univie.swa.cml.Antecedent
+import at.ac.univie.swa.cml.AssignmentExpression
+import at.ac.univie.swa.cml.Block
+import at.ac.univie.swa.cml.BooleanLiteral
+import at.ac.univie.swa.cml.CallerExpression
+import at.ac.univie.swa.cml.Class
 import at.ac.univie.swa.cml.CmlProgram
+import at.ac.univie.swa.cml.DateTimeLiteral
+import at.ac.univie.swa.cml.DurationLiteral
+import at.ac.univie.swa.cml.EqualityExpression
+import at.ac.univie.swa.cml.Expression
+import at.ac.univie.swa.cml.Import
+import at.ac.univie.swa.cml.IntegerLiteral
+import at.ac.univie.swa.cml.MultiplicativeExpression
+import at.ac.univie.swa.cml.Operation
+import at.ac.univie.swa.cml.OrExpression
+import at.ac.univie.swa.cml.PostfixExpression
+import at.ac.univie.swa.cml.RelationalExpression
+import at.ac.univie.swa.cml.Return
+import at.ac.univie.swa.cml.Statement
+import at.ac.univie.swa.cml.StringLiteral
+import at.ac.univie.swa.cml.SymbolReference
+import at.ac.univie.swa.cml.TimeConstraint
+import at.ac.univie.swa.cml.UnaryExpression
+import at.ac.univie.swa.cml.VariableDeclaration
 import at.ac.univie.swa.typing.CmlTypeConformance
 import at.ac.univie.swa.typing.CmlTypeProvider
 import com.google.inject.Inject
+import java.util.LinkedHashMap
+import java.util.List
 import org.eclipse.emf.ecore.resource.Resource
 import org.eclipse.emf.ecore.resource.ResourceSet
 import org.eclipse.xtext.generator.IFileSystemAccess2
 import org.eclipse.xtext.generator.IGeneratorContext
+
+import static extension org.eclipse.emf.ecore.util.EcoreUtil.*
 
 /**
  * Generates code from your model files on save.

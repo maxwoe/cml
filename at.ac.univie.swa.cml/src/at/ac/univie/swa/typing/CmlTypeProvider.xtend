@@ -182,7 +182,15 @@ class CmlTypeProvider {
 	}
 	
 	def getSuperclassOrObject(Class c) {
-		c.superclass ?: getCmlObjectClass(c)
+		switch (c.kind) {
+			case "party": getCmlPartyClass(c)
+			case "asset": getCmlAssetClass(c)
+			case "event": getCmlEventClass(c)
+			case "enum": getCmlEnumClass(c)
+			case "contract": getCmlContractClass(c)
+			default: c.superclass ?: getCmlObjectClass(c)
+		}
+		
 	}
 	
 }

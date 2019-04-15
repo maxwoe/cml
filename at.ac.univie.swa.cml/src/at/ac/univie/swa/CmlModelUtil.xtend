@@ -15,6 +15,7 @@ import com.google.inject.Inject
 import org.eclipse.emf.ecore.EObject
 
 import static extension org.eclipse.xtext.EcoreUtil2.*
+import at.ac.univie.swa.cml.Clause
 
 class CmlModelUtil {
 
@@ -54,9 +55,9 @@ class CmlModelUtil {
 		p.classes.filter[kind=="contract"]
 	}
 	
-//	def clauses(Class c) {
-//		c.features.filter(Clause)
-//	}
+	def clauses(Class c) {
+		c.features.filter(Clause)
+	}
 	
 	def enumElements(Class c) {
 		c.features.filter(EnumerationElement)
