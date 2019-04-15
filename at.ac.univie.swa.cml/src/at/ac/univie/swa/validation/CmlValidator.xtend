@@ -10,24 +10,23 @@ import at.ac.univie.swa.cml.Class
 import at.ac.univie.swa.cml.CmlPackage
 import at.ac.univie.swa.cml.CmlProgram
 import at.ac.univie.swa.cml.Expression
-import at.ac.univie.swa.cml.MemberFeatureCall
+import at.ac.univie.swa.cml.MemberSelection
 import at.ac.univie.swa.cml.NamedElement
 import at.ac.univie.swa.cml.Operation
 import at.ac.univie.swa.cml.Return
-import at.ac.univie.swa.cml.SuperExpression
 import at.ac.univie.swa.cml.VariableDeclaration
-import at.ac.univie.swa.cml.VoidType
 import at.ac.univie.swa.scoping.CmlIndex
 import at.ac.univie.swa.typing.CmlTypeConformance
 import at.ac.univie.swa.typing.CmlTypeProvider
 import com.google.common.collect.HashMultimap
 import com.google.inject.Inject
+import java.util.ArrayList
 import org.eclipse.xtext.naming.IQualifiedNameProvider
 import org.eclipse.xtext.validation.Check
 import org.eclipse.xtext.validation.CheckType
 
 import static extension org.eclipse.xtext.EcoreUtil2.*
-import java.util.ArrayList
+import at.ac.univie.swa.cml.SuperExpression
 
 /**
  * This class contains custom validation rules. 
@@ -108,8 +107,8 @@ class CmlValidator extends AbstractCmlValidator {
 		attributes.addAll(c.attributes)
 		checkNoDuplicateElements(attributes, "attribute")
 		checkNoDuplicateElements(c.operations, "operation")
-		checkNoDuplicateElements(c.clauses, "clause")
-		checkNoDuplicateElements(c.enumElements, "enumeration literal")
+		//checkNoDuplicateElements(c.clauses, "clause")
+		//checkNoDuplicateElements(c.enumElements, "enumeration literal")
 	}
 	
 	@Check 
@@ -147,17 +146,17 @@ class CmlValidator extends AbstractCmlValidator {
 	}*/
 	
 	@Check
-	def void checkMemberSelection(MemberFeatureCall mfc) {
+	def void checkMemberSelection(MemberSelection mfc) {
 		val member = mfc.member
 
-		if (member instanceof Attribute && mfc.operationCall)
+		if (member instanceof Attribute && mfc.methodinvocation)
 			error(
-				'''Method invocation on a field''', CmlPackage.eINSTANCE.memberFeatureCall_OperationCall,
+				'''Method invocation on a field''', CmlPackage.eINSTANCE.memberSelection_Methodinvocation,
 				METHOD_INVOCATION_ON_FIELD)
-		else if (member instanceof Operation && !mfc.operationCall)
+		else if (member instanceof Operation && !mfc.methodinvocation)
 			error(
 				'''Field selection on a method''',
-				CmlPackage.eINSTANCE.memberFeatureCall_Member,
+				CmlPackage.eINSTANCE.memberSelection_Member,
 				FIELD_SELECTION_ON_METHOD
 			)
 	}
@@ -175,7 +174,7 @@ class CmlValidator extends AbstractCmlValidator {
 
 	@Check
 	def void checkMethodEndsWithReturn(Operation o) {
-		if (o.returnStatement === null && !o.inferType.conformsToVoid) {
+		if (o.returnStatement === null && !o.type.conformsToVoid) {
 			error("Method must end with a return statement", CmlPackage.eINSTANCE.operation_Body, MISSING_FINAL_RETURN)
 		}
 	}
@@ -184,11 +183,11 @@ class CmlValidator extends AbstractCmlValidator {
 	def void checkCorrectReturnUse(Return stmnt){
 		val returntype = stmnt.containingOperation.type
 		switch(returntype){
-			VoidType:
-				if(stmnt.expression !== null)
-					error("Return statement should be empty within void return type operation '" + stmnt.containingOperation.name + "'",
-						CmlPackage::eINSTANCE.return_Expression,
-						INCOMPATIBLE_TYPES) 
+//			VoidType:
+//				if(stmnt.expression !== null)
+//					error("Return statement should be empty within void return type operation '" + stmnt.containingOperation.name + "'",
+//						CmlPackage::eINSTANCE.return_Expression,
+//						INCOMPATIBLE_TYPES) 
 			default:
 				if(stmnt.expression === null && returntype !== null)
 					error("Return statement should not be empty within operation '" + stmnt.containingOperation.name + "'",
@@ -199,7 +198,7 @@ class CmlValidator extends AbstractCmlValidator {
 
 	@Check
 	def void checkSuper(SuperExpression s) {
-		if (s.eContainingFeature != CmlPackage.eINSTANCE.memberFeatureCall_Receiver)
+		if (s.eContainingFeature != CmlPackage.eINSTANCE.memberSelection_Receiver)
 			error("'super' can be used only as member selection receiver", null, WRONG_SUPER_USAGE)
 	}
 	
@@ -212,17 +211,17 @@ class CmlValidator extends AbstractCmlValidator {
 		if (expectedType === null || actualType === null)
 			return; // nothing to check
 		if (!actualType.isConformant(expectedType)) {
-			error("Incompatible types. Expected '" + expectedType.typeName + "' but was '" + actualType.typeName + "'",
+			error("Incompatible types. Expected '" + expectedType + "' but was '" + actualType + "'",
 				null, INCOMPATIBLE_TYPES);
 		}
 	}
 
-	@Check def void checkMethodInvocationArguments(MemberFeatureCall mfc) {
+	@Check def void checkMethodInvocationArguments(MemberSelection mfc) {
 		val method = mfc.member
 		if (method instanceof Operation) {
 			if (method.params.size != mfc.args.size) {
 				error("Invalid number of arguments: expected " + method.params.size + " but was " + mfc.args.size,
-					CmlPackage.eINSTANCE.memberFeatureCall_Member, INVALID_ARGS)
+					CmlPackage.eINSTANCE.memberSelection_Member, INVALID_ARGS)
 			}
 		}
 	}

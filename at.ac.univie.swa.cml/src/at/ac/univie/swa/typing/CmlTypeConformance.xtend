@@ -17,13 +17,13 @@ class CmlTypeConformance {
 		switch (c1) {
 			Class:
 				switch (c2) {
-					Class case c1.conformsToSet && c2.conformsToSet,
-					Class case c1.conformsToBag && c2.conformsToBag,
-					Class case c1.conformsToArray && c2.conformsToArray:
-						return isConformant(c1.typeVars.get(0).type, c2.typeVars?.get(0).type)
-					Class case c1.conformsToMap && c2.conformsToMap:
-						return isConformant(c1.typeVars.get(0).type, c2.typeVars?.get(0).type) &&
-							isConformant(c1.typeVars.get(1).type, c2.typeVars?.get(1).type)
+//					Class case c1.conformsToSet && c2.conformsToSet,
+//					Class case c1.conformsToBag && c2.conformsToBag,
+//					Class case c1.conformsToArray && c2.conformsToArray:
+//						return isConformant(c1.typeVars.get(0).type, c2.typeVars?.get(0).type)
+//					Class case c1.conformsToMap && c2.conformsToMap:
+//						return isConformant(c1.typeVars.get(0).type, c2.typeVars?.get(0).type) &&
+//							isConformant(c1.typeVars.get(1).type, c2.typeVars?.get(1).type)
 					Class:
 						return c1 == NULL_TYPE || // null can be assigned to everything
 						(conformToLibraryTypes(c1, c2)) || c1 == c2 ||

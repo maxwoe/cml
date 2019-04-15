@@ -7,75 +7,11 @@ CmlProgram:
 	imports+=Import*
 	declarations+=Declaration*;
 
-Import:
-	'import' importedNamespace = QualifiedNameWithWildcard;
-			
-Feature:
-	Attribute | Operation | Clause | EnumerationElement;
-	
-FeatureAttribute returns Feature:  
-	Attribute;
-	
-FeatureAttributeAndOperation returns Feature:
-	Attribute | Operation;
-
-FeatureAttributeAndClause returns Feature:
-	AttributeWithInitExpr | Clause;
-	
-FeatureEnumeration returns Feature:
-	EnumerationElement;
-	
-Operation:
-	visibility=Visibility? name=ID '(' (params+=Parameter (',' params+=Parameter)*)? ')' (':' type=ReturnType)?
-	(body=Block)?;
-
-Parameter:
-	type=Container name=ID;
-
-ReturnType:
-	{VoidType} 'void' | Container;
-
-Container:
-	Primitive | Collection | Array | Map;
-
-enum Visibility:
-	PUBLIC='public' | PRIVATE='private' | PROTECTED='protected';
-
-Type:
-	Class | Collection | Array | Map;
-
-Attribute:
-	name=ID (':'|isReference?='->') type=Container;
-
-AttributeWithInitExpr returns Attribute:
-	name=ID ':' type=Container ('=' initExp=Statement)?;
-
-Primitive:
-	type=[TypeRef|QualifiedName];
-	
-Array:
-	type=[TypeRef|QualifiedName] ('[' lengths+=INT? ']')+;
-	
-Collection:
-	collectionType=[TypeRef|QualifiedName] '<' type=[TypeRef|QualifiedName] '>';
-
-Map:
-	mapType=[TypeRef|QualifiedName] '<' key=[TypeRef|QualifiedName] ',' type=[TypeRef|QualifiedName]'>';	
-
-TypeRef:
-	Type | TypeVar;
-
-TypeVar:
-	name=ID;
-	
-TypeVarType returns TypeVar:
-	{TypeVar} type=[Class|QualifiedName];
-	
 Declaration:
 	Class | Party | Asset | Event | Enumeration | Contract;
 
 Class: 
-	(abstract?='abstract')? kind='class' name=ID ('<'typeVars+=TypeVar (',' typeVars+=TypeVar)* '>')? ('extends' superclass=[Class|QualifiedName])?
+	(abstract?='abstract')? kind='class' name=ID ('extends' superclass=[Class|QualifiedName])?
 	(BEGIN
 		features+=FeatureAttributeAndOperation*
 	END)?;
@@ -83,7 +19,7 @@ Class:
 Contract returns Class:
 	(abstract?='abstract')? kind='contract' name=ID ('extends' superclass=[Class|QualifiedName])?
 	BEGIN
-		features+=FeatureAttributeAndClause*
+		features+=FeatureAttributeAndOperation*
 	END;
 	
 Party returns Class:
@@ -112,78 +48,66 @@ Enumeration returns Class:
 
 EnumerationElement:
 	name = ID;
-		
-Clause:
-	'clause' name=ID
-	BEGIN
-		antecedent=Antecedent
-		actor=Actor
-		action=DeonticAction
-	END;
 
-Antecedent:
-	{Antecedent} temporal=TimeConstraint? general=Constraint?;
+Type: Class;
+Import:
+	'import' importedNamespace=QualifiedNameWithWildcard;
 
-TimeConstraint:
-	'due' closed?='within'? timeframe=Expression? period=PeriodicTime? precedence=TemporalPrecedence reference=(TimeQuery|Expression);
+Feature:
+	Attribute | Operation /* | Clause*/ | EnumerationElement;
 	
-Constraint:
-	'given' expression=Expression;
-
-Actor:
-	'party' party=[Attribute];
-
-enum Deontic:
-	MUST='must' | MAY='may' | MUST_NOT= 'must_not';
-
-DeonticAction:
-	deontic=Deontic compoundAction=ClauseOperation;
-/* 
-CompoundAction:
-	OrCompoundAction;
-
-OrCompoundAction returns CompoundAction:
-	SeqCompoundAction ({OrCompoundAction.left=current} op=('or') right=SeqCompoundAction)*;
-
-SeqCompoundAction returns CompoundAction:
-	AndCompoundAction ({SeqCompoundAction.left=current} op=('then') right=AndCompoundAction)*;
+FeatureAttribute returns Feature:
+	Attribute;
 	
-AndCompoundAction returns CompoundAction:
-	AtomicCompoundAction ({AndCompoundAction.left=current} op=('and') right=AtomicCompoundAction)*;
+FeatureAttributeAndOperation returns Feature:
+	Attribute | Operation;
 
-AtomicCompoundAction returns CompoundAction:
-	'(' CompoundAction ')' | AtomicAction;*/
+//FeatureAttributeAndClause returns Feature:
+//	AttributeWithInitExpr  | Clause;
+	
+FeatureEnumeration returns Feature:
+	EnumerationElement;
 
-ClauseOperation returns Operation:
-	name=ID '(' (params+=Parameter (',' params+=Parameter)*)? ')' (':' type=ReturnType)?
-	BEGIN 
-		('pre' precondition=Expression)?
-		body=BlockWithoutIndentation
-		('post' postcondition=Expression)?
-	END;
-	
-PeriodicTime:
-	'every' period=Expression 'from' start=(TimeQuery|Expression) ('until' end=(TimeQuery|Expression))?;
-	
-enum TemporalPrecedence:
-	BEFORE='before' |
-	//BEFORE_OR_EQUALS='before or at the same time as' |
-	//EQUALS ='at the same time as' |
-	//AFTER_OR_EQUALS='after or at the same time as' |
-	AFTER='after';
+Attribute:
+	TypedDeclaration;
 
-ClauseQuery:
-	'clause' ref=[Clause] 'fulfilled';
+Operation:
+	access=AccessLevel? TypedDeclaration
+	'(' (params+=Attribute (',' params+=Attribute)*)? ')'
+	(body=Block)?;
 
-EventQuery:
-	'event' ref=[Attribute] 'occurred';
-	
-ActionQuery:
-	multiplicity=('all'|'any'|'this')?  partyRef=[Attribute] query='executed' actionRef=[Operation];
-	
-TimeQuery:
-	ClauseQuery | EventQuery | ActionQuery;
-		
+enum AccessLevel:
+	PRIVATE='private' | PROTECTED='protected' | PUBLIC='public';
+
+Block:
+	{Block} BEGIN statements+=Statement* END;
+
+Statement:
+	VariableDeclaration |
+	Return |
+	Expression |
+	IfStatement;
+
+VariableDeclaration:
+	'var' TypedDeclaration '=' expression=Expression;
+
+Return:
+	'return' expression=Expression;
+
+IfStatement:
+	'if' '(' expression=Expression ')' thenBlock=IfBlock
+	(=>'else' elseBlock=IfBlock)?;
+
+IfBlock returns Block:
+	statements+=Statement
+	| Block;
+
+fragment TypedDeclaration *:
+	type=[Class|QualifiedName] name=ID;
+
+NamedElement:
+	Class | Feature | VariableDeclaration;
+
 Expression: AssignmentExpression;
 
 AssignmentExpression returns Expression:
@@ -205,8 +129,13 @@ EqualityExpression returns Expression :
 	RelationalExpression (=>({EqualityExpression.left=current} op=('=='|'!=')) right=RelationalExpression)*;
 
 RelationalExpression returns Expression:
-	AdditiveExpression (=>({RelationalExpression.left=current} op=('>' | '<' | '>=' | '<=')) right=AdditiveExpression)*;
+	OtherOperatorExpression
+	(=>({InstanceOfExpression.expression=current} 'instanceof') type=[Class|QualifiedName] |
+	 =>({RelationalExpression.left=current} op=('>' | '<' | '>=' | '<=')) right=OtherOperatorExpression)*;
 
+OtherOperatorExpression returns Expression:
+	AdditiveExpression (=>({OtherOperatorExpression.leftOperand=current} op='=>') right=AdditiveExpression)*;
+	
 AdditiveExpression returns Expression: 
 	MultiplicativeExpression (=>({AdditiveExpression.left=current} op=('+' | '-')) right=MultiplicativeExpression)*;
 
@@ -214,26 +143,38 @@ MultiplicativeExpression returns Expression:
 	UnaryExpression (=>({MultiplicativeExpression.left=current} op=('*' | '/')) right=UnaryExpression)*;
 
 UnaryExpression returns Expression:
-	{UnaryExpression} op=('not' | '!' | '-' | '+') operand=UnaryExpression | PostfixExpression;
+	{UnaryExpression} op=('not' | '!' | '-' | '+') operand=UnaryExpression | CastedExpression;
+	
+CastedExpression returns Expression:
+	PostfixExpression (=>({CastedExpression.target=current} 'as') type=[Class|QualifiedName])*;
 
 PostfixExpression returns Expression:
-	MemberFeatureCall =>({PostfixExpression.operand=current} op=("++" | "--" | "@pre"))?;
+	SelectionExpression =>({PostfixExpression.operand=current} op=("++" | "--" | "@pre"))?;
 
-MemberFeatureCall returns Expression:
-	ElementReferenceExpression (({MemberFeatureCall.receiver=current} '.') 
-	member=[Feature]  (=> operationCall?='(' (args+=Expression (',' args+=Expression)*)? ')' | =>
-	(elementAccess?='[' selector+=Expression ']') => ('[' selector+=Expression ']')*)?)*;
+SelectionExpression returns Expression:
+	PrimaryExpression
+	(=>({MemberSelection.receiver=current} '.') member=[Feature]
+	(=>methodinvocation ?= '(' (args += Expression (',' args += Expression)* )?  ')' )?
+	memberCallArguments+=Closure?	
+	)*;
 
-ElementReferenceExpression returns Expression:
-	{ElementReferenceExpression} reference=PrimaryExpression (=> operationCall?='(' (args+=Expression (',' args+=Expression)*)? ')'
-		 | => (elementAccess?='[' selector+=Expression ']') => ('[' selector+=Expression']')*)?;
+Closure returns Expression:
+	=>({Closure}
+	'[')
+		(expressions+=ExpressionOrVarDeclaration)*
+	']';
+
+ExpressionOrVarDeclaration returns Expression:
+	VariableDeclaration | Expression;
 	
 PrimaryExpression returns Expression:	
 	LiteralExpression |
-	{SelfExpression} 'self' |
+	{ThisExpression} 'this' |
 	{SuperExpression} 'super' |
 	{CallerExpression} 'caller' |
-	{SymbolReference} ref=[Symbol] |
+	{SymbolReference} symbol=[NamedElement] |
+	{Enumeration} enumeration=[NamedElement] '::' literal=[EnumerationElement] |
+	{New} 'new' type=[Class|QualifiedName] '--' |
 	'(' Expression ')';
 
 LiteralExpression returns Expression:
@@ -244,10 +185,9 @@ LiteralExpression returns Expression:
 	{DurationLiteral} value=INT unit=TimeUnit |
 	{DateTimeLiteral} value=DATE |
 	{NullLiteral} 'null' |
-	{EnumerationLiteral} enumeration=[Class|QualifiedName] '::' literal=[EnumerationElement] |
 	{SetLiteral} '{' (elements+=Expression (',' elements+=Expression )*)? '}' |
 	{ArrayLiteral} '[' (elements+=Expression (',' elements+=Expression)*)? ']';
-	
+
 enum TimeUnit: 
 	MINUTE='minutes'|
 	HOUR='hours'|
@@ -255,74 +195,6 @@ enum TimeUnit:
 	WEEK='weeks'|
 	SECOND='seconds';
 	
-Symbol:
-	Attribute | Parameter | VariableDeclaration;
-
-NamedElement:
-	Class | Feature | Symbol;
-	
-Block:
-	{Block} 
-	BEGIN
-		statements+=Statement* 
-	END;
-	
-BlockWithoutIndentation returns Block:
-	{Block} statements+=Statement*;
-
-Statement:
-	Expression |
-	VariableDeclaration |
-	If |
-	WhileLoop |
-	RepeatLoop |
-	ForLoop |
-	ForEachLoop |
-	Switch |
-	Throw |
-	Return;
-
-ConditionalBlock returns Block:
-	statements+=Statement | 
-	Block;
-	
-If:
-	'if' (('(' condition=Expression ')') | (-> condition=Expression)) thenBlock=ConditionalBlock
-	(=> 'else' elseBlock=ConditionalBlock)?;
-	
-WhileLoop:
-	'while' (('(' condition=Expression ')') | (-> condition=Expression)) body=ConditionalBlock;
-	
-RepeatLoop:
-	'do' body=ConditionalBlock 'until' (('(' condition=Expression ')') | (-> condition=Expression));
-
-Switch:
-	'switch' (('(' switch=Expression ')') | (-> switch=Expression))
-	BEGIN
-	(cases+=CasePart)*
-	('default' ':' default=Expression)?
-	END;
-
-Throw:
-	'throw' expression=Expression;
-	
-CasePart:
-	('case' case=Expression)?
-		(':' then=Statement | fallThrough?=',');
-
-Return:
-	{Return} 'return' (->expression=Expression)?;
-
-VariableDeclaration:
-	'var' type=Container name=ID ('=' expression=Expression)?;
-
-ForLoop:
-	'for' '(' declaration=VariableDeclaration ',' condition=Expression ',' progression=Expression ')' block=Block;
-	
-ForEachLoop:
-	'foreach' (('(' elementId=ID 'in' expression=Expression ')' ) | (elementId=ID 'in' expression=Expression))
-	block=Block; 
-
 QualifiedName:
     ID ('.' ID)*;
 

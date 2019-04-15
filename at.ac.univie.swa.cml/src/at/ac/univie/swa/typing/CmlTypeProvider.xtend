@@ -5,37 +5,28 @@ import at.ac.univie.swa.CmlModelUtil
 import at.ac.univie.swa.cml.AdditiveExpression
 import at.ac.univie.swa.cml.AndExpression
 import at.ac.univie.swa.cml.AssignmentExpression
-import at.ac.univie.swa.cml.Attribute
 import at.ac.univie.swa.cml.BooleanLiteral
-import at.ac.univie.swa.cml.CallerExpression
-import at.ac.univie.swa.cml.CasePart
 import at.ac.univie.swa.cml.Class
 import at.ac.univie.swa.cml.CmlFactory
 import at.ac.univie.swa.cml.CmlPackage
 import at.ac.univie.swa.cml.DateTimeLiteral
 import at.ac.univie.swa.cml.DurationLiteral
-import at.ac.univie.swa.cml.ElementReferenceExpression
-import at.ac.univie.swa.cml.EnumerationLiteral
 import at.ac.univie.swa.cml.EqualityExpression
 import at.ac.univie.swa.cml.Expression
 import at.ac.univie.swa.cml.ImpliesExpression
 import at.ac.univie.swa.cml.IntegerLiteral
-import at.ac.univie.swa.cml.MemberFeatureCall
+import at.ac.univie.swa.cml.MemberSelection
 import at.ac.univie.swa.cml.MultiplicativeExpression
 import at.ac.univie.swa.cml.NullLiteral
 import at.ac.univie.swa.cml.Operation
 import at.ac.univie.swa.cml.OrExpression
-import at.ac.univie.swa.cml.PeriodicTime
-import at.ac.univie.swa.cml.Primitive
 import at.ac.univie.swa.cml.RealLiteral
 import at.ac.univie.swa.cml.RelationalExpression
 import at.ac.univie.swa.cml.Return
-import at.ac.univie.swa.cml.SelfExpression
 import at.ac.univie.swa.cml.StringLiteral
 import at.ac.univie.swa.cml.SuperExpression
 import at.ac.univie.swa.cml.SymbolReference
-import at.ac.univie.swa.cml.Throw
-import at.ac.univie.swa.cml.TimeConstraint
+import at.ac.univie.swa.cml.ThisExpression
 import at.ac.univie.swa.cml.Type
 import at.ac.univie.swa.cml.UnaryExpression
 import at.ac.univie.swa.cml.VariableDeclaration
@@ -61,18 +52,18 @@ class CmlTypeProvider {
 
 	def Type typeFor(Expression e) {
 		switch (e) {
-			CallerExpression: {
-				var party = e.containingClause.actor.party
-				if (party.type instanceof Primitive) {
-					return party.type.inferType
-				} else return party.type.inferType.deriveVarType
-			}
-			SelfExpression:
+//			CallerExpression: {
+//				e.containingClause.actor.party.type
+//				if (party.type instanceof Primitive) {
+//					return party.type.inferType
+//				} else return party.type.inferType.deriveVarType
+//			}
+			ThisExpression:
 				return e.containingClass
 			SuperExpression:
 				return e.containingClass.superclassOrObject
-			SymbolReference:
-				return e.ref.type.inferType
+			SymbolReference: 
+				return e.symbol.inferType				
 			NullLiteral:
 				return NULL_TYPE
 			StringLiteral:
@@ -87,8 +78,8 @@ class CmlTypeProvider {
 				return DATETIME_TYPE
 			DurationLiteral:
 				return DURATION_TYPE
-			EnumerationLiteral:
-				return e.enumeration
+			//EnumerationLiteral:
+			//	return e.enumeration
 			XorExpression,
 			OrExpression,
 			AndExpression,
@@ -108,27 +99,27 @@ class CmlTypeProvider {
 				}
 			AssignmentExpression:
 				e.left.typeFor
-			ElementReferenceExpression: 
-				if (e.elementAccess) {
-					return e.reference.typeFor.deriveVarType
-				} else return e.reference.typeFor
-			MemberFeatureCall: {
-				if (e.elementAccess) {
-					return e.member.inferType.deriveVarType
-				}
+//			ElementReferenceExpression: 
+//				if (e.elementAccess) {
+//					return e.reference.typeFor.deriveVarType
+//				} else return e.reference.typeFor
+			MemberSelection: {
+//				if (e.elementAccess) {
+//					return e.member.inferType.deriveVarType
+//				}
 				return e.member.inferType
 			}
 			
 		}
 	}
 	
-	def deriveVarType(Type t) {
-		switch (t) {
-			Class case /*t.isConformant(t.cmlCollectionClass)*/ t.conformsToSet,
-			Class case /*t.isConformant(t.cmlArrayClass)*/t.conformsToArray : return t.typeVars.get(0).type
-			Class case /*t.isConformant(t.cmlMapClass)*/ t.conformsToMap: return t.typeVars.get(1).type
-		}
-	}
+//	def deriveVarType(Type t) {
+//		switch (t) {
+//			Class case /*t.isConformant(t.cmlCollectionClass)*/ t.conformsToSet,
+//			Class case /*t.isConformant(t.cmlArrayClass)*/t.conformsToArray : return t.typeVars.get(0).type
+//			Class case /*t.isConformant(t.cmlMapClass)*/ t.conformsToMap: return t.typeVars.get(1).type
+//		}
+//	}
 
 	def Type expectedType(Expression e) {
 		val c = e.eContainer
@@ -136,50 +127,53 @@ class CmlTypeProvider {
 		switch (c) {	
 			//ElementReferenceExpression:
 			//	c.reference.typeFor
-			Throw case f == ep.throw_Expression:
-				ERROR_TYPE
-			CasePart case f == ep.casePart_Case:
-				c.containingSwitch.^switch.typeFor
+//			Throw case f == ep.throw_Expression:
+//				ERROR_TYPE
+//			CasePart case f == ep.casePart_Case:
+//				c.containingSwitch.^switch.typeFor
 			AssignmentExpression case f == ep.assignmentExpression_Right:
 				c.left.typeFor
-			case f == ep.repeatLoop_Condition,
-			case f == ep.whileLoop_Condition,
-			case f == ep.if_Condition:
-				BOOLEAN_TYPE
+//			case f == ep.repeatLoop_Condition,
+//			case f == ep.whileLoop_Condition,
+//			case f == ep.if_Condition:
+//				BOOLEAN_TYPE
 			AdditiveExpression case f == ep.additiveExpression_Right:
 				c.left.typeFor
 			MultiplicativeExpression case f == ep.multiplicativeExpression_Right:
 				c.left.typeFor
 			VariableDeclaration:
-				c.type.inferType
+				c.type
 			Return:
-				c.containingOperation.inferType
-			PeriodicTime case f == ep.periodicTime_Start,
-			PeriodicTime case f == ep.periodicTime_End,
-			TimeConstraint case f == ep.timeConstraint_Reference:
-				DATETIME_TYPE
-			PeriodicTime case f == ep.periodicTime_Period,
-			TimeConstraint case f == ep.timeConstraint_Timeframe:
-				DURATION_TYPE
-			Attribute case f == ep.attribute_InitExp:
-				c.type.inferType
-			case f == ep.if_ElseBlock,
-			case f == ep.if_ThenBlock:	{
-				var cc = c.eContainer
-				switch(cc) {
-					Attribute: cc.type.inferType
-				}
-			}				
+				c.containingOperation.type
+//			PeriodicTime case f == ep.periodicTime_Start,
+//			PeriodicTime case f == ep.periodicTime_End,
+//			TimeConstraint case f == ep.timeConstraint_Reference:
+//				DATETIME_TYPE
+//			PeriodicTime case f == ep.periodicTime_Period,
+//			TimeConstraint case f == ep.timeConstraint_Timeframe:
+//				DURATION_TYPE
+//			Attribute case f == ep.attribute_InitExp:
+//				c.type.inferType
+//			case f == ep.if_ElseBlock,
+//			case f == ep.if_ThenBlock:	{
+//				var cc = c.eContainer
+//				switch(cc) {
+//					Attribute: cc.type.inferType
+//				}
+//			}				
 			RelationalExpression case f == ep.relationalExpression_Right:
 				c.left.typeFor
 			EqualityExpression case f == ep.equalityExpression_Right:
 				c.left.typeFor
-			MemberFeatureCall case f == ep.memberFeatureCall_Args:
+			MemberSelection case f == ep.memberSelection_Args: {
+				// assume that it refers to a method and that there
+				// is a parameter corresponding to the argument
 				try {
-					(c.member as Operation).params.get(c.args.indexOf(e)).type.inferType
+					(c.member as Operation).params.get(c.args.indexOf(e)).type
 				} catch (Throwable t) {
-					null
+					null // otherwise there is no specific expected type
 				}
+			}
 		}
 	}
 

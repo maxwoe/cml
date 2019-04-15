@@ -10,6 +10,7 @@ import org.eclipse.jface.viewers.StyledString
 
 import at.ac.univie.swa.CmlModelUtil
 import com.google.inject.Inject
+import at.ac.univie.swa.cml.Type
 
 /**
  * See https://www.eclipse.org/Xtext/documentation/304_ide_concepts.html#content-assist
@@ -22,7 +23,7 @@ class CmlProposalProvider extends AbstractCmlProposalProvider {
 	override getStyledDisplayString(EObject element, String qualifiedNameAsString, String shortName) {
 		if (element instanceof Feature) {
 			new StyledString(element.featureAsStringWithType).append(
-				new StyledString(" - " + (element.eContainer as Class).name, StyledString.QUALIFIER_STYLER))
+				new StyledString(" - " + element.eContainer, StyledString.QUALIFIER_STYLER))
 		} else
 			super.getStyledDisplayString(element, qualifiedNameAsString, shortName)
 	}

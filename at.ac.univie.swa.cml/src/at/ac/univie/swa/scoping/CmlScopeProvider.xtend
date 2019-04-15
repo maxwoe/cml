@@ -5,14 +5,13 @@ package at.ac.univie.swa.scoping
 
 import at.ac.univie.swa.CmlLib
 import at.ac.univie.swa.CmlModelUtil
-import at.ac.univie.swa.cml.Actor
 import at.ac.univie.swa.cml.Block
 import at.ac.univie.swa.cml.Class
 import at.ac.univie.swa.cml.CmlPackage
-import at.ac.univie.swa.cml.EnumerationLiteral
-import at.ac.univie.swa.cml.ForLoop
-import at.ac.univie.swa.cml.MemberFeatureCall
+import at.ac.univie.swa.cml.CmlProgram
+import at.ac.univie.swa.cml.MemberSelection
 import at.ac.univie.swa.cml.Operation
+import at.ac.univie.swa.cml.SymbolReference
 import at.ac.univie.swa.cml.VariableDeclaration
 import at.ac.univie.swa.typing.CmlTypeConformance
 import at.ac.univie.swa.typing.CmlTypeProvider
@@ -20,10 +19,12 @@ import javax.inject.Inject
 import org.eclipse.emf.ecore.EObject
 import org.eclipse.emf.ecore.EReference
 import org.eclipse.xtext.naming.IQualifiedNameProvider
+import org.eclipse.xtext.resource.IEObjectDescription
 import org.eclipse.xtext.scoping.IScope
 import org.eclipse.xtext.scoping.Scopes
-import org.eclipse.emf.ecore.util.EcoreUtil
-import java.util.Collections
+import com.google.common.base.Predicate
+import org.eclipse.xtext.scoping.impl.FilteringScope
+import at.ac.univie.swa.cml.Enumeration
 
 /**
  * This class contains custom scoping description.
@@ -40,49 +41,67 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 	@Inject extension IQualifiedNameProvider
 
 	override getScope(EObject context, EReference reference) {
-		if (reference == CmlPackage.Literals.SYMBOL_REFERENCE__REF) {
-			return scopeForSymbolRef(context)
-		} else if (context instanceof MemberFeatureCall) {
-			return scopeForMemberFeatureCall(context)
-		} else if (reference == CmlPackage.Literals.ENUMERATION_LITERAL__LITERAL) {
+		println(context + " | " + reference)
+		if (reference == CmlPackage.Literals.SYMBOL_REFERENCE__SYMBOL) {
+			return scopeForSymbolRef(context, reference)
+
+//			if (context instanceof SymbolReference && (context as SymbolReference).enumeration) {
+//				if ((context as SymbolReference).symbol instanceof Class) {
+//					scope = Scopes::scopeFor(((context as SymbolReference).symbol as Class).enumElements, scope)
+//
+//				}
+//			}
+//			return scope
+
+		} else if (reference == CmlPackage.Literals.ENUMERATION__LITERAL) {
 			return scopeForEnumLiteral(context)
-		} else if (reference == CmlPackage.Literals.ACTOR__PARTY) {
-			if (context instanceof Actor) {
-				var parentScope = IScope::NULLSCOPE
-				for (c : context.containingClass.classHierarchyWithObject.toArray().reverseView) {
-					parentScope = Scopes::scopeFor((c as Class).attributes/*.filter[!inferType.isPrimitive && (inferType.subclassOfParty || inferType.conformsToParty)]*/, parentScope)
-				}
-				return Scopes::scopeFor(context.containingClass.attributes/*.filter[!inferType.isPrimitive && (inferType.subclassOfParty || inferType.conformsToParty)]*/, parentScope)
-			}
 		}
+		
+		else if (context instanceof MemberSelection) {
+			return scopeForMemberSelection(context)
+		} 
+//		else if (reference == CmlPackage.Literals.SYMBOL_REFERENCE__ENUMERATION) {
+//			return scopeForEnumLiteral(context)
+//		} 
+//		else if (reference == CmlPackage.Literals.ACTOR__PARTY) {
+//			if (context instanceof Actor) {
+//				var parentScope = IScope::NULLSCOPE
+//				for (c : context.containingClass.classHierarchyWithObject.toArray().reverseView) {
+//					parentScope = Scopes::scopeFor((c as Class).attributes/*.filter[!inferType.isPrimitive && (inferType.subclassOfParty || inferType.conformsToParty)]*/, parentScope)
+//				}
+//				return Scopes::scopeFor(context.containingClass.attributes/*.filter[!inferType.isPrimitive && (inferType.subclassOfParty || inferType.conformsToParty)]*/, parentScope)
+//			}
+//		}
 		return super.getScope(context, reference)
 	}
 
-	def protected IScope scopeForSymbolRef(EObject context) {
+	def protected IScope scopeForSymbolRef(EObject context, EReference reference) {
 		var container = context.eContainer
 		
 		return switch (container) {
 			Operation:
-				Scopes.scopeFor(container.params, scopeForSymbolRef(container))
+				Scopes.scopeFor(container.params, scopeForSymbolRef(container, reference))
 			Block:
 				Scopes.scopeFor(
 					container.statements.takeWhile[it != context].filter(VariableDeclaration),
-					scopeForSymbolRef(container))
+					scopeForSymbolRef(container, reference))
 			Class: {
 				var parentScope = IScope::NULLSCOPE
 				for (c : container.classHierarchyWithObject.toArray().reverseView) {
 					parentScope = Scopes::scopeFor((c as Class).attributes, parentScope)
 				}
-				return Scopes::scopeFor(container.attributes, parentScope)
+				return Scopes::scopeFor(container.attributes, scopeForSymbolRef(container, reference))
 			}
-			ForLoop:
-				Scopes.scopeFor(#[container.declaration], scopeForSymbolRef(container) )
+//			ForLoop:
+//				Scopes.scopeFor(#[container.declaration], scopeForSymbolRef(container) )
+			CmlProgram: 
+				allClasses(container, reference)
 			default:
-				scopeForSymbolRef(container)
+				scopeForSymbolRef(container, reference)
 		}
 	}
 
-	def protected IScope scopeForMemberFeatureCall(MemberFeatureCall mfc) {
+	def protected IScope scopeForMemberSelection(MemberSelection mfc) {
 		var type = mfc.receiver.typeFor
 
 		if (type === null || type.isPrimitive)
@@ -98,24 +117,38 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 	}
 
 	def protected IScope scopeForEnumLiteral(EObject context) {
-		if (context instanceof EnumerationLiteral) {
+		if (context instanceof Enumeration) {
 			var parentScope = IScope::NULLSCOPE
 			
-			if (context.enumeration === null || context.enumeration.isPrimitive)
+			if (context.enumeration === null)
 				return parentScope
 			
-			if (context.enumeration.subclassOfEnum) {
-				return Scopes::scopeFor(context.enumeration.enumElements, parentScope)
+			if (context.enumeration instanceof Class) {
+				return Scopes::scopeFor((context.enumeration as Class).enumElements, parentScope)
 			} else
 				return parentScope
 		}
 	}
 
-	def selectedFeatures(Class type, MemberFeatureCall mfc) {
-		if (mfc.operationCall)
+	def selectedFeatures(Class type, MemberSelection mfc) {
+		if (mfc.methodinvocation)
 			type.operations + type.attributes
 		else
 			type.attributes + type.operations
 	}
+	
+	def allClasses(EObject context, EReference reference) {
+		val IScope delegateScope = delegateGetScope(context, reference)
+		val Predicate<IEObjectDescription> filter = new Predicate<IEObjectDescription>() {
+			override boolean apply(IEObjectDescription od) {
+				val obj = od.EObjectOrProxy
+				if (obj instanceof Class)
+					true
+				else
+					false
+			}
 
+		}
+		new FilteringScope(delegateScope, filter)
+	}
 }

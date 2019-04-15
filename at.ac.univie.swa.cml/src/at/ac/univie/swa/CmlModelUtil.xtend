@@ -1,29 +1,19 @@
 package at.ac.univie.swa
 
-import at.ac.univie.swa.cml.Array
 import at.ac.univie.swa.cml.Attribute
 import at.ac.univie.swa.cml.Block
 import at.ac.univie.swa.cml.Class
-import at.ac.univie.swa.cml.Clause
 import at.ac.univie.swa.cml.CmlProgram
-import at.ac.univie.swa.cml.Collection
-import at.ac.univie.swa.cml.Container
 import at.ac.univie.swa.cml.EnumerationElement
 import at.ac.univie.swa.cml.Feature
-import at.ac.univie.swa.cml.Map
+import at.ac.univie.swa.cml.NamedElement
 import at.ac.univie.swa.cml.Operation
-import at.ac.univie.swa.cml.Primitive
 import at.ac.univie.swa.cml.Return
-import at.ac.univie.swa.cml.Switch
-import at.ac.univie.swa.cml.Type
-import at.ac.univie.swa.cml.TypeRef
-import at.ac.univie.swa.cml.TypeVar
 import at.ac.univie.swa.typing.CmlTypeConformance
 import at.ac.univie.swa.typing.CmlTypeProvider
 import com.google.inject.Inject
 import org.eclipse.emf.ecore.EObject
 
-import static extension org.eclipse.emf.ecore.util.EcoreUtil.*
 import static extension org.eclipse.xtext.EcoreUtil2.*
 
 class CmlModelUtil {
@@ -64,9 +54,9 @@ class CmlModelUtil {
 		p.classes.filter[kind=="contract"]
 	}
 	
-	def clauses(Class c) {
-		c.features.filter(Clause)
-	}
+//	def clauses(Class c) {
+//		c.features.filter(Clause)
+//	}
 	
 	def enumElements(Class c) {
 		c.features.filter(EnumerationElement)
@@ -92,112 +82,116 @@ class CmlModelUtil {
 		e.getContainerOfType(Operation)
 	}
 	
-	def containingSwitch(EObject e) {
-		e.getContainerOfType(Switch)
-	}
+//	def containingSwitch(EObject e) {
+//		e.getContainerOfType(Switch)
+//	}
 	
 	def containingAttribute(EObject e) {
 		e.getContainerOfType(Attribute)
 	}
 	
-	def containingClause(EObject e) {
-		e.getContainerOfType(Clause)
-	}
+//	def containingClause(EObject e) {
+//		e.getContainerOfType(Clause)
+//	}
 
 	def featureAsString(Feature f) {
 		f.name + if (f instanceof Operation)
-			"(" + f.params.map[type.inferType.typeName].join(", ") + ")"
+			"(" + f.params.map[type.name].join(", ") + ")"
 		else
 			""
 	}
 
 	def featureAsStringWithType(Feature f) {
-		f.featureAsString + " : " + f.inferType.typeName
+		f.featureAsString + " : " //+ f.inferType.typeName
 	}
 
-	def typeName(Type t) {
-		switch (t) {
-			Class:
-				switch (t) {
-					case t.isPrimitive: t.name
-					case t.conformsToMap,
-					case t.conformsToSet,
-					case t.conformsToBag: t.name + "<" + t.typeVars.map[type?.name].join(", ") + ">"
-					case t.conformsToArray: t.typeVars.get(0).type.name + "[]"
-					default: t.name
-				}
-		}
-	}
-
-	def inferType(Feature f) {
+//	def typeName(Type t) {
+//		switch (t) {
+//			Class:
+//				switch (t) {
+//					case t.isPrimitive: t.name
+//					case t.conformsToMap,
+//					case t.conformsToSet,
+//					case t.conformsToBag: t.name + "<" + t.typeVars.map[type?.name].join(", ") + ">"
+//					case t.conformsToArray: t.typeVars.get(0).type.name + "[]"
+//					default: t.name
+//				}
+//		}
+//	}
+//
+	/*def Class inferType(Feature f) {
 		switch (f) {
 			Attribute: inferType(f)
 			Operation: inferType(f)
 			EnumerationElement: f.cmlEnumClass
 		}
-	}
+	}*/
 
-	def inferType(Attribute a) {
-		inferType(a.type)
+	def Class inferType(NamedElement s) {
+		switch (s) {
+			Attribute: s.type
+			Operation: s.type
+			EnumerationElement: s.cmlEnumClass
+		}
 	}
 	
-	def inferType(Operation op) {
+	/*def inferType(Operation op) {
 		switch (op.type) {
-			Container: return inferType(op.type as Container)
+			Class: op.type
 			default: return CmlTypeProvider.VOID_TYPE
 		}
-	}
-	
-	def Class inferType(Container c) {
-		switch (c) {
-			Primitive:
-				return c.type.toClass
-			Collection: {
-				var clazz = c.collectionType.toClass
-				switch (clazz) {
-					case clazz.conformsToSet: {
-						clazz.typeVars.get(0).type = c.type.toClass
-						clazz.superclass.typeVars.get(0).type = c.type.toClass
-						return clazz
-					}
-					case clazz.conformsToBag: {
-						clazz.typeVars.get(0).type = c.type.toClass
-						clazz.superclass.typeVars.get(0).type = c.type.toClass
-						return clazz
-					}
-				}
-			}
-			Array: {
-				var clazz = c.cmlArrayClass
-				clazz.typeVars.get(0).type = c.type.toClass
-				return clazz
-			}
-			Map: {
-				var clazz = c.mapType.toClass
-				switch (clazz) {
-					case clazz.conformsToMap: {
-						clazz.typeVars.get(0).type = c.key.toClass
-						clazz.typeVars.get(1).type = c.type.toClass
-						return clazz
-					}
-				}
-			}
-			default:
-				CmlTypeProvider.NULL_TYPE
-		}
-	}
-	
-	def toClass(TypeRef t) {
-		switch(t) {
-			Type:
-				switch(t) {
-					Class: t
-					default: CmlTypeProvider.NULL_TYPE
-				}
-			TypeVar: t.type
-			default: CmlTypeProvider.NULL_TYPE
-		}
-	}
+	}*/
+//	
+//	def Class inferType(Container c) {
+//		switch (c) {
+//			Primitive:
+//				return c.type.toClass
+//			/*Collection: {
+//				var clazz = c.collectionType.toClass
+//				switch (clazz) {
+//					case clazz.conformsToSet: {
+//						clazz.typeVars.get(0).type = c.type.toClass
+//						clazz.superclass.typeVars.get(0).type = c.type.toClass
+//						return clazz
+//					}
+//					case clazz.conformsToBag: {
+//						clazz.typeVars.get(0).type = c.type.toClass
+//						clazz.superclass.typeVars.get(0).type = c.type.toClass
+//						return clazz
+//					}
+//				}
+//			}
+//			Array: {
+//				var clazz = c.cmlArrayClass
+//				clazz.typeVars.get(0).type = c.type.toClass
+//				return clazz
+//			}
+//			Map: {
+//				var clazz = c.mapType.toClass
+//				switch (clazz) {
+//					case clazz.conformsToMap: {
+//						clazz.typeVars.get(0).type = c.key.toClass
+//						clazz.typeVars.get(1).type = c.type.toClass
+//						return clazz
+//					}
+//				}
+//			}*/
+//			default:
+//				CmlTypeProvider.NULL_TYPE
+//		}
+//	}
+//	
+//	def toClass(TypeRef t) {
+//		switch(t) {
+//			Type:
+//				switch(t) {
+//					Class: t
+//					default: CmlTypeProvider.NULL_TYPE
+//				}
+//			TypeVar: t.type
+//			default: CmlTypeProvider.NULL_TYPE
+//		}
+//	}
 
 	def classHierarchy(Class c) {
 		val visited = newLinkedHashSet()
