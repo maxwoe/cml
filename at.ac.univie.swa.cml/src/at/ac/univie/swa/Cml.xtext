@@ -86,10 +86,11 @@ SeqCompoundAction returns CompoundAction:
 	AndCompoundAction ({SeqCompoundAction.left=current} op=('then') right=AndCompoundAction)*;
 
 AndCompoundAction returns CompoundAction:
-	AtomicCompoundAction ({AndCompoundAction.left=current} op=('and') right=AtomicCompoundAction)*;
+	PrimaryCompoundAction ({AndCompoundAction.left=current} op=('and') right=PrimaryCompoundAction)*;
 
-AtomicCompoundAction returns CompoundAction:
-	'(' CompoundAction ')' | {AtomicAction} reference=[Operation];
+PrimaryCompoundAction returns CompoundAction:
+	{AtomicAction} reference=[Operation] |
+	{NestedCompoundAction}'(' child=CompoundAction ')';
 
 PeriodicTime:
 	'every' period=Expression 'from' start=(TimeQuery | Expression) ('until' end=(TimeQuery | Expression))?;
@@ -223,14 +224,9 @@ UnaryExpression returns Expression:
 CastedExpression returns Expression:
 	PostfixExpression (=> ({CastedExpression.target=current} 'as') type=[Class|QualifiedName])*;
 
-//PostfixExpression returns Expression:
-//	SelectionExpression => ({PostfixExpression.operand=current} op=("++" | "--" | "@pre"))?;
-
 PostfixExpression returns Expression:
 	SelectionExpression
-	(=> ({PostfixExpression.operand=current}
-	op=("++" | "--" | "@pre"))
-	|
+	(=> ({PostfixExpression.operand=current} op=("++" | "--" | "@pre"))	|
 	=> ({ArrayAccessExpression.array=current}
 	'[' indexes+=Expression ']' (=> '[' indexes+=Expression ']')*))?;
  
@@ -239,18 +235,14 @@ SelectionExpression returns Expression:
 	(=> ({MemberSelection.receiver=current} ("."|explicitStatic?="::")) member=[Feature]
 	(=> methodinvocation?='(' (args+=Expression (',' args+=Expression)*)? ')')?)*;
 
-ElementReferenceExpression returns Expression:
-	{ElementReferenceExpression} reference=PrimaryExpression 
-	(=> ({MemberSelection.receiver=current}) methodinvocation?='(' (args+=Expression (',' args+=Expression)*)? ')')?;
-	
 PrimaryExpression returns Expression:
 	LiteralExpression |
 	{ThisExpression} 'this' |
 	{SuperExpression} 'super' |
 	{CallerExpression} 'caller' |
 	{SymbolReference} symbol=[NamedElement] (=> methodinvocation?='(' (args+=Expression (',' args+=Expression)*)? ')')? |
-	{New} 'new' type=[Class|QualifiedName] '(' ')' |
-	'(' Expression ')';
+	{NewExpression} 'new' type=[Class|QualifiedName] '(' ')' |
+	{NestedExpression} '(' child=Expression ')';
 
 LiteralExpression returns Expression:
 	{IntegerLiteral} value=INT |

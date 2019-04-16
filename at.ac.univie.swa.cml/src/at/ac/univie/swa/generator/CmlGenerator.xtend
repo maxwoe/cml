@@ -56,6 +56,8 @@ import org.eclipse.xtext.generator.IGeneratorContext
 
 import static extension org.eclipse.emf.ecore.util.EcoreUtil.*
 import at.ac.univie.swa.cml.AtomicAction
+import at.ac.univie.swa.cml.NestedExpression
+import at.ac.univie.swa.cml.NestedCompoundAction
 
 /**
  * Generates code from your model files on save.
@@ -107,6 +109,8 @@ class CmlGenerator extends AbstractGenerator2 {
 		«FOR e : program.events + program.gatherImportedEvents»
 			bool «e.name.toFirstLower»Occured;
 		«ENDFOR»
+		mapping(bytes4 => bool) callSuccessMonitor;
+		 
 		
 		/*
 	 	 *  Events
@@ -163,6 +167,14 @@ class CmlGenerator extends AbstractGenerator2 {
 				require(now < _time - _duration, "Function called too late.");
 			else require(_time - _duration < now && now < _time, "Function not called within expected timeframe."); _;
 		}
+		
+		modifier postCall(bytes4 _selector) {
+		    callSuccessMonitor[_selector] = true;
+		}
+		
+		function successfullyCalled(bytes4 _selector) private view returns (bool) {
+		    return callSuccessMonitor[_selector];
+	    }
 	}
 	«ENDFOR»
     '''
@@ -198,14 +210,34 @@ class CmlGenerator extends AbstractGenerator2 {
     	emptyList
     }
     
-    def compile(CompoundAction ca) {
-    	switch(ca) {
-    		OrCompoundAction: {ca.left.compile ca.right.compile}
-			SeqCompoundAction: {ca.left.compile ca.right.compile}
-			AndCompoundAction: {ca.left.compile ca.right.compile}
-			AtomicAction: ca.reference.compile(ca.containingClause)
-    	}	
-    }
+    def String compile(CompoundAction ca) {
+		switch (ca) {
+			OrCompoundAction: {
+				val left = ca.left.compile
+				val right = ca.right.compile
+				//left + " || " + right
+				left + right
+			}
+			SeqCompoundAction: {
+				val left = ca.left.compile
+				val right = ca.right.compile
+				//left + " then " + right
+				left + right
+			}
+			AndCompoundAction: {
+				val left = ca.left.compile
+				val right = ca.right.compile
+				//left + " && " + right
+				left + right
+			}
+			NestedCompoundAction: {
+				ca.child.compile
+				//val child = ca.child.compile				
+				//"(" + child + ")" 
+			}
+		 	AtomicAction: ca.reference.compile(ca.containingClause).toString
+		}
+	}
     
     def compile(List<Attribute> attributes) '''
     	«FOR a : attributes SEPARATOR ', '»«a.compile»«ENDFOR»'''
@@ -258,6 +290,7 @@ class CmlGenerator extends AbstractGenerator2 {
 					modifiers.put("only" + tc.precedence.literal.toFirstUpper, #[(tc.reference as Expression).compile, tc.timeframe.compile, "true"])
 			}
 		}
+		modifiers.put("postCall", #["this." + o.name + ".selector"])
 		modifiers
 	}
 	
@@ -356,12 +389,12 @@ class CmlGenerator extends AbstractGenerator2 {
 			
 			AssignmentExpression: 
 				'''«(exp.left.compile)» = «(exp.right.compile)»'''
-			OrExpression: {
+			OrExpression: 
 				'''«(exp.left.compile)» || «(exp.right.compile)»'''
-			}
-			AndExpression: {
+			
+			AndExpression: 
 				'''«(exp.left.compile)» && «(exp.right.compile)»'''
-			}
+			
 			EqualityExpression: {
 				if (exp.op == '==')
 					'''«(exp.left.compile)» == «(exp.right.compile)»'''
@@ -396,10 +429,14 @@ class CmlGenerator extends AbstractGenerator2 {
 					'''«left» / «right»'''
 			}
 			UnaryExpression: {
-				if (exp.op == '+')
-					''' +«(exp.operand.compile)»'''
-				else
-					''' -«(exp.operand.compile)»'''
+				switch (exp.op) {
+					case '+': ''' +«(exp.operand.compile)»'''
+					case '-': ''' -«(exp.operand.compile)»'''
+					case '!',
+					case 'not': ''' !«(exp.operand.compile)»'''
+					default:
+						""
+				}				
 			}
 			PostfixExpression: {
 				if (exp.op == '++')
@@ -407,6 +444,7 @@ class CmlGenerator extends AbstractGenerator2 {
 				else
 					'''«(exp.operand.compile)»--'''
 			}
+			NestedExpression: '''(«exp.child.compile»)'''
 			RealLiteral: '''«exp.value»'''
 			IntegerLiteral: '''«exp.value»'''
 			BooleanLiteral: '''«exp.value»'''

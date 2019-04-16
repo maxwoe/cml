@@ -5,13 +5,15 @@ import at.ac.univie.swa.CmlModelUtil
 import at.ac.univie.swa.cml.AdditiveExpression
 import at.ac.univie.swa.cml.AndExpression
 import at.ac.univie.swa.cml.AssignmentExpression
-import at.ac.univie.swa.cml.Attribute
 import at.ac.univie.swa.cml.BooleanLiteral
+import at.ac.univie.swa.cml.CallerExpression
+import at.ac.univie.swa.cml.CastedExpression
 import at.ac.univie.swa.cml.Class
 import at.ac.univie.swa.cml.CmlFactory
 import at.ac.univie.swa.cml.CmlPackage
 import at.ac.univie.swa.cml.DateTimeLiteral
 import at.ac.univie.swa.cml.DurationLiteral
+import at.ac.univie.swa.cml.EnsureStatement
 import at.ac.univie.swa.cml.EqualityExpression
 import at.ac.univie.swa.cml.Expression
 import at.ac.univie.swa.cml.ImpliesExpression
@@ -36,12 +38,6 @@ import at.ac.univie.swa.cml.UnaryExpression
 import at.ac.univie.swa.cml.VariableDeclaration
 import at.ac.univie.swa.cml.XorExpression
 import com.google.inject.Inject
-import at.ac.univie.swa.cml.ThrowStatement
-import at.ac.univie.swa.cml.ReturnStatement
-import at.ac.univie.swa.cml.CastedExpression
-import at.ac.univie.swa.cml.CallerExpression
-import at.ac.univie.swa.cml.EnsureStatement
-import at.ac.univie.swa.cml.ElementReferenceExpression
 
 class CmlTypeProvider {
 	@Inject extension CmlLib
@@ -122,8 +118,6 @@ class CmlTypeProvider {
 				return e.member.inferType
 			CastedExpression:
 				return e.type
-			ElementReferenceExpression:
-				return e.reference.typeFor
 			
 		}
 	}
