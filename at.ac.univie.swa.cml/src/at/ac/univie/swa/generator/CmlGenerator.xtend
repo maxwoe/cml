@@ -32,12 +32,14 @@ import at.ac.univie.swa.cml.Operation
 import at.ac.univie.swa.cml.OrCompoundAction
 import at.ac.univie.swa.cml.OrExpression
 import at.ac.univie.swa.cml.PostfixExpression
+import at.ac.univie.swa.cml.RealLiteral
 import at.ac.univie.swa.cml.RelationalExpression
 import at.ac.univie.swa.cml.ReturnStatement
 import at.ac.univie.swa.cml.SeqCompoundAction
 import at.ac.univie.swa.cml.Statement
 import at.ac.univie.swa.cml.StringLiteral
 import at.ac.univie.swa.cml.SymbolReference
+import at.ac.univie.swa.cml.ThisExpression
 import at.ac.univie.swa.cml.ThrowStatement
 import at.ac.univie.swa.cml.TimeConstraint
 import at.ac.univie.swa.cml.Type
@@ -54,9 +56,6 @@ import org.eclipse.xtext.generator.IFileSystemAccess2
 import org.eclipse.xtext.generator.IGeneratorContext
 
 import static extension org.eclipse.emf.ecore.util.EcoreUtil.*
-import at.ac.univie.swa.cml.Enumeration
-import at.ac.univie.swa.cml.RealLiteral
-import at.ac.univie.swa.cml.NamedElement
 
 /**
  * Generates code from your model files on save.
@@ -69,12 +68,13 @@ class CmlGenerator extends AbstractGenerator2 {
 	@Inject extension CmlLib
 	@Inject extension CmlTypeProvider
 	@Inject extension CmlTypeConformance
+	Iterable<CmlProgram> allResources;
 	
 	override doGenerate(Resource resource, ResourceSet input, IFileSystemAccess2 fsa, IGeneratorContext context) {
-		val allResources = input.resources.map(r|r.allContents.toIterable.filter(CmlProgram)).flatten
+		allResources = input.resources.map(r|r.allContents.toIterable.filter(CmlProgram)).flatten
 		for (p : resource.allContents.toIterable.filter(CmlProgram)) {
 			if(!p.contracts.empty)	
-            	fsa.generateFile(resource.URI.trimFileExtension.toPlatformString(true) + ".sol", p.compile(allResources))         
+            	fsa.generateFile(resource.URI.trimFileExtension.toPlatformString(true) + ".sol", p.compile)         
         }
 	}
  
@@ -83,7 +83,23 @@ class CmlGenerator extends AbstractGenerator2 {
  			resources.findFirst[name == i.copy.importedNamespace.replace(".*","")]
  	}
  	
-    def compile(CmlProgram program, Iterable<CmlProgram> allResources) '''
+ 	def gatherImportedEvents(CmlProgram program) {
+ 		program.retrieveImportedResources.map[events].flatten
+ 	}
+ 	
+ 	def gatherImportedEnums(CmlProgram program) {
+ 		program.retrieveImportedResources.map[enums].flatten
+ 	}
+ 	
+ 	def retrieveImportedResources(CmlProgram program) {
+ 		var list = newArrayList
+ 		for(import : program.imports) {
+ 			list += this.allResources.retrieveImport(import)
+ 		}
+ 		list
+ 	}
+ 	
+    def compile(CmlProgram program) '''
 	pragma solidity >=0.4.22 <0.7.0;
 	
 	«FOR contract : program.contracts»
@@ -92,23 +108,16 @@ class CmlGenerator extends AbstractGenerator2 {
 		/*
 		 *  Enums
 		 */
-		«FOR i : program.imports»
-			«FOR e : allResources.retrieveImport(i).enums»
-				«e.compileEnum»
-			«ENDFOR»
-		«ENDFOR»
-		«FOR c : program.enums»
-			«c.compileEnum»
+		«FOR e : program.enums + program.gatherImportedEnums»
+			«e.compileEnum»
 		«ENDFOR»
 		
 		/*
 		 *  Structs
 		 */
-		«FOR i : program.imports»
-			«allResources.retrieveImport(i).compileModel»
-		«ENDFOR»
-		«FOR i : program.imports»
-			«program.compileModel»
+		«program.compileModel»
+		«FOR p : program.retrieveImportedResources»
+			«p.compileModel»
 		«ENDFOR»	
 		/*
 		 *  State variables
@@ -118,26 +127,24 @@ class CmlGenerator extends AbstractGenerator2 {
 		«FOR a : contract.attributes»
 		   	«a.compile»;
 		«ENDFOR»
+		«FOR e : program.events + program.gatherImportedEvents»
+			bool «e.name.toFirstLower»Occured;
+		«ENDFOR»
 		
 		/*
 	 	 *  Events
 	 	 */
-		«FOR i : program.imports»
-			«FOR e : allResources.retrieveImport(i).events»
-				«e.compileEvent»
-			«ENDFOR»
-		«ENDFOR»
-		«FOR e : program.events»
+		«FOR e : program.events + program.gatherImportedEvents»
 			«e.compileEvent»
 		«ENDFOR»
 		
 		/*
 		 *  Constructor
 		 */
-		constructor(«FOR party : program.parties SEPARATOR ', '»address _«program.name»«ENDFOR») public {
+		constructor(«FOR a : program.compileConstructorArgs SEPARATOR ', '»«a.key»«a.value»«ENDFOR») public {
 			owner = msg.sender;
-			«FOR party : program.parties»
-				«program.name»= _«program.name»;
+			«FOR a : program.compileConstructorAttributes»
+				«a.key»= _«a.value»;
 			«ENDFOR»
 			creationTime = now;
 		}
@@ -148,12 +155,7 @@ class CmlGenerator extends AbstractGenerator2 {
 	 	«FOR clause : contract.clauses»
 	 		«clause.action.compoundAction.compile»
 		«ENDFOR»
-		«FOR i : program.imports»
-			«FOR e : allResources.retrieveImport(i).events»
-				«e.compileEventAsFunction»
-			«ENDFOR»
-		«ENDFOR»
-		«FOR e : program.events»
+		«FOR e : program.events + program.gatherImportedEvents»
 			«e.compileEventAsFunction»
 		«ENDFOR»
 		function changeOwner(address _newOwner) public onlyBy(owner) {
@@ -166,9 +168,9 @@ class CmlGenerator extends AbstractGenerator2 {
 		/* 	 
 		 *  Modifiers
 	 	 */
-		«FOR clause : contract.clauses»
+«««		«FOR clause : contract.clauses»
 «««			«clause.antecedent.compile»
-		«ENDFOR»
+«««		«ENDFOR»
 		modifier onlyBy(address _account) { 
 			require(msg.sender == _account, "Sender not authorized."); _;
 		}
@@ -187,6 +189,16 @@ class CmlGenerator extends AbstractGenerator2 {
 	}
 	«ENDFOR»
     '''
+    
+    def List<Pair<String, String>> compileConstructorArgs(CmlProgram p) {
+    	// TODO
+    	emptyList
+    }
+    
+    def List<Pair<String, String>> compileConstructorAttributes(CmlProgram p) {
+    	// TODO
+    	emptyList
+    }
     
     def compile(CompoundAction ca) {
     	switch(ca) {
@@ -252,7 +264,7 @@ class CmlGenerator extends AbstractGenerator2 {
 	}
 	
 	def compileBlock(Block block) '''
-	{
+	{	
 		«FOR s : block.statements»
 		«s.compileStatement»
 		«ENDFOR»
@@ -265,10 +277,10 @@ class CmlGenerator extends AbstractGenerator2 {
 			ReturnStatement: "return " + s.expression.compile + ";"
 			IfStatement: '''
 			if («s.condition.compile»)
-				«s.thenBlock.compileBlock»
+			«s.thenBlock.compileBlock»
 			«IF s.elseBlock !== null»
 			else
-				«s.elseBlock.compileBlock»
+			«s.elseBlock.compileBlock»
 			«ENDIF»
 			'''
 			EnsureStatement: '''require(«s.expression.compile»«IF s.throwExpression !== null»; «s.throwExpression.compile»«ENDIF»);'''
@@ -283,6 +295,7 @@ class CmlGenerator extends AbstractGenerator2 {
 	def compileEventAsFunction(Class c) '''	
 	// @notice trigger event «c.name»
 	function «c.name.toFirstLower»() public {
+		«c.name.toFirstLower»Occured = true;
 		emit «c.name.toFirstUpper»();
 	}
 	
@@ -342,6 +355,7 @@ class CmlGenerator extends AbstractGenerator2 {
 	def String compile(Expression exp) {
 		
 		switch (exp) {
+			
 			AssignmentExpression: 
 				'''«(exp.left.compile)» = «(exp.right.compile)»'''
 			OrExpression: {
@@ -399,45 +413,59 @@ class CmlGenerator extends AbstractGenerator2 {
 			IntegerLiteral: '''«exp.value»'''
 			BooleanLiteral: '''«exp.value»'''
 			StringLiteral: '''"«exp.value»"'''
-			SymbolReference: '''«exp.symbol.name»'''
+			ThisExpression: '''this'''
 			DateTimeLiteral: '''«exp.value»'''
 			DurationLiteral: '''«exp.value» «exp.unit»'''
-			MemberSelection: exp.featureCallTransformation
 			CallerExpression: '''msg.sender'''
-			Enumeration: '''«exp.enumeration.name».«exp.literal.name»'''
+			SymbolReference: '''«exp.compile»'''
+			MemberSelection: exp.memberSelectionTransformation
 		}
 	}
 	
-	def featureCallTransformation(MemberSelection ms) {
-		var t = ms.member.inferType
-		switch (t) {
-			case t.conformsToDateTime: {
-				if (ms.methodinvocation)
-					switch (ms.member.name) {
-						case "addDuration": ms.receiver.compile + " + " + ms.args.get(0).compile
-						case "failure": "\"" + ms.args.get(0).compile + "\""
-					}
-				else
-					ms.receiver.compile + "." + ms.member.name
+	def memberSelectionTransformation(MemberSelection ms) {
+		var String rslt
+		if (ms.methodinvocation && ms.member instanceof Operation)
+			rslt = interceptOperation(ms.member as Operation, ms.args, ms.receiver)
+
+		if (rslt === null) {
+			rslt = ms.receiver.compile + "." + ms.member.name + if (ms.methodinvocation) {
+				"(" + ms.args.map[compile].join(", ") + ")"
+			} else
+				""
+		}
+		rslt
+	}
+	
+	def compile(SymbolReference sr) {
+		if (sr.methodinvocation && sr.symbol instanceof Operation) {
+			interceptOperation(sr.symbol as Operation, sr.args, null)
+		} else sr.symbol.name
+	}
+	
+	def interceptOperation(Operation o, List<Expression> args, Expression receiver) {
+		var c = o.containingClass
+		switch (c) {
+			case c.conformsToDateTime: {
+				switch (o.name) {
+					case "addDuration": receiver.compile + " + " + args.get(0).compile
+				}
 			}
-			case t.conformsToError: {
-				if (ms.methodinvocation)
-					switch (ms.member.name) {
-						case "failure": ms.args.get(0).compile
-					}
-				else
-					ms.receiver.compile + "." + ms.member.name
+			case c.conformsToInteger: {
+				switch (o.name) {
+					case "toReal": "IntLib.toReal(" + receiver.compile +")"
+				}
 			}
-			default: {
-				//if (ms.receiver instanceof NamedElement) {
-					ms.receiver.compile + "." + ms.member.name + if (ms.methodinvocation) {
-						"(" + ms.args.map[compile].join(", ") + ")"
-					} else
-						""
-				//}
+			case c.conformsToReal: {
+				switch (o.name) {
+					case "toInteger": "RealLib.toReal(" + receiver.compile +")"
+				}
+			}
+			case c.conformsToContract: {
+				switch (o.name) {
+					case "failure": args.get(0).compile
+				}
 			}
 		}
-
 	}
 
 }

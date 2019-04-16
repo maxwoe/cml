@@ -9,7 +9,6 @@ class Contract extends Object
 	DateTime contractStart
 	DateTime contractEnd
 	Error failure(String s) 
-
 class Party extends Object
 	Integer balance
 	Boolean deposit(Integer amount)
@@ -17,17 +16,16 @@ class Party extends Object
 	Boolean transfer(Integer amount, Party target)
 class Asset extends Object
 class Event extends Object
-
 class Enum extends Object
 class String extends Object
 class Integer extends Object
 	Real toReal()
 class Boolean extends Object
 class Real extends Object
+	Integer toInteger()
 class DateTime extends Object
 class Duration extends Object
 class Array extends Object
 	Integer size() 
 class Global extends Object
-
 class Error extends Object

@@ -134,8 +134,9 @@ class CmlModelUtil {
 		switch (s) {
 			Attribute: s.type
 			Operation: s.type
-			EnumerationElement: s.cmlEnumClass
+			EnumerationElement: s.containingClass
 			VariableDeclaration: s.type
+			Class: s
 		}
 	}
 	

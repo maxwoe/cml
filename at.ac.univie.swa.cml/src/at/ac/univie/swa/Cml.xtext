@@ -174,7 +174,7 @@ ThrowStatement:
 	'throw' expression=Expression;
 
 EnsureStatement:
-	'ensure' expression=Expression (=>'else' throwExpression=Expression)?;
+	'ensure' expression=Expression (=>'else' 'throw' throwExpression=Expression)?;
 
 fragment TypedDeclaration *:
 	type=[Class|QualifiedName] name=ID;
@@ -236,26 +236,19 @@ PostfixExpression returns Expression:
  
 SelectionExpression returns Expression:
 	PrimaryExpression
-	(=> ({MemberSelection.receiver=current} '.') member=[Feature]
-	(=> methodinvocation?='(' (args+=Expression (',' args+=Expression)*)? ')')?
-	memberCallArguments+=Closure?)*;
+	(=> ({MemberSelection.receiver=current} ("."|explicitStatic?="::")) member=[Feature]
+	(=> methodinvocation?='(' (args+=Expression (',' args+=Expression)*)? ')')?)*;
 
-Closure returns Expression:
-	=> ({Closure}
-	'[')
-	(expressions+=ExpressionOrVarDeclaration)*
-	']';
-
-ExpressionOrVarDeclaration returns Expression:
-	VariableDeclaration | Expression;
-
+ElementReferenceExpression returns Expression:
+	{ElementReferenceExpression} reference=PrimaryExpression 
+	(=> ({MemberSelection.receiver=current}) methodinvocation?='(' (args+=Expression (',' args+=Expression)*)? ')')?;
+	
 PrimaryExpression returns Expression:
 	LiteralExpression |
 	{ThisExpression} 'this' |
 	{SuperExpression} 'super' |
 	{CallerExpression} 'caller' |
-	{SymbolReference} symbol=[NamedElement] |
-	{Enumeration} enumeration=[NamedElement] '::' literal=[EnumerationElement] |
+	{SymbolReference} symbol=[NamedElement] (=> methodinvocation?='(' (args+=Expression (',' args+=Expression)*)? ')')? |
 	{New} 'new' type=[Class|QualifiedName] '(' ')' |
 	'(' Expression ')';
 

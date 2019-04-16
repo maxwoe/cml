@@ -24,7 +24,6 @@ import org.eclipse.xtext.scoping.IScope
 import org.eclipse.xtext.scoping.Scopes
 import com.google.common.base.Predicate
 import org.eclipse.xtext.scoping.impl.FilteringScope
-import at.ac.univie.swa.cml.Enumeration
 import org.eclipse.xtext.scoping.impl.SimpleScope
 
 /**
@@ -54,9 +53,10 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 //			}
 //			return scope
 
-		} else if (reference == CmlPackage.Literals.ENUMERATION__LITERAL) {
-			return scopeForEnumLiteral(context)
-		}
+		} 
+//		else if (reference == CmlPackage.Literals.ENUMERATION__LITERAL) {
+//			return scopeForEnumLiteral(context)
+//		}
 		
 		else if (context instanceof MemberSelection) {
 			return scopeForMemberSelection(context)
@@ -110,25 +110,14 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 			return IScope.NULLSCOPE
 			
 		if (type instanceof Class) {
+			if(mfc.explicitStatic)
+				return Scopes::scopeFor(type.enumElements)
+				
 			var parentScope = IScope::NULLSCOPE
 			for (c : type.classHierarchyWithObject.toArray().reverseView) {
 				parentScope = Scopes::scopeFor((c as Class).selectedFeatures(mfc), parentScope)
 			}
 			return Scopes::scopeFor(type.selectedFeatures(mfc), parentScope)
-		}
-	}
-
-	def protected IScope scopeForEnumLiteral(EObject context) {
-		if (context instanceof Enumeration) {
-			var parentScope = IScope::NULLSCOPE
-			
-			if (context.enumeration === null)
-				return parentScope
-			
-			if (context.enumeration instanceof Class) {
-				return Scopes::scopeFor((context.enumeration as Class).enumElements, parentScope)
-			} else
-				return parentScope
 		}
 	}
 

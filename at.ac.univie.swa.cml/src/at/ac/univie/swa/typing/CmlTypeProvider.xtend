@@ -41,6 +41,7 @@ import at.ac.univie.swa.cml.ReturnStatement
 import at.ac.univie.swa.cml.CastedExpression
 import at.ac.univie.swa.cml.CallerExpression
 import at.ac.univie.swa.cml.EnsureStatement
+import at.ac.univie.swa.cml.ElementReferenceExpression
 
 class CmlTypeProvider {
 	@Inject extension CmlLib
@@ -84,8 +85,6 @@ class CmlTypeProvider {
 				return DATETIME_TYPE
 			DurationLiteral:
 				return DURATION_TYPE
-			//EnumerationLiteral:
-			//	return e.enumeration
 			XorExpression,
 			OrExpression,
 			AndExpression,
@@ -119,11 +118,12 @@ class CmlTypeProvider {
 				}
 			AssignmentExpression:
 				return e.left.typeFor
-			MemberSelection: {
+			MemberSelection: 
 				return e.member.inferType
-			}
 			CastedExpression:
 				return e.type
+			ElementReferenceExpression:
+				return e.reference.typeFor
 			
 		}
 	}
@@ -139,7 +139,13 @@ class CmlTypeProvider {
 	def Type expectedType(Expression e) {
 		val c = e.eContainer
 		val f = e.eContainingFeature
-		switch (c) {	
+		switch (c) {
+			SymbolReference case f == ep.symbolReference_Args:
+				try {
+					(c.symbol as Operation).params.get(c.args.indexOf(e)).type
+				} catch (Throwable t) {
+					null // otherwise there is no specific expected type
+				}
 			EnsureStatement case f == ep.ensureStatement_ThrowExpression:
 				ERROR_TYPE
 			ThrowStatement case f == ep.throwStatement_Expression:
@@ -150,6 +156,7 @@ class CmlTypeProvider {
 				c.left.typeFor
 //			case f == ep.repeatLoop_Condition,
 //			case f == ep.whileLoop_Condition,
+			case f == ep.ensureStatement_Expression,
 			case f == ep.ifStatement_Condition:
 				BOOLEAN_TYPE
 			AdditiveExpression case f == ep.additiveExpression_Right:
