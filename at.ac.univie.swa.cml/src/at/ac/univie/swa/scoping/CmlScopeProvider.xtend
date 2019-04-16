@@ -3,7 +3,6 @@
  */
 package at.ac.univie.swa.scoping
 
-import at.ac.univie.swa.CmlLib
 import at.ac.univie.swa.CmlModelUtil
 import at.ac.univie.swa.cml.Block
 import at.ac.univie.swa.cml.Class
@@ -11,18 +10,15 @@ import at.ac.univie.swa.cml.CmlPackage
 import at.ac.univie.swa.cml.CmlProgram
 import at.ac.univie.swa.cml.MemberSelection
 import at.ac.univie.swa.cml.Operation
-import at.ac.univie.swa.cml.SymbolReference
 import at.ac.univie.swa.cml.VariableDeclaration
-import at.ac.univie.swa.typing.CmlTypeConformance
 import at.ac.univie.swa.typing.CmlTypeProvider
+import com.google.common.base.Predicate
 import javax.inject.Inject
 import org.eclipse.emf.ecore.EObject
 import org.eclipse.emf.ecore.EReference
-import org.eclipse.xtext.naming.IQualifiedNameProvider
 import org.eclipse.xtext.resource.IEObjectDescription
 import org.eclipse.xtext.scoping.IScope
 import org.eclipse.xtext.scoping.Scopes
-import com.google.common.base.Predicate
 import org.eclipse.xtext.scoping.impl.FilteringScope
 import org.eclipse.xtext.scoping.impl.SimpleScope
 
@@ -36,67 +32,37 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 
 	@Inject extension CmlTypeProvider
 	@Inject extension CmlModelUtil
-	@Inject extension CmlTypeConformance
-	@Inject extension CmlLib
-	@Inject extension IQualifiedNameProvider
 
 	override getScope(EObject context, EReference reference) {
-		println(context + " | " + reference)
 		if (reference == CmlPackage.Literals.SYMBOL_REFERENCE__SYMBOL) {
 			return scopeForSymbolRef(context, reference)
-
-//			if (context instanceof SymbolReference && (context as SymbolReference).enumeration) {
-//				if ((context as SymbolReference).symbol instanceof Class) {
-//					scope = Scopes::scopeFor(((context as SymbolReference).symbol as Class).enumElements, scope)
-//
-//				}
-//			}
-//			return scope
-
-		} 
-//		else if (reference == CmlPackage.Literals.ENUMERATION__LITERAL) {
-//			return scopeForEnumLiteral(context)
-//		}
-		
-		else if (context instanceof MemberSelection) {
+		} else if (context instanceof MemberSelection) {
 			return scopeForMemberSelection(context)
-		} 
-//		else if (reference == CmlPackage.Literals.SYMBOL_REFERENCE__ENUMERATION) {
-//			return scopeForEnumLiteral(context)
-//		} 
-//		else if (reference == CmlPackage.Literals.ACTOR__PARTY) {
-//			if (context instanceof Actor) {
-//				var parentScope = IScope::NULLSCOPE
-//				for (c : context.containingClass.classHierarchyWithObject.toArray().reverseView) {
-//					parentScope = Scopes::scopeFor((c as Class).attributes/*.filter[!inferType.isPrimitive && (inferType.subclassOfParty || inferType.conformsToParty)]*/, parentScope)
-//				}
-//				return Scopes::scopeFor(context.containingClass.attributes/*.filter[!inferType.isPrimitive && (inferType.subclassOfParty || inferType.conformsToParty)]*/, parentScope)
-//			}
-//		}
+		}
+
 		return super.getScope(context, reference)
 	}
 
 	def protected IScope scopeForSymbolRef(EObject context, EReference reference) {
 		var container = context.eContainer
-		
+
 		return switch (container) {
 			Operation:
 				Scopes.scopeFor(container.params, scopeForSymbolRef(container, reference))
 			Block:
-				Scopes.scopeFor(
-					container.statements.takeWhile[it != context].filter(VariableDeclaration),
+				Scopes.scopeFor(container.statements.takeWhile[it != context].filter(VariableDeclaration),
 					scopeForSymbolRef(container, reference))
 			Class: {
 				var parentScope = IScope::NULLSCOPE
 				for (c : container.classHierarchyWithObject.toArray().reverseView) {
 					parentScope = Scopes::scopeFor((c as Class).attributes + (c as Class).operations, parentScope)
 				}
-				parentScope =  Scopes::scopeFor(container.attributes + container.operations, parentScope)
+				parentScope = Scopes::scopeFor(container.attributes + container.operations, parentScope)
 				new SimpleScope(scopeForSymbolRef(container, reference), parentScope.allElements)
 			}
 //			ForLoop:
 //				Scopes.scopeFor(#[container.declaration], scopeForSymbolRef(container) )
-			CmlProgram: 
+			CmlProgram:
 				allClasses(container, reference)
 			default:
 				scopeForSymbolRef(container, reference)
@@ -108,11 +74,11 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 
 		if (type === null || type.isPrimitive)
 			return IScope.NULLSCOPE
-			
+
 		if (type instanceof Class) {
-			if(mfc.explicitStatic)
+			if (mfc.explicitStatic)
 				return Scopes::scopeFor(type.enumElements)
-				
+
 			var parentScope = IScope::NULLSCOPE
 			for (c : type.classHierarchyWithObject.toArray().reverseView) {
 				parentScope = Scopes::scopeFor((c as Class).selectedFeatures(mfc), parentScope)
@@ -127,7 +93,7 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 		else
 			type.attributes + type.operations
 	}
-	
+
 	def allClasses(EObject context, EReference reference) {
 		val IScope delegateScope = delegateGetScope(context, reference)
 		val Predicate<IEObjectDescription> filter = new Predicate<IEObjectDescription>() {

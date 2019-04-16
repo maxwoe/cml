@@ -3,21 +3,20 @@ package at.ac.univie.swa
 import at.ac.univie.swa.cml.Attribute
 import at.ac.univie.swa.cml.Block
 import at.ac.univie.swa.cml.Class
+import at.ac.univie.swa.cml.Clause
 import at.ac.univie.swa.cml.CmlProgram
 import at.ac.univie.swa.cml.EnumerationElement
 import at.ac.univie.swa.cml.Feature
 import at.ac.univie.swa.cml.NamedElement
 import at.ac.univie.swa.cml.Operation
 import at.ac.univie.swa.cml.ReturnStatement
+import at.ac.univie.swa.cml.VariableDeclaration
 import at.ac.univie.swa.typing.CmlTypeConformance
 import at.ac.univie.swa.typing.CmlTypeProvider
 import com.google.inject.Inject
 import org.eclipse.emf.ecore.EObject
 
 import static extension org.eclipse.xtext.EcoreUtil2.*
-import at.ac.univie.swa.cml.Clause
-import at.ac.univie.swa.cml.VariableDeclaration
-import at.ac.univie.swa.cml.ReturnStatement
 
 class CmlModelUtil {
 

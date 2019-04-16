@@ -46,7 +46,6 @@ import at.ac.univie.swa.cml.Type
 import at.ac.univie.swa.cml.UnaryExpression
 import at.ac.univie.swa.cml.VariableDeclaration
 import at.ac.univie.swa.typing.CmlTypeConformance
-import at.ac.univie.swa.typing.CmlTypeProvider
 import com.google.inject.Inject
 import java.util.LinkedHashMap
 import java.util.List
@@ -56,6 +55,7 @@ import org.eclipse.xtext.generator.IFileSystemAccess2
 import org.eclipse.xtext.generator.IGeneratorContext
 
 import static extension org.eclipse.emf.ecore.util.EcoreUtil.*
+import at.ac.univie.swa.cml.AtomicAction
 
 /**
  * Generates code from your model files on save.
@@ -65,8 +65,6 @@ import static extension org.eclipse.emf.ecore.util.EcoreUtil.*
 class CmlGenerator extends AbstractGenerator2 {
 	
 	@Inject extension CmlModelUtil
-	@Inject extension CmlLib
-	@Inject extension CmlTypeProvider
 	@Inject extension CmlTypeConformance
 	Iterable<CmlProgram> allResources;
 	
@@ -78,27 +76,6 @@ class CmlGenerator extends AbstractGenerator2 {
         }
 	}
  
- 	def retrieveImport(Iterable<CmlProgram> resources, Import i) {
- 		if(i.importedNamespace !== CmlLib::LIB_PACKAGE)
- 			resources.findFirst[name == i.copy.importedNamespace.replace(".*","")]
- 	}
- 	
- 	def gatherImportedEvents(CmlProgram program) {
- 		program.retrieveImportedResources.map[events].flatten
- 	}
- 	
- 	def gatherImportedEnums(CmlProgram program) {
- 		program.retrieveImportedResources.map[enums].flatten
- 	}
- 	
- 	def retrieveImportedResources(CmlProgram program) {
- 		var list = newArrayList
- 		for(import : program.imports) {
- 			list += this.allResources.retrieveImport(import)
- 		}
- 		list
- 	}
- 	
     def compile(CmlProgram program) '''
 	pragma solidity >=0.4.22 <0.7.0;
 	
@@ -116,7 +93,7 @@ class CmlGenerator extends AbstractGenerator2 {
 		 *  Structs
 		 */
 		«program.compileModel»
-		«FOR p : program.retrieveImportedResources»
+		«FOR p : program.gatherImportedResources»
 			«p.compileModel»
 		«ENDFOR»	
 		/*
@@ -190,6 +167,27 @@ class CmlGenerator extends AbstractGenerator2 {
 	«ENDFOR»
     '''
     
+    def retrieveImport(Iterable<CmlProgram> resources, Import i) {
+ 		if(i.importedNamespace !== CmlLib::LIB_PACKAGE)
+ 			resources.findFirst[name == i.copy.importedNamespace.replace(".*","")]
+ 	}
+ 	
+ 	def gatherImportedEvents(CmlProgram program) {
+ 		program.gatherImportedResources.map[events].flatten
+ 	}
+ 	
+ 	def gatherImportedEnums(CmlProgram program) {
+ 		program.gatherImportedResources.map[enums].flatten
+ 	}
+ 	
+ 	def gatherImportedResources(CmlProgram program) {
+ 		var list = newArrayList
+ 		for(import : program.imports) {
+ 			list += this.allResources.retrieveImport(import)
+ 		}
+ 		list
+ 	}
+ 	
     def List<Pair<String, String>> compileConstructorArgs(CmlProgram p) {
     	// TODO
     	emptyList
@@ -202,12 +200,12 @@ class CmlGenerator extends AbstractGenerator2 {
     
     def compile(CompoundAction ca) {
     	switch(ca) {
-    		OrCompoundAction,
-			SeqCompoundAction,
+    		OrCompoundAction: {ca.left.compile ca.right.compile}
+			SeqCompoundAction: {ca.left.compile ca.right.compile}
 			AndCompoundAction: {ca.left.compile ca.right.compile}
-			CompoundAction: ca.reference.compile(ca.containingClause)
+			AtomicAction: ca.reference.compile(ca.containingClause)
     	}	
-    } 	
+    }
     
     def compile(List<Attribute> attributes) '''
     	«FOR a : attributes SEPARATOR ', '»«a.compile»«ENDFOR»'''

@@ -89,7 +89,7 @@ AndCompoundAction returns CompoundAction:
 	AtomicCompoundAction ({AndCompoundAction.left=current} op=('and') right=AtomicCompoundAction)*;
 
 AtomicCompoundAction returns CompoundAction:
-	'(' CompoundAction ')' | reference=[Operation];
+	'(' CompoundAction ')' | {AtomicAction} reference=[Operation];
 
 PeriodicTime:
 	'every' period=Expression 'from' start=(TimeQuery | Expression) ('until' end=(TimeQuery | Expression))?;

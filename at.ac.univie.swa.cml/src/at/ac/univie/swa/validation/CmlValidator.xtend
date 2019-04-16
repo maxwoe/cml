@@ -107,8 +107,8 @@ class CmlValidator extends AbstractCmlValidator {
 		attributes.addAll(c.attributes)
 		checkNoDuplicateElements(attributes, "attribute")
 		checkNoDuplicateElements(c.operations, "operation")
-		//checkNoDuplicateElements(c.clauses, "clause")
-		//checkNoDuplicateElements(c.enumElements, "enumeration literal")
+		checkNoDuplicateElements(c.clauses, "clause")
+		checkNoDuplicateElements(c.enumElements, "enumeration literal")
 	}
 	
 	@Check 
@@ -129,21 +129,6 @@ class CmlValidator extends AbstractCmlValidator {
 			}
 		}
 	}
-	
-	/*
-	@Check
-	def void checkCorrectPropertyType(Feature feature){
-		switch(feature){
-			Attribute: if(!(feature.typeDef.type.kind != null || feature.typeDef.type.ref instanceof Enumeration))
-							error("Wrong type for Attribute '" + feature.name + "'. Should be an enumeration or a primitive type",
-								CmlPackage::eINSTANCE.feature_Name,
-								WRONG_TYPE)
-			Reference: if(!(feature.typeDef.type.kind == null && feature.typeDef.type.ref instanceof Class))
-							error("Wrong type for Reference '" + feature.name + "'. Should be a Class",
-								CmlPackage::eINSTANCE.feature_Name,
-								WRONG_TYPE)
-		}
-	}*/
 	
 	@Check
 	def void checkMemberSelection(MemberSelection mfc) {
@@ -234,22 +219,7 @@ class CmlValidator extends AbstractCmlValidator {
 				CmlPackage::eINSTANCE.local_Name, 
 				DECLARATION_WITHIN_BLOCK)
 	}
-	
-	
-	@Check
-	def void checkCollectionLiteralWithSameType(CollectionLiteral lit){
-	}*/
-	
-	/* 
-	@Check
-	def void checkAttribute(Attribute a) {
-		if ((a.isReference && a.type instanceof Primitive && (a.type.inferType.isAbstract || (!a.type.inferType.subclassOfParty && !a.type.inferType.subclassOfCommodity)))  ||
-			(a.isReference && a.type instanceof Primitive == false && (a.type.inferType.typeVar.isAbstract || (!a.type.inferType.typeVar.subclassOfParty && !a.type.inferType.typeVar.subclassOfCommodity))))
-		{
-			error("Relationship '" + a.name + "' cannot be to type '" + a.type.inferType.typeName + "'",  null,
-				OPPOSITE_INCONSISTENCY)
-		}
-	}*/
+	*/
 
 	def private void checkNoDuplicateElements(Iterable<? extends NamedElement> elements, String desc) {
 		val multiMap = HashMultimap.create()
