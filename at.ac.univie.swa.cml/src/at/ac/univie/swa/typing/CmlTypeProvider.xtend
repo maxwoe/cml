@@ -16,9 +16,9 @@ import at.ac.univie.swa.cml.DurationLiteral
 import at.ac.univie.swa.cml.EnsureStatement
 import at.ac.univie.swa.cml.EqualityExpression
 import at.ac.univie.swa.cml.Expression
+import at.ac.univie.swa.cml.FeatureSelection
 import at.ac.univie.swa.cml.ImpliesExpression
 import at.ac.univie.swa.cml.IntegerLiteral
-import at.ac.univie.swa.cml.MemberSelection
 import at.ac.univie.swa.cml.MultiplicativeExpression
 import at.ac.univie.swa.cml.NullLiteral
 import at.ac.univie.swa.cml.Operation
@@ -114,8 +114,8 @@ class CmlTypeProvider {
 				}
 			AssignmentExpression:
 				return e.left.typeFor
-			MemberSelection: 
-				return e.member.inferType
+			FeatureSelection: 
+				return e.feature.inferType
 			CastedExpression:
 				return e.type
 			
@@ -174,11 +174,11 @@ class CmlTypeProvider {
 				c.left.typeFor
 			EqualityExpression case f == ep.equalityExpression_Right:
 				c.left.typeFor
-			MemberSelection case f == ep.memberSelection_Args: {
+			FeatureSelection case f == ep.featureSelection_Args: {
 				// assume that it refers to a method and that there
 				// is a parameter corresponding to the argument
 				try {
-					(c.member as Operation).params.get(c.args.indexOf(e)).type
+					(c.feature as Operation).params.get(c.args.indexOf(e)).type
 				} catch (Throwable t) {
 					null // otherwise there is no specific expected type
 				}
@@ -197,7 +197,7 @@ class CmlTypeProvider {
 			case "event": getCmlEventClass(c)
 			case "enum": getCmlEnumClass(c)
 			case "contract": getCmlContractClass(c)
-			default: c.superclass ?: getCmlObjectClass(c)
+			default: c.superclass ?: getCmlAnyClass(c)
 		}
 		
 	}

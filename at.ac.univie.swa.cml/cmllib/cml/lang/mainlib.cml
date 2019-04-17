@@ -1,31 +1,67 @@
 namespace cml.lang
 
-class Object
+concept Any
 	String toString()
-class Contract extends Object
+concept Contract extends Any
 	Integer balance
 	Party anyone
 	DateTime now
 	DateTime contractStart
 	DateTime contractEnd
 	Error failure(String s) 
-class Party extends Object
+concept Party extends Any
 	Integer balance
 	Boolean deposit(Integer amount)
 	Boolean withdraw(Integer amount)
 	Boolean transfer(Integer amount, Party target)
-class Asset extends Object
-class Event extends Object
-class Enum extends Object
-class String extends Object
-class Integer extends Object
+concept Asset extends Any
+concept Transaction extends Any
+concept Event extends Any
+concept Enum extends Any
+concept String extends Any
+concept Integer extends Any
+	Integer mod(Integer i)
+	Integer max(Integer i)
+	Integer min(Integer i)
+	Integer abs() 
 	Real toReal()
-class Boolean extends Object
-class Real extends Object
+concept Boolean extends Any
+concept Real extends Any
+	Real abs()
+	Real sqrt()
+	Real exp() 
+	Real ceil()	
+	Real floor()
 	Integer toInteger()
-class DateTime extends Object
-class Duration extends Object
-class Array extends Object
-	Integer size() 
-class Global extends Object
-class Error extends Object
+concept DateTime extends Any
+concept Duration extends Any
+	DateTime diffDuration(Duration d)
+	DateTime addDuration(Duration d)
+	DateTime subtractDuration(Duration d)
+concept Array extends Any
+	Integer size()
+concept Global extends Any
+concept Error extends Any
+//concept Collection<T> extends Object
+//	Boolean add(T t) 
+//	Boolean addAll(Collection<T> c)
+//	Boolean contains(T t) 
+//	Boolean containsAll(Collection<T> c)
+//	Boolean isEmpty()
+//	Boolean remove(T t)
+//	Boolean removeAll(Collection<T> c)
+//	Void retainAll(Collection<T> c)
+//	Integer size() 
+//	Array<T> toArray() 
+//concept Set<T> extends Collection
+//concept Bag<T> extends Collection
+//concept Map<K,V> extends Object
+//	Integer size()
+//	Boolean isEmpty()
+//	Boolean notEmpty()
+//	Boolean containsKey(K key)
+//	Boolean containsValue(V value)
+//	clear()
+//	V add(K key, V value)
+//	V rmv(K key)
+//	V get(K key) 

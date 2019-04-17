@@ -48,6 +48,10 @@ class CmlModelUtil {
 		p.classes.filter[kind=="event"]
 	}
 	
+	def transactions(CmlProgram p) {
+		p.classes.filter[kind=="transaction"]
+	}
+
 	def enums(CmlProgram p) {
 		p.classes.filter[kind=="enum"]
 	}
@@ -104,7 +108,7 @@ class CmlModelUtil {
 	}
 
 	def featureAsStringWithType(Feature f) {
-		f.featureAsString + " : " //+ f.inferType.typeName
+		f.featureAsString + " : " + f.inferType.name
 	}
 
 //	def typeName(Type t) {
@@ -211,6 +215,7 @@ class CmlModelUtil {
 			case "party": visited.add(c.cmlPartyClass)
 			case "asset": visited.add(c.cmlAssetClass)
 			case "event": visited.add(c.cmlEventClass)
+			case "transaction": visited.add(c.cmlTransactionClass)
 			case "enum": visited.add(c.cmlEnumClass)
 			case "contract": visited.add(c.cmlContractClass)
 		}
@@ -221,7 +226,7 @@ class CmlModelUtil {
 	def classHierarchyWithObject(Class c) {
 		val visited = classHierarchy(c)
 
-		val object = c.getCmlObjectClass
+		val object = c.getCmlAnyClass
 		if (object !== null)
 			visited.add(object)
 

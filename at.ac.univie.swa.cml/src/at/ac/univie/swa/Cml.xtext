@@ -7,11 +7,14 @@ CmlProgram:
 	imports+=Import*
 	declarations+=Declaration*;
 
+Import:
+	'import' importedNamespace=QualifiedNameWithWildcard;
+	
 Declaration:
-	Class | Party | Asset | Event | Enumeration | Contract;
+	Class | Party | Asset | Transaction | Event |  Contract | Enumeration;
 
 Class:
-	(abstract?='abstract')? kind='class' name=ID ('extends' superclass=[Class|QualifiedName])?
+	(abstract?='abstract')? kind='concept' name=ID ('extends' superclass=[Class|QualifiedName])?
 	(BEGIN
 	features+=FeatureAttributeAndOperation*
 	END)?;
@@ -23,17 +26,23 @@ Contract returns Class:
 	END;
 
 Party returns Class:
-	(abstract?='abstract')? kind='party' name=ID ('identifier' id=[Attribute])? ('extends' superclass=[Class|QualifiedName])?
+	(abstract?='abstract')? kind='party' name=ID ('extends' superclass=[Class|QualifiedName])?
 	BEGIN
 	features+=FeatureAttribute+
 	END;
 
 Asset returns Class:
-	(abstract?='abstract')? kind='asset' name=ID ('identifier' id=[Attribute])? ('extends' superclass=[Class|QualifiedName])?
+	(abstract?='abstract')? kind='asset' name=ID ('extends' superclass=[Class|QualifiedName])?
 	BEGIN
 	features+=FeatureAttribute+
 	END;
 
+Transaction returns Class:
+	(abstract?='abstract')? kind='transaction' name=ID ('extends' superclass=[Class|QualifiedName])?
+	BEGIN
+	features+=FeatureAttribute+
+	END;
+	
 Event returns Class:
 	kind='event' name=ID
 	(BEGIN
@@ -49,6 +58,41 @@ Enumeration returns Class:
 EnumerationElement:
 	name=ID;
 
+Type:
+	Class;
+
+NamedElement:
+	Class | Feature | VariableDeclaration;
+	
+Feature:
+	Attribute | Operation | Clause | EnumerationElement;
+
+FeatureAttribute returns Feature:
+	Attribute;
+
+FeatureAttributeAndOperation returns Feature:
+	Attribute | Operation;
+
+FeatureAttributeAndOperationAndClause returns Feature:
+	FeatureAttributeAndOperation | Clause;
+
+FeatureEnumeration returns Feature:
+	EnumerationElement;
+
+fragment TypedDeclaration *:
+	type=[Class|QualifiedName] name=ID;
+	
+Attribute:
+	TypedDeclaration;
+
+Operation:
+	access=AccessLevel? TypedDeclaration
+	'(' (params+=Attribute (',' params+=Attribute)*)? ')'
+	(body=Block)?;
+
+enum AccessLevel:
+	PUBLIC='public' | PRIVATE='private' | PROTECTED='protected';
+	
 Clause:
 	'clause' name=ID
 	BEGIN
@@ -114,38 +158,6 @@ ActionQuery:
 TimeQuery:
 	ClauseQuery | EventQuery | ActionQuery;
 
-Type:
-	Class;
-
-Import:
-	'import' importedNamespace=QualifiedNameWithWildcard;
-
-Feature:
-	Attribute | Operation | Clause | EnumerationElement;
-
-FeatureAttribute returns Feature:
-	Attribute;
-
-FeatureAttributeAndOperation returns Feature:
-	Attribute | Operation;
-
-FeatureAttributeAndOperationAndClause returns Feature:
-	FeatureAttributeAndOperation | Clause;
-
-FeatureEnumeration returns Feature:
-	EnumerationElement;
-
-Attribute:
-	TypedDeclaration;
-
-Operation:
-	access=AccessLevel? TypedDeclaration
-	'(' (params+=Attribute (',' params+=Attribute)*)? ')'
-	(body=Block)?;
-
-enum AccessLevel:
-	PRIVATE='private' | PROTECTED='protected' | PUBLIC='public';
-
 Block:
 	{Block} BEGIN statements+=Statement* END;
 
@@ -176,12 +188,6 @@ ThrowStatement:
 
 EnsureStatement:
 	'ensure' expression=Expression (=>'else' 'throw' throwExpression=Expression)?;
-
-fragment TypedDeclaration *:
-	type=[Class|QualifiedName] name=ID;
-
-NamedElement:
-	Class | Feature | VariableDeclaration;
 
 Expression:
 	AssignmentExpression;
@@ -232,15 +238,15 @@ PostfixExpression returns Expression:
  
 SelectionExpression returns Expression:
 	PrimaryExpression
-	(=> ({MemberSelection.receiver=current} ("."|explicitStatic?="::")) member=[Feature]
-	(=> methodinvocation?='(' (args+=Expression (',' args+=Expression)*)? ')')?)*;
+	(=> ({FeatureSelection.receiver=current} ("."|explicitStatic?="::")) feature=[Feature]
+	(=> opCall?='(' (args+=Expression (',' args+=Expression)*)? ')')?)*;
 
 PrimaryExpression returns Expression:
 	LiteralExpression |
 	{ThisExpression} 'this' |
 	{SuperExpression} 'super' |
 	{CallerExpression} 'caller' |
-	{SymbolReference} symbol=[NamedElement] (=> methodinvocation?='(' (args+=Expression (',' args+=Expression)*)? ')')? |
+	{SymbolReference} symbol=[NamedElement] (=> opCall?='(' (args+=Expression (',' args+=Expression)*)? ')')? |
 	{NewExpression} 'new' type=[Class|QualifiedName] '(' ')' |
 	{NestedExpression} '(' child=Expression ')';
 
@@ -254,7 +260,7 @@ LiteralExpression returns Expression:
 	{NullLiteral} 'null' |
 	{SetLiteral} '{' (elements+=Expression (',' elements+=Expression)*)? '}' |
 	{ArrayLiteral} '[' (elements+=Expression (',' elements+=Expression)*)? ']';
-
+	
 enum TimeUnit:
 	MINUTE='minutes' |
 	HOUR='hours' |

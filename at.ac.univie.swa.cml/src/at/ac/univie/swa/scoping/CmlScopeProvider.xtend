@@ -8,7 +8,6 @@ import at.ac.univie.swa.cml.Block
 import at.ac.univie.swa.cml.Class
 import at.ac.univie.swa.cml.CmlPackage
 import at.ac.univie.swa.cml.CmlProgram
-import at.ac.univie.swa.cml.MemberSelection
 import at.ac.univie.swa.cml.Operation
 import at.ac.univie.swa.cml.VariableDeclaration
 import at.ac.univie.swa.typing.CmlTypeProvider
@@ -21,6 +20,7 @@ import org.eclipse.xtext.scoping.IScope
 import org.eclipse.xtext.scoping.Scopes
 import org.eclipse.xtext.scoping.impl.FilteringScope
 import org.eclipse.xtext.scoping.impl.SimpleScope
+import at.ac.univie.swa.cml.FeatureSelection
 
 /**
  * This class contains custom scoping description.
@@ -36,8 +36,8 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 	override getScope(EObject context, EReference reference) {
 		if (reference == CmlPackage.Literals.SYMBOL_REFERENCE__SYMBOL) {
 			return scopeForSymbolRef(context, reference)
-		} else if (context instanceof MemberSelection) {
-			return scopeForMemberSelection(context)
+		} else if (context instanceof FeatureSelection) {
+			return scopeForFeatureSelection(context)
 		}
 
 		return super.getScope(context, reference)
@@ -69,26 +69,26 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 		}
 	}
 
-	def protected IScope scopeForMemberSelection(MemberSelection mfc) {
-		var type = mfc.receiver.typeFor
+	def protected IScope scopeForFeatureSelection(FeatureSelection fs) {
+		var type = fs.receiver.typeFor
 
 		if (type === null || type.isPrimitive)
 			return IScope.NULLSCOPE
 
 		if (type instanceof Class) {
-			if (mfc.explicitStatic)
+			if (fs.explicitStatic)
 				return Scopes::scopeFor(type.enumElements)
 
 			var parentScope = IScope::NULLSCOPE
 			for (c : type.classHierarchyWithObject.toArray().reverseView) {
-				parentScope = Scopes::scopeFor((c as Class).selectedFeatures(mfc), parentScope)
+				parentScope = Scopes::scopeFor((c as Class).selectedFeatures(fs), parentScope)
 			}
-			return Scopes::scopeFor(type.selectedFeatures(mfc), parentScope)
+			return Scopes::scopeFor(type.selectedFeatures(fs), parentScope)
 		}
 	}
 
-	def selectedFeatures(Class type, MemberSelection mfc) {
-		if (mfc.methodinvocation)
+	def selectedFeatures(Class type, FeatureSelection fs) {
+		if (fs.opCall)
 			type.operations + type.attributes
 		else
 			type.attributes + type.operations

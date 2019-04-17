@@ -10,7 +10,7 @@ import at.ac.univie.swa.cml.Class
 import at.ac.univie.swa.cml.CmlPackage
 import at.ac.univie.swa.cml.CmlProgram
 import at.ac.univie.swa.cml.Expression
-import at.ac.univie.swa.cml.MemberSelection
+import at.ac.univie.swa.cml.FeatureSelection
 import at.ac.univie.swa.cml.NamedElement
 import at.ac.univie.swa.cml.Operation
 import at.ac.univie.swa.cml.ReturnStatement
@@ -86,15 +86,15 @@ class CmlValidator extends AbstractCmlValidator {
 		}
 	}
 	
-	@Check 
-	def void checkIdentityDefinition(Class c) {
-		if ((c.kind.equals("party") || c.kind.equals("asset")) && c.id === null && !c.isAbstract && !c.classHierarchy.exists[id !== null]) {
-			error("'" + c.name + "' is not abstract. It must define an identifying attribute.",
-				null,
-				MISSING_IDENTITY_DEFINITION,
-				c.name)
-		}
-	}
+//	@Check 
+//	def void checkIdentityDefinition(Class c) {
+//		if ((c.kind.equals("party") || c.kind.equals("asset")) && c.id === null && !c.isAbstract && !c.classHierarchy.exists[id !== null]) {
+//			error("'" + c.name + "' is not abstract. It must define an identifying attribute.",
+//				null,
+//				MISSING_IDENTITY_DEFINITION,
+//				c.name)
+//		}
+//	}
 
 	@Check 
 	def void checkNoDuplicateClasses(CmlProgram cmlp) {
@@ -131,17 +131,17 @@ class CmlValidator extends AbstractCmlValidator {
 	}
 	
 	@Check
-	def void checkMemberSelection(MemberSelection mfc) {
-		val member = mfc.member
+	def void checkFeatureSelection(FeatureSelection fc) {
+		val feature = fc.feature
 
-		if (member instanceof Attribute && mfc.methodinvocation)
+		if (feature instanceof Attribute && fc.opCall)
 			error(
-				'''Method invocation on a field''', CmlPackage.eINSTANCE.memberSelection_Methodinvocation,
+				'''Method invocation on a field''', CmlPackage.eINSTANCE.featureSelection_OpCall,
 				METHOD_INVOCATION_ON_FIELD)
-		else if (member instanceof Operation && !mfc.methodinvocation)
+		else if (feature instanceof Operation && !fc.opCall)
 			error(
 				'''Field selection on a method''',
-				CmlPackage.eINSTANCE.memberSelection_Member,
+				CmlPackage.eINSTANCE.featureSelection_Feature,
 				FIELD_SELECTION_ON_METHOD
 			)
 	}
@@ -183,8 +183,8 @@ class CmlValidator extends AbstractCmlValidator {
 
 	@Check
 	def void checkSuper(SuperExpression s) {
-		if (s.eContainingFeature != CmlPackage.eINSTANCE.memberSelection_Receiver)
-			error("'super' can be used only as member selection receiver", null, WRONG_SUPER_USAGE)
+		if (s.eContainingFeature != CmlPackage.eINSTANCE.featureSelection_Receiver)
+			error("'super' can be used only as feature selection receiver", null, WRONG_SUPER_USAGE)
 	}
 	
 	@Check
@@ -201,12 +201,12 @@ class CmlValidator extends AbstractCmlValidator {
 		}
 	}
 
-	@Check def void checkMethodInvocationArguments(MemberSelection mfc) {
-		val method = mfc.member
-		if (method instanceof Operation) {
-			if (method.params.size != mfc.args.size) {
-				error("Invalid number of arguments: expected " + method.params.size + " but was " + mfc.args.size,
-					CmlPackage.eINSTANCE.memberSelection_Member, INVALID_ARGS)
+	@Check def void checkMethodInvocationArguments(FeatureSelection fs) {
+		val operation = fs.feature
+		if (operation instanceof Operation) {
+			if (operation.params.size != fs.args.size) {
+				error("Invalid number of arguments: expected " + operation.params.size + " but was " + fs.args.size,
+					CmlPackage.eINSTANCE.featureSelection_Feature, INVALID_ARGS)
 			}
 		}
 	}

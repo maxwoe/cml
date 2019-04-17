@@ -27,7 +27,7 @@ class CmlTypeConformance {
 					Class:
 						return c1 == NULL_TYPE || // null can be assigned to everything
 						(conformToLibraryTypes(c1, c2)) || c1 == c2 ||
-							c2.fullyQualifiedName.toString == CmlLib::LIB_OBJECT || c1.isSubclassOf(c2)
+							c2.fullyQualifiedName.toString == CmlLib::LIB_ANY || c1.isSubclassOf(c2)
 					default:
 						false
 				}

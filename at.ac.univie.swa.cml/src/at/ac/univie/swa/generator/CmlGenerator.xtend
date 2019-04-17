@@ -10,6 +10,7 @@ import at.ac.univie.swa.cml.AndCompoundAction
 import at.ac.univie.swa.cml.AndExpression
 import at.ac.univie.swa.cml.Antecedent
 import at.ac.univie.swa.cml.AssignmentExpression
+import at.ac.univie.swa.cml.AtomicAction
 import at.ac.univie.swa.cml.Attribute
 import at.ac.univie.swa.cml.Block
 import at.ac.univie.swa.cml.BooleanLiteral
@@ -23,11 +24,13 @@ import at.ac.univie.swa.cml.DurationLiteral
 import at.ac.univie.swa.cml.EnsureStatement
 import at.ac.univie.swa.cml.EqualityExpression
 import at.ac.univie.swa.cml.Expression
+import at.ac.univie.swa.cml.FeatureSelection
 import at.ac.univie.swa.cml.IfStatement
 import at.ac.univie.swa.cml.Import
 import at.ac.univie.swa.cml.IntegerLiteral
-import at.ac.univie.swa.cml.MemberSelection
 import at.ac.univie.swa.cml.MultiplicativeExpression
+import at.ac.univie.swa.cml.NestedCompoundAction
+import at.ac.univie.swa.cml.NestedExpression
 import at.ac.univie.swa.cml.Operation
 import at.ac.univie.swa.cml.OrCompoundAction
 import at.ac.univie.swa.cml.OrExpression
@@ -49,15 +52,14 @@ import at.ac.univie.swa.typing.CmlTypeConformance
 import com.google.inject.Inject
 import java.util.LinkedHashMap
 import java.util.List
+import java.util.Map
+import java.util.Set
 import org.eclipse.emf.ecore.resource.Resource
 import org.eclipse.emf.ecore.resource.ResourceSet
 import org.eclipse.xtext.generator.IFileSystemAccess2
 import org.eclipse.xtext.generator.IGeneratorContext
 
 import static extension org.eclipse.emf.ecore.util.EcoreUtil.*
-import at.ac.univie.swa.cml.AtomicAction
-import at.ac.univie.swa.cml.NestedExpression
-import at.ac.univie.swa.cml.NestedCompoundAction
 
 /**
  * Generates code from your model files on save.
@@ -78,12 +80,15 @@ class CmlGenerator extends AbstractGenerator2 {
         }
 	}
  
+ 	def comment() {
+ 		return "// Enums\n"
+ 	}
     def compile(CmlProgram program) '''
 	pragma solidity >=0.4.22 <0.7.0;
 	
 	«FOR contract : program.contracts»
 	contract «contract.name» {
-		
+
 		/*
 		 *  Enums
 		 */
@@ -93,41 +98,40 @@ class CmlGenerator extends AbstractGenerator2 {
 		
 		/*
 		 *  Structs
-		 */
-		«program.compileModel»
-		«FOR p : program.gatherImportedResources»
+		 */ 
+		«FOR p : #[program] + program.gatherImportedResources»
 			«p.compileModel»
-		«ENDFOR»	
+		«ENDFOR»
+		
 		/*
 		 *  State variables
-		 */	
-		address owner;
-		uint creationTime;
+		 */
 		«FOR a : contract.attributes»
 		   	«a.compile»;
 		«ENDFOR»
+		address _owner;
+		uint _creationTime;
 		«FOR e : program.events + program.gatherImportedEvents»
-			bool «e.name.toFirstLower»Occured;
+			bool _«e.name.toFirstLower»Occured;
 		«ENDFOR»
-		mapping(bytes4 => bool) callSuccessMonitor;
-		 
-		
+		mapping(bytes4 => bool) _callSuccessMonitor;
+		 	
 		/*
 	 	 *  Events
 	 	 */
 		«FOR e : program.events + program.gatherImportedEvents»
 			«e.compileEvent»
 		«ENDFOR»
-		
+				
 		/*
 		 *  Constructor
 		 */
 		constructor(«FOR a : program.compileConstructorArgs SEPARATOR ', '»«a.key»«a.value»«ENDFOR») public {
-			owner = msg.sender;
+			_owner = msg.sender;
 			«FOR a : program.compileConstructorAttributes»
 				«a.key»= _«a.value»;
 			«ENDFOR»
-			creationTime = now;
+			_creationTime = now;
 		}
 		
 		/*
@@ -139,10 +143,16 @@ class CmlGenerator extends AbstractGenerator2 {
 		«FOR e : program.events + program.gatherImportedEvents»
 			«e.compileEventAsFunction»
 		«ENDFOR»
-		function changeOwner(address _newOwner) public onlyBy(owner) {
-			owner = _newOwner;
+		// Access control
+		function changeOwner(address newOwner) public onlyBy(owner) {
+			_owner = newOwner;
 		}
 		
+		// State machine
+		function nextStage() internal {
+	        stage = Stages(uint(stage) + 1);
+	    }
+			    
 		// Fallback function
 		function() external payable {}
 		
@@ -152,29 +162,34 @@ class CmlGenerator extends AbstractGenerator2 {
 «««		«FOR clause : contract.clauses»
 «««			«clause.antecedent.compile»
 «««		«ENDFOR»
-		modifier onlyBy(address _account) { 
-			require(msg.sender == _account, "Sender not authorized."); _;
+		// Access control
+		modifier onlyBy(address account) { 
+			require(msg.sender == account, "Sender not authorized."); _;
 		}
 		
-		modifier onlyAfter(uint _time, uint _duration, bool _within) {
-			if(!_within)
-				require(now > _time + _duration, "Function called too early.");
-			else require(_time + _duration > now && now > _time, "Function not called within expected timeframe."); _;
+		// Temporal control
+		modifier onlyAfter(uint time, uint duration, bool within) {
+			if(!within)
+				require(now > time + duration, "Function called too early.");
+			else require(time + duration > now && now > time, "Function not called within expected timeframe."); _;
 		}
 		
-		modifier onlyBefore(uint _time, uint _duration, bool _within) {
-			if(!_within)
-				require(now < _time - _duration, "Function called too late.");
-			else require(_time - _duration < now && now < _time, "Function not called within expected timeframe."); _;
+		modifier onlyBefore(uint time, uint duration, bool within) {
+			if(!within)
+				require(now < time - duration, "Function called too late.");
+			else require(time - duration < now && now < time, "Function not called within expected timeframe."); _;
 		}
 		
-		modifier postCall(bytes4 _selector) {
-		    callSuccessMonitor[_selector] = true;
+		// Call control
+		modifier postCall(bytes4 selector) {
+		    _callSuccessMonitor[selector] = true;
 		}
 		
-		function successfullyCalled(bytes4 _selector) private view returns (bool) {
-		    return callSuccessMonitor[_selector];
+		// State machine
+		modifier atStage(Stages _stage) {
+	        require(stage == _stage, "Function cannot be called at this time."); _;
 	    }
+	    
 	}
 	«ENDFOR»
     '''
@@ -260,8 +275,7 @@ class CmlGenerator extends AbstractGenerator2 {
 	   		«f.compile»;
 	   	«ENDFOR»
 	}
-	
-   ''' 
+	''' 
     
     def compile(Operation o, Clause c) '''	
 	// @notice function for clause «c.name»
@@ -326,15 +340,15 @@ class CmlGenerator extends AbstractGenerator2 {
 	def compileEventAsFunction(Class c) '''	
 	// @notice trigger event «c.name»
 	function «c.name.toFirstLower»() public {
-		«c.name.toFirstLower»Occured = true;
+		_«c.name.toFirstLower»Occured = true;
 		emit «c.name.toFirstUpper»();
 	}
 	
 	'''
 	
 	def compileEnum(Class c) '''
-	enum «c.name.toFirstUpper» { «FOR e : c.enumElements SEPARATOR ', '»«e.name»«ENDFOR» }
-	«c.name.toFirstUpper» «c.name.toFirstLower»;'''
+	enum «c.name.toFirstUpper» { «FOR e : c.enumElements SEPARATOR ', '»«e.name»«ENDFOR» } «c.name.toFirstUpper» «c.name.toFirstLower»;
+	'''
 	
     def compile(Type t) {
 		switch (t) {
@@ -454,18 +468,18 @@ class CmlGenerator extends AbstractGenerator2 {
 			DurationLiteral: '''«exp.value» «exp.unit»'''
 			CallerExpression: '''msg.sender'''
 			SymbolReference: '''«exp.compile»'''
-			MemberSelection: exp.memberSelectionTransformation
+			FeatureSelection: exp.featureSelectionTransformation
 		}
 	}
 	
-	def memberSelectionTransformation(MemberSelection ms) {
+	def featureSelectionTransformation(FeatureSelection fs) {
 		var String rslt
-		if (ms.methodinvocation && ms.member instanceof Operation)
-			rslt = interceptOperation(ms.member as Operation, ms.args, ms.receiver)
+		if (fs.opCall && fs.feature instanceof Operation)
+			rslt = interceptOperation(fs.feature as Operation, fs.args, fs.receiver)
 
 		if (rslt === null) {
-			rslt = ms.receiver.compile + "." + ms.member.name + if (ms.methodinvocation) {
-				"(" + ms.args.map[compile].join(", ") + ")"
+			rslt = fs.receiver.compile + "." + fs.feature.name + if (fs.opCall) {
+				"(" + fs.args.map[compile].join(", ") + ")"
 			} else
 				""
 		}
@@ -473,7 +487,7 @@ class CmlGenerator extends AbstractGenerator2 {
 	}
 	
 	def compile(SymbolReference sr) {
-		if (sr.methodinvocation && sr.symbol instanceof Operation) {
+		if (sr.opCall && sr.symbol instanceof Operation) {
 			interceptOperation(sr.symbol as Operation, sr.args, null)
 		} else sr.symbol.name
 	}
@@ -502,6 +516,17 @@ class CmlGenerator extends AbstractGenerator2 {
 				}
 			}
 		}
+	}
+	
+	def <T> index(Iterable<T> i) {
+		val Map<Integer, T> map = <Integer, T>newHashMap()
+		var counter = 0
+		for (T e : i) {
+			map.put(counter, e)
+			counter = counter++
+		}
+		val Set<Map.Entry<Integer, T>> res = map.entrySet
+		res
 	}
 
 }
