@@ -8,125 +8,106 @@ CmlProgram:
 	declarations+=Declaration*;
 
 Import:
-	'import' importedNamespace = QualifiedNameWithWildcard;
-			
-Feature:
-	Attribute | Operation | Clause | EnumerationElement;
-	
-FeatureAttribute returns Feature:  
-	Attribute;
-	
-FeatureAttributeAndOperation returns Feature:
-	Attribute | Operation;
+	'import' importedNamespace=QualifiedNameWithWildcard;
 
-FeatureAttributeAndClause returns Feature:
-	AttributeWithInitExpr | Clause;
-	
-FeatureEnumeration returns Feature:
-	EnumerationElement;
-	
-Operation:
-	visibility=Visibility? name=ID '(' (params+=Parameter (',' params+=Parameter)*)? ')' (':' type=ReturnType)?
-	(body=Block)?;
-
-Parameter:
-	type=Container name=ID;
-
-ReturnType:
-	{VoidType} 'void' | Container;
-
-Container:
-	Primitive | Collection | Array | Map;
-
-enum Visibility:
-	PUBLIC='public' | PRIVATE='private' | PROTECTED='protected';
-
-Type:
-	Class | Collection | Array | Map;
-
-Attribute:
-	name=ID (':'|isReference?='->') type=Container;
-
-AttributeWithInitExpr returns Attribute:
-	name=ID ':' type=Container ('=' initExp=Statement)?;
-
-Primitive:
-	type=[TypeRef|QualifiedName];
-	
-Array:
-	type=[TypeRef|QualifiedName] ('[' lengths+=INT? ']')+;
-	
-Collection:
-	collectionType=[TypeRef|QualifiedName] '<' type=[TypeRef|QualifiedName] '>';
-
-Map:
-	mapType=[TypeRef|QualifiedName] '<' key=[TypeRef|QualifiedName] ',' type=[TypeRef|QualifiedName]'>';	
-
-TypeRef:
-	Type | TypeVar;
-
-TypeVar:
-	name=ID;
-	
-TypeVarType returns TypeVar:
-	{TypeVar} type=[Class|QualifiedName];
-	
 Declaration:
-	Class | Party | Asset | Event | Enumeration | Contract;
+	Class | Party | Asset | Transaction | Event | Contract | Enumeration;
 
-Class: 
-	(abstract?='abstract')? kind='class' name=ID ('<'typeVars+=TypeVar (',' typeVars+=TypeVar)* '>')? ('extends' superclass=[Class|QualifiedName])?
+Class:
+	(abstract?='abstract')? kind='concept' name=ID ('extends' superclass=[Class|QualifiedName])?
 	(BEGIN
-		features+=FeatureAttributeAndOperation*
+	features+=FeatureAttributeAndOperation*
 	END)?;
 
 Contract returns Class:
 	(abstract?='abstract')? kind='contract' name=ID ('extends' superclass=[Class|QualifiedName])?
 	BEGIN
-		features+=FeatureAttributeAndClause*
+	features+=FeatureAttributeAndOperationAndClause*
 	END;
-	
+
 Party returns Class:
-	(abstract?='abstract')? kind='party' name=ID ('identifier' id=[Attribute])? ('extends' superclass=[Class|QualifiedName])? 
+	(abstract?='abstract')? kind='party' name=ID ('extends' superclass=[Class|QualifiedName])?
 	BEGIN
-		 features+=FeatureAttribute+
+	features+=FeatureAttribute+
 	END;
-	
+
 Asset returns Class:
-	(abstract?='abstract')? kind='asset' name=ID ('identifier' id=[Attribute])? ('extends' superclass=[Class|QualifiedName])? 
+	(abstract?='abstract')? kind='asset' name=ID ('extends' superclass=[Class|QualifiedName])?
 	BEGIN
-		features+=FeatureAttribute+
+	features+=FeatureAttribute+
+	END;
+
+Transaction returns Class:
+	(abstract?='abstract')? kind='transaction' name=ID ('extends' superclass=[Class|QualifiedName])?
+	BEGIN
+	features+=FeatureAttribute+
 	END;
 
 Event returns Class:
 	kind='event' name=ID
 	(BEGIN
-		features+=FeatureAttribute+
+	features+=FeatureAttribute+
 	END)?;
 
 Enumeration returns Class:
 	kind='enum' name=ID
 	BEGIN
-		features+=FeatureEnumeration+
+	features+=FeatureEnumeration+
 	END;
 
 EnumerationElement:
-	name = ID;
-		
+	name=ID;
+
+Type:
+	Class;
+
+NamedElement:
+	Class | Feature | VariableDeclaration;
+
+Feature:
+	Attribute | Operation | Clause | EnumerationElement;
+
+FeatureAttribute returns Feature:
+	Attribute;
+
+FeatureAttributeAndOperation returns Feature:
+	Attribute | Operation;
+
+FeatureAttributeAndOperationAndClause returns Feature:
+	FeatureAttributeAndOperation | Clause;
+
+FeatureEnumeration returns Feature:
+	EnumerationElement;
+
+fragment TypedDeclaration *:
+	type=[Class|QualifiedName] name=ID;
+
+Attribute:
+	TypedDeclaration;
+
+Operation:
+	access=AccessLevel? (type=[Class|QualifiedName])? name=ID
+	'(' (params+=Attribute (',' params+=Attribute)*)? ')'
+	(body=Block)?;
+
+enum AccessLevel:
+	PUBLIC='public' | PRIVATE='private' | PROTECTED='protected';
+
 Clause:
 	'clause' name=ID
 	BEGIN
-		antecedent=Antecedent
-		actor=Actor
-		action=DeonticAction
+	antecedent=Antecedent
+	actor=Actor
+	action=DeonticAction
 	END;
 
 Antecedent:
 	{Antecedent} temporal=TimeConstraint? general=Constraint?;
 
 TimeConstraint:
-	'due' closed?='within'? timeframe=Expression? period=PeriodicTime? precedence=TemporalPrecedence reference=(TimeQuery|Expression);
-	
+	'due' closed?='within'? timeframe=Expression? period=PeriodicTime? precedence=TemporalPrecedence reference=(TimeQuery
+	| Expression);
+
 Constraint:
 	'given' expression=Expression;
 
@@ -134,11 +115,11 @@ Actor:
 	'party' party=[Attribute];
 
 enum Deontic:
-	MUST='must' | MAY='may' | MUST_NOT= 'must_not';
+	MUST='must' | MAY='may' | MUST_NOT='must_not';
 
 DeonticAction:
-	deontic=Deontic compoundAction=ClauseOperation;
-/* 
+	deontic=Deontic compoundAction=CompoundAction;
+
 CompoundAction:
 	OrCompoundAction;
 
@@ -147,94 +128,127 @@ OrCompoundAction returns CompoundAction:
 
 SeqCompoundAction returns CompoundAction:
 	AndCompoundAction ({SeqCompoundAction.left=current} op=('then') right=AndCompoundAction)*;
-	
+
 AndCompoundAction returns CompoundAction:
-	AtomicCompoundAction ({AndCompoundAction.left=current} op=('and') right=AtomicCompoundAction)*;
+	PrimaryCompoundAction ({AndCompoundAction.left=current} op=('and') right=PrimaryCompoundAction)*;
 
-AtomicCompoundAction returns CompoundAction:
-	'(' CompoundAction ')' | AtomicAction;*/
+PrimaryCompoundAction returns CompoundAction:
+	{AtomicAction} reference=[Operation] |
+	{NestedCompoundAction} '(' child=CompoundAction ')';
 
-ClauseOperation returns Operation:
-	name=ID '(' (params+=Parameter (',' params+=Parameter)*)? ')' (':' type=ReturnType)?
-	BEGIN 
-		('pre' precondition=Expression)?
-		body=BlockWithoutIndentation
-		('post' postcondition=Expression)?
-	END;
-	
 PeriodicTime:
-	'every' period=Expression 'from' start=(TimeQuery|Expression) ('until' end=(TimeQuery|Expression))?;
-	
+	'every' period=Expression 'from' start=(TimeQuery | Expression) ('until' end=(TimeQuery | Expression))?;
+
 enum TemporalPrecedence:
 	BEFORE='before' |
-	//BEFORE_OR_EQUALS='before or at the same time as' |
-	//EQUALS ='at the same time as' |
-	//AFTER_OR_EQUALS='after or at the same time as' |
+	BEFORE_OR_EQUALS='beforeOrEquals' |
+	EQUALS='equals' |
+	AFTER_OR_EQUALS='afterOrEquals' |
 	AFTER='after';
 
 ClauseQuery:
-	'clause' ref=[Clause] 'fulfilled';
+	'clause' clause=[Clause];
 
 EventQuery:
-	'event' ref=[Attribute] 'occurred';
-	
+	'event' event=[Attribute];
+
 ActionQuery:
-	multiplicity=('all'|'any'|'this')?  partyRef=[Attribute] query='executed' actionRef=[Operation];
-	
+	party=[Attribute] query='did' action=[Operation];
+
 TimeQuery:
 	ClauseQuery | EventQuery | ActionQuery;
-		
-Expression: AssignmentExpression;
+
+Block:
+	{Block} BEGIN statements+=Statement* END;
+
+Statement:
+	VariableDeclaration |
+	IfStatement |
+	EnsureStatement |
+	ThrowStatement |
+	ReturnStatement |
+	Expression;
+
+VariableDeclaration:
+	'var' TypedDeclaration '=' expression=Expression;
+
+ReturnStatement:
+	{ReturnStatement} 'return' (=> expression=Expression)?;
+
+IfStatement:
+	'if' (('(' condition=Expression ')') | (-> condition=Expression)) thenBlock=ConditionalBlock
+	(=> 'else' elseBlock=ConditionalBlock)?;
+
+ConditionalBlock returns Block:
+	statements+=Statement |
+	Block;
+
+ThrowStatement:
+	'throw' expression=Expression;
+
+EnsureStatement:
+	'ensure' expression=Expression (=> 'else' 'throw' throwExpression=Expression)?;
+
+Expression:
+	AssignmentExpression;
 
 AssignmentExpression returns Expression:
 	ImpliesExpression ({AssignmentExpression.left=current} '=' right=Expression)?;
-	
+
 ImpliesExpression returns Expression:
-	XorExpression (=>({ImpliesExpression.left=current} op='implies') right=XorExpression)*;
+	XorExpression (=> ({ImpliesExpression.left=current} op='implies') right=XorExpression)*;
 
 XorExpression returns Expression:
-	OrExpression (=>({XorExpression.left=current} op='xor') right=OrExpression)*;
+	OrExpression (=> ({XorExpression.left=current} op='xor') right=OrExpression)*;
 
 OrExpression returns Expression:
-	AndExpression (=>({OrExpression.left=current} op='or') right=AndExpression)*;
+	AndExpression (=> ({OrExpression.left=current} op='or') right=AndExpression)*;
 
 AndExpression returns Expression:
-	EqualityExpression (=>({AndExpression.left=current} op='and') right=EqualityExpression)*;
+	EqualityExpression (=> ({AndExpression.left=current} op='and') right=EqualityExpression)*;
 
-EqualityExpression returns Expression :
-	RelationalExpression (=>({EqualityExpression.left=current} op=('=='|'!=')) right=RelationalExpression)*;
+EqualityExpression returns Expression:
+	RelationalExpression (=> ({EqualityExpression.left=current} op=('==' | '!=')) right=RelationalExpression)*;
 
 RelationalExpression returns Expression:
-	AdditiveExpression (=>({RelationalExpression.left=current} op=('>' | '<' | '>=' | '<=')) right=AdditiveExpression)*;
+	OtherOperatorExpression
+	(=> ({InstanceOfExpression.expression=current} 'instanceof') type=[Class|QualifiedName] |
+	=> ({RelationalExpression.left=current} op=('>' | '<' | '>=' | '<=')) right=OtherOperatorExpression)*;
 
-AdditiveExpression returns Expression: 
-	MultiplicativeExpression (=>({AdditiveExpression.left=current} op=('+' | '-')) right=MultiplicativeExpression)*;
+OtherOperatorExpression returns Expression:
+	AdditiveExpression (=> ({OtherOperatorExpression.leftOperand=current} op='=>') right=AdditiveExpression)*;
 
-MultiplicativeExpression returns Expression: 
-	UnaryExpression (=>({MultiplicativeExpression.left=current} op=('*' | '/')) right=UnaryExpression)*;
+AdditiveExpression returns Expression:
+	MultiplicativeExpression (=> ({AdditiveExpression.left=current} op=('+' | '-')) right=MultiplicativeExpression)*;
+
+MultiplicativeExpression returns Expression:
+	UnaryExpression (=> ({MultiplicativeExpression.left=current} op=('*' | '/')) right=UnaryExpression)*;
 
 UnaryExpression returns Expression:
-	{UnaryExpression} op=('not' | '!' | '-' | '+') operand=UnaryExpression | PostfixExpression;
+	{UnaryExpression} op=('not' | '!' | '-' | '+') operand=UnaryExpression | CastedExpression;
+
+CastedExpression returns Expression:
+	PostfixExpression (=> ({CastedExpression.target=current} 'as') type=[Class|QualifiedName])*;
 
 PostfixExpression returns Expression:
-	MemberFeatureCall =>({PostfixExpression.operand=current} op=("++" | "--" | "@pre"))?;
+	SelectionExpression
+	(=> ({PostfixExpression.operand=current} op=("++" | "--" | "@pre")) |
+	=> ({ArrayAccessExpression.array=current}
+	'[' indexes+=Expression ']' (=> '[' indexes+=Expression ']')*))?;
 
-MemberFeatureCall returns Expression:
-	ElementReferenceExpression (({MemberFeatureCall.receiver=current} '.') 
-	member=[Feature]  (=> operationCall?='(' (args+=Expression (',' args+=Expression)*)? ')' | =>
-	(elementAccess?='[' selector+=Expression ']') => ('[' selector+=Expression ']')*)?)*;
+SelectionExpression returns Expression:
+	PrimaryExpression
+	(=> ({FeatureSelection.receiver=current} ("." | explicitStatic?="::")) feature=[Feature]
+	(=> opCall?='(' (args+=Expression (',' args+=Expression)*)? ')')?)*;
 
-ElementReferenceExpression returns Expression:
-	{ElementReferenceExpression} reference=PrimaryExpression (=> operationCall?='(' (args+=Expression (',' args+=Expression)*)? ')'
-		 | => (elementAccess?='[' selector+=Expression ']') => ('[' selector+=Expression']')*)?;
-	
-PrimaryExpression returns Expression:	
+PrimaryExpression returns Expression:
 	LiteralExpression |
-	{SelfExpression} 'this' |
+	{ThisExpression} 'this' |
 	{SuperExpression} 'super' |
 	{CallerExpression} 'caller' |
-	{SymbolReference} ref=[Symbol] |
-	'(' Expression ')';
+	{SymbolReference} symbol=[NamedElement] (=> opCall?='(' (args+=Expression (',' args+=Expression)*)? ')')? |
+	{NewExpression} 'new' type=[Class|QualifiedName] '(' ')' |
+	{NestedExpression} '(' child=Expression ')';
 
 LiteralExpression returns Expression:
 	{IntegerLiteral} value=INT |
@@ -244,92 +258,29 @@ LiteralExpression returns Expression:
 	{DurationLiteral} value=INT unit=TimeUnit |
 	{DateTimeLiteral} value=DATE |
 	{NullLiteral} 'null' |
-	{EnumerationLiteral} enumeration=[Class|QualifiedName] '::' literal=[EnumerationElement] |
-	{SetLiteral} '{' (elements+=Expression (',' elements+=Expression )*)? '}' |
+	{SetLiteral} '{' (elements+=Expression (',' elements+=Expression)*)? '}' |
 	{ArrayLiteral} '[' (elements+=Expression (',' elements+=Expression)*)? ']';
-	
-enum TimeUnit: 
-	MINUTE='minutes'|
-	HOUR='hours'|
-	DAY='days'|
-	WEEK='weeks'|
+
+enum TimeUnit:
+	MINUTE='minutes' |
+	HOUR='hours' |
+	DAY='days' |
+	WEEK='weeks' |
 	SECOND='seconds';
-	
-Symbol:
-	Attribute | Parameter | VariableDeclaration;
-
-NamedElement:
-	Class | Feature | Symbol;
-	
-Block:
-	{Block} 
-	BEGIN
-		statements+=Statement* 
-	END;
-	
-BlockWithoutIndentation returns Block:
-	{Block} statements+=Statement*;
-
-Statement:
-	Expression |
-	VariableDeclaration |
-	If |
-	WhileLoop |
-	RepeatLoop |
-	ForLoop |
-	ForEachLoop |
-	Switch |
-	Throw |
-	Return;
-
-ConditionalBlock returns Block:
-	statements+=Statement | 
-	Block;
-	
-If:
-	'if' (('(' condition=Expression ')') | (-> condition=Expression)) thenBlock=ConditionalBlock
-	(=> 'else' elseBlock=ConditionalBlock)?;
-	
-WhileLoop:
-	'while' (('(' condition=Expression ')') | (-> condition=Expression)) body=ConditionalBlock;
-	
-RepeatLoop:
-	'do' body=ConditionalBlock 'until' (('(' condition=Expression ')') | (-> condition=Expression));
-
-Switch:
-	'switch' (('(' switch=Expression ')') | (-> switch=Expression))
-	BEGIN
-	(cases+=CasePart)*
-	('default' ':' default=Expression)?
-	END;
-
-Throw:
-	'throw' expression=Expression;
-	
-CasePart:
-	('case' case=Expression)?
-		(':' then=Statement | fallThrough?=',');
-
-Return:
-	{Return} 'return' (->expression=Expression)?;
-
-VariableDeclaration:
-	'var' type=Container name=ID ('=' expression=Expression)?;
-
-ForLoop:
-	'for' '(' declaration=VariableDeclaration ',' condition=Expression ',' progression=Expression ')' block=Block;
-	
-ForEachLoop:
-	'foreach' (('(' elementId=ID 'in' expression=Expression ')' ) | (elementId=ID 'in' expression=Expression))
-	block=Block; 
 
 QualifiedName:
-    ID ('.' ID)*;
+	ID ('.' ID)*;
 
 QualifiedNameWithWildcard:
-    QualifiedName '.*'?;
+	QualifiedName '.*'?;
 
-terminal DATE: '0'..'9''0'..'9''0'..'9''0'..'9' '-' '0'..'9''0'..'9' '-' '0'..'9''0'..'9';
-terminal REAL: ('0'..'9')+'.'('0'..'9'+); 	
-terminal BEGIN: 'synthetic:BEGIN';  // increase indentation
-terminal END: 'synthetic:END';      // decrease indentation
+terminal DATE:
+	'0'..'9' '0'..'9' '0'..'9' '0'..'9' '-' '0'..'9' '0'..'9' '-' '0'..'9' '0'..'9';
+
+terminal REAL:
+	('0'..'9')+ '.' ('0'..'9'+);
+
+terminal BEGIN:
+	'synthetic:BEGIN'; // increase indentation
+terminal END:
+	'synthetic:END'; // decrease indentation

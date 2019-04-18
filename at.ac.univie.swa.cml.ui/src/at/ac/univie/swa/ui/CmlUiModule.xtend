@@ -3,16 +3,16 @@
  */
 package at.ac.univie.swa.ui
 
+import at.ac.univie.swa.generator.BuilderParticipant2
 import org.eclipse.xtend.lib.annotations.FinalFieldsConstructor
 import org.eclipse.xtext.builder.IXtextBuilderParticipant
-import at.ac.univie.swa.generator.BuilderParticipant2
 
 /**
  * Use this class to register components to be used within the Eclipse IDE.
  */
 @FinalFieldsConstructor
 class CmlUiModule extends AbstractCmlUiModule {
-	override def Class<? extends IXtextBuilderParticipant> bindIXtextBuilderParticipant() {
+	override Class<? extends IXtextBuilderParticipant> bindIXtextBuilderParticipant() {
 		return BuilderParticipant2
 	}
 }

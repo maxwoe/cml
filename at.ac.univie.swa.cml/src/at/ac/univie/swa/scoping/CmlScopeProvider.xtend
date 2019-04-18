@@ -3,27 +3,25 @@
  */
 package at.ac.univie.swa.scoping
 
-import at.ac.univie.swa.CmlLib
 import at.ac.univie.swa.CmlModelUtil
-import at.ac.univie.swa.cml.Actor
 import at.ac.univie.swa.cml.Block
 import at.ac.univie.swa.cml.Class
 import at.ac.univie.swa.cml.CmlPackage
-import at.ac.univie.swa.cml.EnumerationLiteral
-import at.ac.univie.swa.cml.ForLoop
-import at.ac.univie.swa.cml.MemberFeatureCall
+import at.ac.univie.swa.cml.CmlProgram
+import at.ac.univie.swa.cml.FeatureSelection
 import at.ac.univie.swa.cml.Operation
 import at.ac.univie.swa.cml.VariableDeclaration
 import at.ac.univie.swa.typing.CmlTypeConformance
 import at.ac.univie.swa.typing.CmlTypeProvider
+import com.google.common.base.Predicate
 import javax.inject.Inject
 import org.eclipse.emf.ecore.EObject
 import org.eclipse.emf.ecore.EReference
-import org.eclipse.xtext.naming.IQualifiedNameProvider
+import org.eclipse.xtext.resource.IEObjectDescription
 import org.eclipse.xtext.scoping.IScope
 import org.eclipse.xtext.scoping.Scopes
-import org.eclipse.emf.ecore.util.EcoreUtil
-import java.util.Collections
+import org.eclipse.xtext.scoping.impl.FilteringScope
+import org.eclipse.xtext.scoping.impl.SimpleScope
 
 /**
  * This class contains custom scoping description.
@@ -36,86 +34,102 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 	@Inject extension CmlTypeProvider
 	@Inject extension CmlModelUtil
 	@Inject extension CmlTypeConformance
-	@Inject extension CmlLib
-	@Inject extension IQualifiedNameProvider
 
 	override getScope(EObject context, EReference reference) {
-		if (reference == CmlPackage.Literals.SYMBOL_REFERENCE__REF) {
-			return scopeForSymbolRef(context)
-		} else if (context instanceof MemberFeatureCall) {
-			return scopeForMemberFeatureCall(context)
-		} if (reference == CmlPackage.Literals.ENUMERATION_LITERAL__LITERAL) {
-			return scopeForEnumLiteral(context)
+		if (reference == CmlPackage.Literals.SYMBOL_REFERENCE__SYMBOL) {
+			return scopeForSymbolRef(context, reference)
+		} else if (context instanceof FeatureSelection) {
+			return scopeForFeatureSelection(context)
 		} else if (reference == CmlPackage.Literals.ACTOR__PARTY) {
-			if (context instanceof Actor) {
-				var parentScope = IScope::NULLSCOPE
-				for (c : context.containingClass.classHierarchyWithObject.toArray().reverseView) {
-					parentScope = Scopes::scopeFor((c as Class).attributes/*.filter[!inferType.isPrimitive && (inferType.subclassOfParty || inferType.conformsToParty)]*/, parentScope)
-				}
-				return Scopes::scopeFor(context.containingClass.attributes/*.filter[!inferType.isPrimitive && (inferType.subclassOfParty || inferType.conformsToParty)]*/, parentScope)
-			}
+			return scopeForPartyRef(context)
+		} else if (reference == CmlPackage.Literals.ACTION_QUERY__PARTY) {
+			return scopeForPartyRef(context)
+		} else if (reference == CmlPackage.Literals.EVENT_QUERY__EVENT) {
+			return scopeForEventRef(context)
 		}
+
 		return super.getScope(context, reference)
 	}
 
-	def protected IScope scopeForSymbolRef(EObject context) {
+	def protected IScope scopeForSymbolRef(EObject context, EReference reference) {
 		var container = context.eContainer
-		
+
 		return switch (container) {
 			Operation:
-				Scopes.scopeFor(container.params, scopeForSymbolRef(container))
+				Scopes.scopeFor(container.params, scopeForSymbolRef(container, reference))
 			Block:
-				Scopes.scopeFor(
-					container.statements.takeWhile[it != context].filter(VariableDeclaration),
-					scopeForSymbolRef(container))
+				Scopes.scopeFor(container.statements.takeWhile[it != context].filter(VariableDeclaration),
+					scopeForSymbolRef(container, reference))
 			Class: {
 				var parentScope = IScope::NULLSCOPE
 				for (c : container.classHierarchyWithObject.toArray().reverseView) {
-					parentScope = Scopes::scopeFor((c as Class).attributes, parentScope)
+					parentScope = Scopes::scopeFor((c as Class).attributes + (c as Class).operations, parentScope)
 				}
-				return Scopes::scopeFor(container.attributes, parentScope)
+				parentScope = Scopes::scopeFor(container.attributes + container.operations, parentScope)
+				new SimpleScope(scopeForSymbolRef(container, reference), parentScope.allElements)
 			}
-			ForLoop:
-				Scopes.scopeFor(#[container.declaration], scopeForSymbolRef(container) )
+//			ForLoop:
+//				Scopes.scopeFor(#[container.declaration], scopeForSymbolRef(container) )
+			CmlProgram:
+				allClasses(container, reference)
 			default:
-				scopeForSymbolRef(container)
+				scopeForSymbolRef(container, reference)
 		}
 	}
 
-	def protected IScope scopeForMemberFeatureCall(MemberFeatureCall mfc) {
-		var type = mfc.receiver.typeFor
+	def protected IScope scopeForFeatureSelection(FeatureSelection fs) {
+		var type = fs.receiver.typeFor
 
 		if (type === null || type.isPrimitive)
 			return IScope.NULLSCOPE
-			
+
 		if (type instanceof Class) {
+			if (fs.explicitStatic)
+				return Scopes::scopeFor(type.enumElements)
+
 			var parentScope = IScope::NULLSCOPE
 			for (c : type.classHierarchyWithObject.toArray().reverseView) {
-				parentScope = Scopes::scopeFor((c as Class).selectedFeatures(mfc), parentScope)
+				parentScope = Scopes::scopeFor((c as Class).selectedFeatures(fs), parentScope)
 			}
-			return Scopes::scopeFor(type.selectedFeatures(mfc), parentScope)
+			return Scopes::scopeFor(type.selectedFeatures(fs), parentScope)
 		}
 	}
 
-	def protected IScope scopeForEnumLiteral(EObject context) {
-		if (context instanceof EnumerationLiteral) {
-			var parentScope = IScope::NULLSCOPE
-			
-			if (context.enumeration === null || context.enumeration.isPrimitive)
-				return parentScope
-			
-			if (context.enumeration.subclassOfEnum) {
-				return Scopes::scopeFor(context.enumeration.enumElements, parentScope)
-			} else
-				return parentScope
-		}
-	}
-
-	def selectedFeatures(Class type, MemberFeatureCall mfc) {
-		if (mfc.operationCall)
+	def selectedFeatures(Class type, FeatureSelection fs) {
+		if (fs.opCall)
 			type.operations + type.attributes
 		else
 			type.attributes + type.operations
 	}
 
+	def IScope scopeForPartyRef(EObject context) {
+		var parentScope = IScope::NULLSCOPE
+		for (c : context.containingClass.classHierarchyWithObject.toArray().reverseView) {
+			parentScope = Scopes::scopeFor((c as Class).attributes.filter[type.conformsToParty || type.subclassOfParty], parentScope)
+		}
+		return Scopes::scopeFor(context.containingClass.attributes.filter[type.conformsToParty || type.subclassOfParty], parentScope)
+	}
+
+	def IScope scopeForEventRef(EObject context) {
+		var parentScope = IScope::NULLSCOPE
+		for (c : context.containingClass.classHierarchyWithObject.toArray().reverseView) {
+			parentScope = Scopes::scopeFor((c as Class).attributes.filter[type.conformsToEvent || type.subclassOfEvent], parentScope)
+		}
+		return Scopes::scopeFor(context.containingClass.attributes.filter[type.conformsToEvent || type.subclassOfEvent], parentScope)
+	}
+
+	def allClasses(EObject context, EReference reference) {
+		val IScope delegateScope = delegateGetScope(context, reference)
+		val Predicate<IEObjectDescription> filter = new Predicate<IEObjectDescription>() {
+			override boolean apply(IEObjectDescription od) {
+				val obj = od.EObjectOrProxy
+				if (obj instanceof Class)
+					true
+				else
+					false
+			}
+
+		}
+		new FilteringScope(delegateScope, filter)
+	}
 }

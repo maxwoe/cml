@@ -1,71 +1,70 @@
 namespace cml.lang
 
-class Object
-	toString()
-class Contract extends Object
-	balance : Integer
-	anyone 	: Party
-	now : DateTime
-	contractStart : DateTime
-	contractEnd : DateTime
-	failure(String s) : Error
-	//globals : Global
-
-class Party extends Object
-	balance : Integer
-	deposit(Integer amount) : Boolean
-	withdraw(Integer amount) : Boolean
-	transfer(Integer amount, Party target) : Boolean
-class Asset extends Object
-class Event extends Object
-
-class Enum extends Object
-class String extends Object
-class Integer extends Object
-	mod(Integer i) : Integer
-	max(Integer i) : Integer
-	min(Integer i) : Integer
-	abs() : Integer
-	toReal() : Real
-class Boolean extends Object
-class Real extends Object
-	abs() : Real
-	sqrt() : Real
-	exp() : Real
-	ceil() : Real	
-	floor() : Real
-	toInt() : Integer
-class DateTime extends Object
-	diffDuration(Duration d) : DateTime
-	addDuration(Duration d) : DateTime
-	subtractDuration(Duration d) : DateTime
-class Duration extends Object
-class Array<T> extends Object
-	size() : Integer
-class Global extends Object
-
-class Collection<T> extends Object
-	add(T t) : Boolean
-	addAll(Collection<T> c) : Boolean
-	contains(T t) : Boolean
-	containsAll(Collection<T> c) : Boolean
-	isEmpty() : Boolean
-	remove(T t) : Boolean
-	removeAll(Collection<T> c) : Boolean
-	retainAll(Collection<T> c)
-	size() : Integer
-	toArray() : Array<T>
-class Set<T> extends Collection
-class Bag<T> extends Collection
-
-class Map<K,V> extends Object
-	size() : Integer
-	isEmpty() : Boolean
-	notEmpty() : Boolean
-	containsKey(K key)
-	containsValue(V value)
-	clear()
-	add(K key, V value) : V
-	rmv(K key) : V
-	get(K key) : V
-class Error extends Object
+concept Any
+	String toString()
+concept Contract extends Any
+	Integer balance
+	Party anyone
+	DateTime now
+	DateTime contractStart
+	DateTime contractEnd
+	Error failure(String s) 
+concept Party extends Any
+	String id
+	Integer balance
+	Boolean deposit(Integer amount)
+	Boolean withdraw(Integer amount)
+	Boolean transfer(Integer amount, Party target)
+concept Asset extends Any
+concept Transaction extends Any
+concept Event extends Any
+concept Enum extends Any
+concept String extends Any
+concept Integer extends Any
+	Integer mod(Integer i)
+	Integer max(Integer i)
+	Integer min(Integer i)
+	Integer abs() 
+	Real toReal()
+concept Boolean extends Any
+concept Real extends Any
+	Real abs()
+	Real sqrt()
+	Real exp() 
+	Real ceil()	
+	Real floor()
+	Integer toInteger()
+concept DateTime extends Any
+	Boolean isBefore(DateTime d)
+	Boolean isAfter(DateTime d)
+concept Duration extends Any
+	DateTime diffDuration(Duration d)
+	DateTime addDuration(Duration d)
+	DateTime subtractDuration(Duration d)
+//concept Request extends Transaction
+//concept Response extends Transaction
+//concept Array extends Any
+//	Integer size()
+//concept Collection<T> extends Object
+//	Boolean add(T t) 
+//	Boolean addAll(Collection<T> c)
+//	Boolean contains(T t) 
+//	Boolean containsAll(Collection<T> c)
+//	Boolean isEmpty()
+//	Boolean remove(T t)
+//	Boolean removeAll(Collection<T> c)
+//	Void retainAll(Collection<T> c)
+//	Integer size() 
+//	Array<T> toArray() 
+//concept Set<T> extends Collection
+//concept Bag<T> extends Collection
+//concept Map<K,V> extends Object
+//	Integer size()
+//	Boolean isEmpty()
+//	Boolean notEmpty()
+//	Boolean containsKey(K key)
+//	Boolean containsValue(V value)
+//	clear()
+//	V add(K key, V value)
+//	V rmv(K key)
+//	V get(K key) 

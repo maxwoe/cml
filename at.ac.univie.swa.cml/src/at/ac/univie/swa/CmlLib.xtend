@@ -13,7 +13,7 @@ class CmlLib {
 	@Inject extension CmlIndex
 
 	public val static LIB_PACKAGE = "cml.lang"
-	public val static LIB_OBJECT = LIB_PACKAGE + ".Object"
+	public val static LIB_ANY = LIB_PACKAGE + ".Any"
 	public val static LIB_STRING = LIB_PACKAGE + ".String"
 	public val static LIB_INTEGER = LIB_PACKAGE + ".Integer"
 	public val static LIB_BOOLEAN = LIB_PACKAGE + ".Boolean"
@@ -22,6 +22,7 @@ class CmlLib {
 	public val static LIB_DATETIME = LIB_PACKAGE + ".DateTime"
 	public val static LIB_PARTY = LIB_PACKAGE + ".Party"
 	public val static LIB_ASSET = LIB_PACKAGE + ".Asset"
+	public val static LIB_TRANSACTION = LIB_PACKAGE + ".Transaction"
 	public val static LIB_EVENT = LIB_PACKAGE + ".Event"
 	public val static LIB_ENUM = LIB_PACKAGE + ".Enum"
 	public val static LIB_CONTRACT = LIB_PACKAGE + ".Contract"
@@ -43,8 +44,8 @@ class CmlLib {
 		]
 	}
 
-	def getCmlObjectClass(EObject context) {
-		getCmlClass(context, LIB_OBJECT)
+	def getCmlAnyClass(EObject context) {
+		getCmlClass(context, LIB_ANY)
 	}
 	
 	def getCmlPartyClass(EObject context) {
@@ -53,6 +54,10 @@ class CmlLib {
 	
 	def getCmlAssetClass(EObject context) {
 		getCmlClass(context, LIB_ASSET)
+	}
+	
+	def getCmlTransactionClass(EObject context) {
+		getCmlClass(context, LIB_TRANSACTION)
 	}
 	
 	def getCmlEventClass(EObject context) {

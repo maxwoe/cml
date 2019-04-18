@@ -6,6 +6,7 @@ package at.ac.univie.swa.ui.labeling
 import at.ac.univie.swa.CmlModelUtil
 import at.ac.univie.swa.cml.Attribute
 import at.ac.univie.swa.cml.Class
+import at.ac.univie.swa.cml.Clause
 import at.ac.univie.swa.cml.Feature
 import at.ac.univie.swa.cml.Operation
 import com.google.inject.Inject
@@ -28,20 +29,27 @@ class CmlLabelProvider extends DefaultEObjectLabelProvider {
 	}
 
 	def text(Feature f) {
-		new StyledString(f.featureAsString).append(new StyledString(" : " + f.inferType.typeName,
+		new StyledString(f.featureAsString).append(new StyledString(" : " + f.inferType.name,
 			StyledString.DECORATIONS_STYLER))
 	}
 
 	def image(Operation o) {
-		"methpub_obj.gif"
+		"operation_public_obj.png"
 	}
 
 	def image(Attribute a) {
-		"field_public_obj.gif"
+		"attribute_public_obj.png"
 	}
 
 	def image(Class c) {
-		"sj_class_obj.gif"
+		if (c.kind == "enum")
+			"enum_obj.png"
+		else
+			"class_obj.png"
+	}
+	
+	def image(Clause c) {
+		"paragraph_symbol.png"
 	}
 	
 }

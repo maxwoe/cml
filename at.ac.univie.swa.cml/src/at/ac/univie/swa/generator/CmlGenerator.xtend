@@ -6,39 +6,51 @@ package at.ac.univie.swa.generator
 import at.ac.univie.swa.CmlLib
 import at.ac.univie.swa.CmlModelUtil
 import at.ac.univie.swa.cml.AdditiveExpression
+import at.ac.univie.swa.cml.AndCompoundAction
 import at.ac.univie.swa.cml.AndExpression
 import at.ac.univie.swa.cml.Antecedent
 import at.ac.univie.swa.cml.AssignmentExpression
+import at.ac.univie.swa.cml.AtomicAction
+import at.ac.univie.swa.cml.Attribute
 import at.ac.univie.swa.cml.Block
 import at.ac.univie.swa.cml.BooleanLiteral
 import at.ac.univie.swa.cml.CallerExpression
+import at.ac.univie.swa.cml.CastedExpression
 import at.ac.univie.swa.cml.Class
+import at.ac.univie.swa.cml.Clause
 import at.ac.univie.swa.cml.CmlProgram
-import at.ac.univie.swa.cml.Container
+import at.ac.univie.swa.cml.CompoundAction
 import at.ac.univie.swa.cml.DateTimeLiteral
 import at.ac.univie.swa.cml.DurationLiteral
-import at.ac.univie.swa.cml.ElementReferenceExpression
+import at.ac.univie.swa.cml.EnsureStatement
 import at.ac.univie.swa.cml.EqualityExpression
 import at.ac.univie.swa.cml.Expression
-import at.ac.univie.swa.cml.If
+import at.ac.univie.swa.cml.FeatureSelection
+import at.ac.univie.swa.cml.IfStatement
 import at.ac.univie.swa.cml.Import
 import at.ac.univie.swa.cml.IntegerLiteral
-import at.ac.univie.swa.cml.MemberFeatureCall
 import at.ac.univie.swa.cml.MultiplicativeExpression
+import at.ac.univie.swa.cml.NestedCompoundAction
+import at.ac.univie.swa.cml.NestedExpression
 import at.ac.univie.swa.cml.Operation
+import at.ac.univie.swa.cml.OrCompoundAction
 import at.ac.univie.swa.cml.OrExpression
 import at.ac.univie.swa.cml.PostfixExpression
+import at.ac.univie.swa.cml.RealLiteral
 import at.ac.univie.swa.cml.RelationalExpression
-import at.ac.univie.swa.cml.Return
+import at.ac.univie.swa.cml.ReturnStatement
+import at.ac.univie.swa.cml.SeqCompoundAction
 import at.ac.univie.swa.cml.Statement
 import at.ac.univie.swa.cml.StringLiteral
-import at.ac.univie.swa.cml.Symbol
+import at.ac.univie.swa.cml.SuperExpression
 import at.ac.univie.swa.cml.SymbolReference
+import at.ac.univie.swa.cml.ThisExpression
+import at.ac.univie.swa.cml.ThrowStatement
 import at.ac.univie.swa.cml.TimeConstraint
+import at.ac.univie.swa.cml.Type
 import at.ac.univie.swa.cml.UnaryExpression
 import at.ac.univie.swa.cml.VariableDeclaration
 import at.ac.univie.swa.typing.CmlTypeConformance
-import at.ac.univie.swa.typing.CmlTypeProvider
 import com.google.inject.Inject
 import java.util.LinkedHashMap
 import java.util.List
@@ -48,6 +60,7 @@ import org.eclipse.xtext.generator.IFileSystemAccess2
 import org.eclipse.xtext.generator.IGeneratorContext
 
 import static extension org.eclipse.emf.ecore.util.EcoreUtil.*
+//import static extension org.eclipse.xtext.EcoreUtil2.*
 
 /**
  * Generates code from your model files on save.
@@ -57,168 +70,254 @@ import static extension org.eclipse.emf.ecore.util.EcoreUtil.*
 class CmlGenerator extends AbstractGenerator2 {
 	
 	@Inject extension CmlModelUtil
-	@Inject extension CmlLib
-	@Inject extension CmlTypeProvider
 	@Inject extension CmlTypeConformance
+	Iterable<CmlProgram> allResources;
 	
 	override doGenerate(Resource resource, ResourceSet input, IFileSystemAccess2 fsa, IGeneratorContext context) {
-		val allResources = input.resources.map(r|r.allContents.toIterable.filter(CmlProgram)).flatten
+		allResources = input.resources.map(r|r.allContents.toIterable.filter(CmlProgram)).flatten
 		for (p : resource.allContents.toIterable.filter(CmlProgram)) {
 			if(!p.contracts.empty)	
-            	fsa.generateFile(resource.URI.trimFileExtension.toPlatformString(true) + ".sol", p.compile(allResources))         
+            	fsa.generateFile(resource.URI.trimFileExtension.toPlatformString(true) + ".sol", p.compile)  
         }
 	}
- 
- 	def retrieveImport(Iterable<CmlProgram> resources, Import i) {
- 		if(i.importedNamespace !== CmlLib::LIB_PACKAGE)
- 			resources.findFirst[name == i.copy.importedNamespace.replace(".*","")]
- 	}
- 	
-    def compile(CmlProgram program, Iterable<CmlProgram> allResources) '''
+	
+    def compileOwnedContract() '''
+		contract Owned {
+			address public _owner;
+		
+		  	modifier onlyOwner() {
+				require(msg.sender == _owner); _;
+			}
+		 
+		  	constructor () internal {
+		    	_owner = msg.sender;
+		    }
+		
+		  	function changeOwner(address newOwner) public onlyOwner {
+				require(newOwner != address(0));
+		    	_owner = newOwner;
+			}
+		}
+	'''
+    
+    def compile(CmlProgram program) '''
 	pragma solidity >=0.4.22 <0.7.0;
 	
 	«FOR contract : program.contracts»
-	contract «contract.name» {
+		«compileOwnedContract»
 		
-		/*
-		 *  Enums
-		 */
-		«FOR i : program.imports»
-			«FOR e : allResources.retrieveImport(i).enums»
-				«e.compileEnum»
-			«ENDFOR»
-		«ENDFOR»
-		«FOR c : program.enums»
-			«c.compileEnum»
-		«ENDFOR»
-		
-		/*
-		 *  Structs
-		 */
-		«FOR i : program.imports»
-			«allResources.retrieveImport(i).compileModel»
-		«ENDFOR»
-		«FOR i : program.imports»
-			«program.compileModel»
-		«ENDFOR»	
-		/*
-		 *  State variables
-		 */	
-		address owner;
-		uint creationTime;
-		«FOR a : contract.attributes»
-		   	«a.compile»;
-		«ENDFOR»
-		
-		/*
-	 	 *  Events
-	 	 */
-		«FOR i : program.imports»
-			«FOR e : allResources.retrieveImport(i).events»
-				«e.compileEvent»
-			«ENDFOR»
-		«ENDFOR»
-		«FOR e : program.events»
-			«e.compileEvent»
-		«ENDFOR»
-		
-		/*
-		 *  Constructor
-		 */
-		constructor(«FOR party : program.parties SEPARATOR ', '»address _«program.name»«ENDFOR») public {
-			owner = msg.sender;
-			«FOR party : program.parties»
-				«program.name»= _«program.name»;
-			«ENDFOR»
-			creationTime = now;
+		contract «contract.name» is Owned {
+			
+			«program.compileEnums»
+			«contract.compileStructs»
+			«contract.compileEvents»
+			«"/*\n * State variables\n */\n"»
+			«contract.compileAttributes»
+			address _owner;
+			uint _contractStart;
+			mapping(bytes4 => bool) _callSuccessMonitor;
+			mapping(address => uint256) public _balanceOf;
+			
+			«"/*\n * Constructor\n */\n"»
+			«contract.compileConstructor»
+			
+			«"/*\n * Functions\n */\n"»
+		 	«contract.compileFunctions»
+			«contract.compileEventFunctions»
+		    // Payment handling
+		    function deposit(uint256 amount) private 
+		    {
+		    	require(msg.value == amount);
+		    	_balanceOf[msg.sender] += amount;
+		    }
+		    
+		    function withdraw() public 
+		    {
+		    	uint balance = _balanceOf[msg.sender];
+		        _balanceOf[msg.sender] = 0;
+		        msg.sender.transfer(balance);
+		    }
+		    
+		    function transfer(address from, address to, uint256 amount) private 
+		    {
+				_balanceOf[from] -= amount;
+				_balanceOf[to] += amount;
+		    }
+		    
+			// Fallback function
+			function() external payable {}
+			
+			«"/*\n * Modifiers\n */\n"»
+			// Access control
+			modifier onlyBy(address account) { 
+				require(msg.sender == account, "Sender not authorized."); _;
+			}
+			
+			// Temporal control
+			modifier onlyAfter(uint time, uint duration, bool within) {
+				if(!within)
+					require(now > time + duration, "Function called too early.");
+				else require(time + duration > now && now > time, "Function not called within expected timeframe."); _;
+			}
+			
+			modifier onlyBefore(uint time, uint duration, bool within) {
+				if(!within)
+					require(now < time - duration, "Function called too late.");
+				else require(time - duration < now && now < time, "Function not called within expected timeframe."); _;
+			}
+			
+			// Call control
+			modifier postCall(bytes4 selector) {
+			    _; _callSuccessMonitor[selector] = true;
+			}
+		    
 		}
-		
-		/*
-		 *  Functions
-		 */
-	 	«FOR clause : contract.clauses»
-	 		«clause.action.compoundAction.compile»
-		«ENDFOR»
-		«FOR i : program.imports»
-			«FOR e : allResources.retrieveImport(i).events»
-				«e.compileEventAsFunction»
-			«ENDFOR»
-		«ENDFOR»
-		«FOR e : program.events»
-			«e.compileEventAsFunction»
-		«ENDFOR»
-		function changeOwner(address _newOwner) public onlyBy(owner) {
-			owner = _newOwner;
-		}
-		
-		// Fallback function
-		function() external payable {}
-		
-		/* 	 
-		 *  Modifiers
-	 	 */
-		«FOR clause : contract.clauses»
-«««			«clause.antecedent.compile»
-		«ENDFOR»
-		modifier onlyBy(address _account) { 
-			require(msg.sender == _account, "Sender not authorized."); _;
-		}
-		
-		modifier onlyAfter(uint _time, uint _duration, bool _within) {
-			if(!_within)
-				require(now > _time + _duration, "Function called too early.");
-			else require(_time + _duration > now && now > _time, "Function not called within expected timeframe."); _;
-		}
-		
-		modifier onlyBefore(uint _time, uint _duration, bool _within) {
-			if(!_within)
-				require(now < _time - _duration, "Function called too late.");
-			else require(_time - _duration < now && now < _time, "Function not called within expected timeframe."); _;
-		}
-	}
 	«ENDFOR»
     '''
-          	
-    def compile(List<Symbol> symbols) '''
-    	«FOR s : symbols SEPARATOR ', '»«s.compile»«ENDFOR»'''
-    
-    def compile(Symbol s) '''
-    	«s.type.compile» « s.name»'''
-    
-    def compileModel(CmlProgram program) '''
-	«FOR c : program.classes»
-		«IF !c.isAbstract && (c.subclassOfParty || c.subclassOfAsset)»«c.compile»«ENDIF»
-	«ENDFOR»
-	'''
-	
-    def compile(Class c) '''
-	struct «c.name.toFirstUpper» {
-	   	«FOR f : c.classHierarchyAttributes.values»
-	   		«f.compile»;
-	   	«ENDFOR»
-	   	«FOR f : c.attributes»
-	   		«f.compile»;
-	   	«ENDFOR»
-	}
-	
-   ''' 
-    
-    def compile(Operation o) '''	
-	function «o.name»(«o.params.map[it as Symbol].compile») public «FOR m : o.deriveModifiers.entrySet SEPARATOR ' '»«m.key»(«m.value.join(", ")»)«ENDFOR» {
-«««		// TODO: Implement code to «o.name» «FOR arg : o.params SEPARATOR ', '»«arg.name»«ENDFOR»
-		«IF o.precondition !== null»require(«o.precondition.compile»);«ENDIF»
-		«FOR s : o.body.statements»
-		«compileStatement(s)»
+
+	def compileEventFunctions(Class c) '''
+		«FOR e : c.attributes.filter[type.conformsToEvent] SEPARATOR "\n" AFTER "\n"»
+			«e.compileEventAsFunction»
 		«ENDFOR»
-	}
-	
+	'''
+			
+	def compileFunctions(Class c) '''
+		«FOR clause : c.clauses SEPARATOR "\n" AFTER "\n"»
+	 		«clause.action.compoundAction.compile»
+		«ENDFOR»
+	'''
+
+    def compileEnums(CmlProgram p) '''
+		«FOR e : p.enums + p.gatherImportedEnums
+			BEFORE "/*\n * Enums\n */\n" AFTER "\n"»
+			«e.compileEnum»
+		«ENDFOR»
 	'''
 	
-	def deriveModifiers(Operation o) {
+//	def referencedEnums(Class c) {
+//		(c.getAllContentsOfType(SymbolReference).map[symbol].filter(Class).filter[subclassOfEnum] +
+//			c.getAllContentsOfType(Operation).map[inferType]?.filter[subclassOfEnum] +
+//			c.getAllContentsOfType(Operation).map[params]?.filter(Attribute).map[type].filter[subclassOfEnum] +
+//			c.getAllContentsOfType(Attribute).map[type].filter[subclassOfEnum]).toSet
+//	}
+   
+   	def compileStructs(Class c) '''
+		«FOR a : c.attributes.filter[type.conformsToAsset || type.subclassOfAsset || type.subclassOfParty].map[type].toSet 
+			BEFORE "/*\n * Structs\n */\n" SEPARATOR "\n" AFTER "\n"»
+			«a.compile»
+		«ENDFOR»
+	'''
+	
+	def compileAttributes(Class c) '''
+		«FOR a : c.attributes»
+			«a.compile»;
+		«ENDFOR»
+	'''
+	
+	def compileEvents(Class c) '''
+		«FOR e : c.attributes.filter[type.conformsToEvent]
+			BEFORE "/*\n * Events\n */\n" AFTER "\n"»
+			event «e.type.name.toFirstUpper»();
+		«ENDFOR»
+	'''
+	
+    def compileConstructor(Class c) '''
+		constructor(«FOR a : c.compileConstructorArgs SEPARATOR ', '»«a.key»«a.value»«ENDFOR») public {
+			_owner = msg.sender;
+			«FOR a : c.compileConstructorAttributes»
+				«a.key»= _«a.value»;
+			«ENDFOR»
+			_contractStart = now;
+		}
+    '''
+    
+    def List<Pair<String, String>> compileConstructorArgs(Class c) {
+    	// TODO
+    	emptyList
+    }
+    
+    def List<Pair<String, String>> compileConstructorAttributes(Class c) {
+    	// TODO
+    	emptyList
+    }
+    
+    def String compile(CompoundAction ca) {
+		switch (ca) {
+			OrCompoundAction: {
+				val left = ca.left.compile + "\n"
+				val right = ca.right.compile
+				//left + " || " + right
+				left + right
+			}
+			SeqCompoundAction: {
+				val left = ca.left.compile + "\n"
+				val right = ca.right.compile
+				//left + " then " + right
+				left + right
+			}
+			AndCompoundAction: {
+				val left = ca.left.compile + "\n"
+				val right = ca.right.compile
+				//left + " && " + right
+				left + right
+			}
+			NestedCompoundAction: {
+				ca.child.compile
+				//val child = ca.child.compile				
+				//"(" + child + ")" 
+			}
+		 	AtomicAction: ca.reference.compile(ca.containingClause).toString
+		}
+	}
+    
+    def compile(List<Attribute> attributes) '''
+    	«FOR a : attributes SEPARATOR ', '»«a.compile»«ENDFOR»'''
+    	
+	def compile(Attribute a) {
+		interceptAttribute(a, null) ?: '''«(a.type as Type).compile» «a.name»'''
+	}
+		
+    def compile(Class c) '''
+		struct «c.name.toFirstUpper» {
+		   	«FOR a : c.classHierarchyAttributes.values»
+		   		«a.compile»;
+		   	«ENDFOR»
+		   	«FOR a : c.attributes»
+		   		«a.compile»;
+		   	«ENDFOR»
+		}
+	'''
+    
+    def compile(Operation o, Clause c) '''	
+		// @notice function for clause «c.name»
+		function «o.name»(«o.params.compile») «FOR a : o.compileAnnotations SEPARATOR ' '»«a»«ENDFOR»
+			«FOR m : o.deriveModifiers(c).entrySet SEPARATOR ' '»
+				«m.key»(«m.value.join(", ")»)
+		«ENDFOR»
+		{
+			«FOR s : o.body?.statements ?: emptyList»
+			«compileStatement(s)»
+			«ENDFOR»
+		}
+	'''
+	
+	def List<String> compileAnnotations(Operation o) {
+		var list = newArrayList
+		list.add("public")
+		if (o.containsDepositOperation)
+			list.add("payable")
+		list
+	}
+	
+	def containsDepositOperation(Operation o) {
+		o.body?.statements?.filter(FeatureSelection)?.filter[opCall && feature instanceof Operation]?.map[feature]?.findFirst[containingClass.conformsToParty && name == "deposit"] !== null
+	}
+	
+	def deriveModifiers(Operation o, Clause c) {
 		var modifiers = new LinkedHashMap<String, List<String>>(); 
-		var party = o.containingClause.actor.party
-		var tc = o.containingClause.antecedent.temporal
-		if(party != "anyone")
+		var party = c.actor.party
+		var tc = c.antecedent.temporal
+		if(party.name != "anyone")
 			modifiers.put("onlyBy", #[party.name])
 		if(tc !== null) {
 			if(tc.reference instanceof Expression) {
@@ -230,81 +329,81 @@ class CmlGenerator extends AbstractGenerator2 {
 					modifiers.put("only" + tc.precedence.literal.toFirstUpper, #[(tc.reference as Expression).compile, tc.timeframe.compile, "true"])
 			}
 		}
+		modifiers.put("postCall", #["this." + o.name + ".selector"])
 		modifiers
 	}
 	
 	def compileBlock(Block block) '''
-	{
-		«FOR s : block.statements»
-		«compileStatement(s)»
-		«ENDFOR»
-	}
+		{	
+			«FOR s : block.statements»
+				«s.compileStatement»
+			«ENDFOR»
+		}
 	'''
 	
 	def String compileStatement(Statement s) {
 		switch (s) {
-			VariableDeclaration: ''' «s.name» = «s.expression.compile»;'''
-			Return: "return " + s.expression.compile + ";"
-			If: '''
+			VariableDeclaration: '''«s.name» = «s.expression.compile»;'''
+			ReturnStatement: "return " + s.expression.compile + ";"
+			IfStatement: '''
 			if («s.condition.compile»)
-				«s.thenBlock.compileBlock»
+			«s.thenBlock.compileBlock»
 			«IF s.elseBlock !== null»
 			else
-				«s.elseBlock.compileBlock»
+			«s.elseBlock.compileBlock»
 			«ENDIF»
 			'''
+			EnsureStatement: '''require(«s.expression.compile»«IF s.throwExpression !== null»; «s.throwExpression.compile»«ENDIF»);'''
+			ThrowStatement: '''revert(«s.expression?.compile»);'''
 			default: (s as Expression).compile + ";"
 		}
 	}
 
-	def compileEvent(Class c) '''
-	event «c.name.toFirstUpper»();'''
-	
-	def compileEventAsFunction(Class c) '''	
-	// @notice trigger event «c.name»
-	function «c.name.toFirstLower»() public {
-		emit «c.name.toFirstUpper»();
-	}
-	
+	def compileEventAsFunction(Attribute a) '''
+		// @notice trigger event «a.type.name»
+		function «a.name.toFirstLower»Event() public
+		{
+			«a.name» = true;
+			emit «a.type.name.toFirstUpper»();
+		}
 	'''
 	
 	def compileEnum(Class c) '''
-	enum «c.name.toFirstUpper» { «FOR e : c.enumElements SEPARATOR ', '»«e.name»«ENDFOR» }
-	«c.name.toFirstUpper» «c.name.toFirstLower»;'''
+		enum «c.name.toFirstUpper» { «FOR e : c.enumElements SEPARATOR ', '»«e.name»«ENDFOR» } «c.name.toFirstUpper» «c.name.toFirstLower»;
+	'''
 	
-    def compile(Container c) {
-    	var t = c.inferType
-    	switch (t) {
-			case t.conformsToInteger: "uint"
-			case t.conformsToBoolean: "bool"
-			case t.conformsToString: "bytes32"
-			case t.conformsToReal: "uint"
-			case t.conformsToDateTime: "uint"
-			case t.conformsToDuration: "uint"
-			case t.conformsToEnum: t.name
-			case t.conformsToSet: "???"
-			case t.conformsToMap: "mapping( ? => ? )"
-			case t.conformsToAsset: t.name
-			case t.conformsToParty: "address"
-			default: t.name
+    def compile(Type t) {
+		switch (t) {
+			Class:
+				switch (t) {
+					case t.conformsToInteger: "uint"
+					case t.conformsToBoolean: "bool"
+					case t.conformsToString: "bytes32"
+					case t.conformsToReal: "uint"
+					case t.conformsToDateTime: "uint"
+					case t.conformsToDuration: "uint"
+					case t.conformsToEnum: t.name
+					case t.conformsToAsset: t.name
+					case t.conformsToParty: "address"
+					case t.conformsToEvent: "bool"
+					default: t.name
+				}
 		}
 	}
 	
-	def compile(Antecedent a) '''
-	// @notice modifier for clause «a.containingClause.name»
-	modifier guard() {
-		«IF a.temporal !== null»require(«a.temporal.compile»)«ENDIF»;
-		require(«a.general.expression.compile»); _;
-	}
-	
+	def compile(Antecedent a, Clause c) '''
+		// @notice modifier for clause «c.name»
+		modifier guard() {
+			«IF a.temporal !== null»require(«a.temporal.compile»)«ENDIF»;
+			require(«a.general.expression.compile»); _;
+		}
 	'''
 	
 	def compileModifier(Expression e) '''
-	// @notice modifier for function «e.containingOperation.name»
-	modifier guard_«e.containingOperation.name»() {
-		require(«e.compile»); _;
-	}
-	
+		// @notice modifier for function «e.containingOperation.name»
+		modifier guard_«e.containingOperation.name»() {
+			require(«e.compile»); _;
+		}
 	'''
 	
 	def compile(TimeConstraint tc) {
@@ -317,17 +416,34 @@ class CmlGenerator extends AbstractGenerator2 {
 		}
 	}
 	
+	def retrieveImport(Iterable<CmlProgram> resources, Import i) {
+ 		if(i.importedNamespace !== CmlLib::LIB_PACKAGE)
+ 			resources.findFirst[name == i.copy.importedNamespace.replace(".*","")]
+ 	}
+ 	
+ 	def gatherImportedEnums(CmlProgram program) {
+ 		program.gatherImportedResources.map[enums].flatten
+ 	}
+ 	
+ 	def gatherImportedResources(CmlProgram program) {
+ 		var list = newArrayList
+ 		for(import : program.imports) {
+ 			list += this.allResources.retrieveImport(import)
+ 		}
+ 		list
+ 	}
+	
 	def String compile(Expression exp) {
 		
 		switch (exp) {
 			AssignmentExpression: 
 				'''«(exp.left.compile)» = «(exp.right.compile)»'''
-			OrExpression: {
+			OrExpression: 
 				'''«(exp.left.compile)» || «(exp.right.compile)»'''
-			}
-			AndExpression: {
+			
+			AndExpression: 
 				'''«(exp.left.compile)» && «(exp.right.compile)»'''
-			}
+			
 			EqualityExpression: {
 				if (exp.op == '==')
 					'''«(exp.left.compile)» == «(exp.right.compile)»'''
@@ -362,10 +478,14 @@ class CmlGenerator extends AbstractGenerator2 {
 					'''«left» / «right»'''
 			}
 			UnaryExpression: {
-				if (exp.op == '+')
-					''' +«(exp.operand.compile)»'''
-				else
-					''' -«(exp.operand.compile)»'''
+				switch (exp.op) {
+					case '+': ''' +«(exp.operand.compile)»'''
+					case '-': ''' -«(exp.operand.compile)»'''
+					case '!',
+					case 'not': ''' !«(exp.operand.compile)»'''
+					default:
+						""
+				}				
 			}
 			PostfixExpression: {
 				if (exp.op == '++')
@@ -373,34 +493,98 @@ class CmlGenerator extends AbstractGenerator2 {
 				else
 					'''«(exp.operand.compile)»--'''
 			}
+			CastedExpression: '''«exp.target.compile»'''
+			NestedExpression: '''(«exp.child.compile»)'''
+			RealLiteral: '''«exp.value»'''
 			IntegerLiteral: '''«exp.value»'''
 			BooleanLiteral: '''«exp.value»'''
 			StringLiteral: '''"«exp.value»"'''
-			SymbolReference: '''«exp.ref.name»'''
+			ThisExpression: '''this'''
+			SuperExpression: '''super'''
 			DateTimeLiteral: '''«exp.value»'''
 			DurationLiteral: '''«exp.value» «exp.unit»'''
-			MemberFeatureCall: exp.featureCallTransformation
-			ElementReferenceExpression: '''«exp.reference.compile»'''
 			CallerExpression: '''msg.sender'''
+			SymbolReference: '''«exp.compile»'''
+			FeatureSelection: '''«exp.compile»'''
 		}
 	}
 	
-	def featureCallTransformation(MemberFeatureCall mfc) {
-		val t = mfc.member.inferType
-		switch (t) {	
-			case t.conformsToDateTime: {
-				if (mfc.operationCall)
-					switch(mfc.member.name) {
-						case "addDuration" : mfc.receiver.compile + " + " + mfc.args.get(0).compile
-				} else mfc.receiver.compile + "." + mfc.member.name
-			}
-			default:
-				mfc.receiver.compile + "." + mfc.member.name +
-				if (mfc.operationCall) {
-					"(" + mfc.args.map[compile].join(", ") + ")"
-				} else ""
+	def compile(FeatureSelection fs) {
+		var String rslt
+		
+		if (!fs.opCall && fs.feature instanceof Attribute)
+			rslt = interceptAttribute(fs.feature as Attribute, fs)
+		
+		if (fs.opCall && fs.feature instanceof Operation)
+			rslt = interceptOperation(fs.feature as Operation, fs.args, fs.receiver)
+		
+		rslt ?: {
+			rslt = fs.receiver.compile + "." + fs.feature.name + if (fs.opCall) {
+				"(" + fs.args.map[compile].join(", ") + ")"
+			} else
+				""
 		}
 	}
+	
+	def compile(SymbolReference sr) {
+		if (!sr.opCall && sr.symbol instanceof Attribute) {
+			interceptAttribute(sr.symbol as Attribute, sr) ?: sr.symbol.name
+		} else if (sr.opCall && sr.symbol instanceof Operation) {
+			interceptOperation(sr.symbol as Operation, sr.args, sr)
+		} else sr.symbol.name
+	}
+	
+	def interceptOperation(Operation o, List<Expression> args, Expression receiver) {
+		var c = o.containingClass
+		switch (c) {
+			case c.conformsToDateTime: {
+				switch (o.name) {
+					case "addDuration": receiver.compile + " + " + args.get(0).compile
+				}
+			}
+			case c.conformsToInteger: {
+				switch (o.name) {
+					case "toReal": "IntLib.toReal(" + receiver.compile +")"
+				}
+			}
+			case c.conformsToReal: {
+				switch (o.name) {
+					case "toInteger": "RealLib.toReal(" + receiver.compile +")"
+				}
+			}
+			case c.conformsToParty: {
+				switch (o.name) {
+					case "deposit": "deposit(" + args.get(0).compile + ")"
+					case "withdraw": "//NOOP"
+					case "transfer": "transfer(" + receiver.compile + ", " + args.get(1).compile + ", " + args.get(0).compile +")"
+				}
+			}
+			case c.conformsToContract: {
+				switch (o.name) {
+					case "failure": args.get(0).compile
+				}
+			}
+		}
+	}
+	
+	def interceptAttribute(Attribute a, Expression ctx) {
+		var c = a.containingClass
+		var t = a.type
 
+		if (c.conformsToContract) {
+			switch (a.name) {
+				case "contractStart": "_contractStart"
+			}
+		} else if (t.subclassOfParty) {
+			if (ctx instanceof SymbolReference)
+				a.name + ".id"
+			else if (ctx instanceof FeatureSelection)
+				ctx.receiver.compile + "." + a.name +
+					if(ctx.eContainer instanceof FeatureSelection) "" else ".id"
+		} else if (c.conformsToParty) {
+			switch (a.name) {
+				case "id": "address " + a.name
+			}
+		}
+	}
 }
-
