@@ -159,20 +159,20 @@ class CmlValidator extends AbstractCmlValidator {
 
 	@Check
 	def void checkMethodEndsWithReturn(Operation o) {
-		if (o.returnStatement === null && !o.type.conformsToVoid) {
+		if (o.returnStatement === null && !o.inferType.conformsToVoid) {
 			error("Method must end with a return statement", CmlPackage.eINSTANCE.operation_Body, MISSING_FINAL_RETURN)
 		}
 	}
 	
 	@Check
 	def void checkCorrectReturnUse(ReturnStatement stmnt){
-		val returntype = stmnt.containingOperation.type
+		val returntype = stmnt.containingOperation.inferType
 		switch(returntype){
-//			VoidType:
-//				if(stmnt.expression !== null)
-//					error("Return statement should be empty within void return type operation '" + stmnt.containingOperation.name + "'",
-//						CmlPackage::eINSTANCE.return_Expression,
-//						INCOMPATIBLE_TYPES) 
+			case returntype.conformsToVoid :
+				if(stmnt.expression !== null)
+					error("Return statement should be empty within void return type operation '" + stmnt.containingOperation.name + "'",
+						CmlPackage::eINSTANCE.returnStatement_Expression,
+						INCOMPATIBLE_TYPES) 
 			default:
 				if(stmnt.expression === null && returntype !== null)
 					error("Return statement should not be empty within operation '" + stmnt.containingOperation.name + "'",

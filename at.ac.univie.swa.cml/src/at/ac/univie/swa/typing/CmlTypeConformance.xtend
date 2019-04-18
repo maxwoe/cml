@@ -17,13 +17,6 @@ class CmlTypeConformance {
 		switch (c1) {
 			Class:
 				switch (c2) {
-//					Class case c1.conformsToSet && c2.conformsToSet,
-//					Class case c1.conformsToBag && c2.conformsToBag,
-//					Class case c1.conformsToArray && c2.conformsToArray:
-//						return isConformant(c1.typeVars.get(0).type, c2.typeVars?.get(0).type)
-//					Class case c1.conformsToMap && c2.conformsToMap:
-//						return isConformant(c1.typeVars.get(0).type, c2.typeVars?.get(0).type) &&
-//							isConformant(c1.typeVars.get(1).type, c2.typeVars?.get(1).type)
 					Class:
 						return c1 == NULL_TYPE || // null can be assigned to everything
 						(conformToLibraryTypes(c1, c2)) || c1 == c2 ||
@@ -86,15 +79,11 @@ class CmlTypeConformance {
 	
 	def conformsToError(Class c) {
 		c == ERROR_TYPE || 
-		c.fullyQualifiedName.toString == CmlLib::LIB_ERROR
+		c.fullyQualifiedName.toString ==CmlLib::LIB_ERROR
 	}
 	
 	def conformsToParty(Class c) {
 		c.fullyQualifiedName.toString == CmlLib::LIB_PARTY
-	}
-	
-	def conformsToEnum(Class c) {
-		c.fullyQualifiedName.toString == CmlLib::LIB_ENUM
 	}
 	
 	def conformsToAsset(Class c) {
@@ -104,45 +93,41 @@ class CmlTypeConformance {
 	def conformsToEvent(Class c) {
 		c.fullyQualifiedName.toString == CmlLib::LIB_EVENT
 	}
-	
+		
 	def conformsToContract(Class c) {
 		c.fullyQualifiedName.toString == CmlLib::LIB_CONTRACT
 	}
 	
-	def conformsToSet(Class c) {
-		c.fullyQualifiedName.toString == CmlLib::LIB_SET
+	def conformsToEnum(Class c) {
+		c.fullyQualifiedName.toString == CmlLib::LIB_ENUM
 	}
 	
-	def conformsToBag(Class c) {
-		c.fullyQualifiedName.toString == CmlLib::LIB_BAG
+	def subclassOfParty(Class c) {
+		c.isSubclassOf(CmlLib::LIB_PARTY)
 	}
 	
-	def conformsToMap(Class c) {
-		c.fullyQualifiedName.toString == CmlLib::LIB_MAP
+	def subclassOfAsset(Class c) {
+		c.isSubclassOf(CmlLib::LIB_ASSET)
 	}
 	
-	def conformsToArray(Class c) {
-		c.fullyQualifiedName.toString == CmlLib::LIB_ARRAY
+	def subclassOfEvent(Class c) {
+		c.isSubclassOf(CmlLib::LIB_EVENT)
+	}
+		
+	def subclassOfContract(Class c) {
+		c.isSubclassOf(CmlLib::LIB_CONTRACT)
 	}
 	
-	def isSubclassOfContract(Class c) {
-		c.classHierarchy.exists[conformsToContract]
+	def subclassOfEnum(Class c) {
+		c.isSubclassOf(CmlLib::LIB_ENUM)
 	}
 	
-	def isSubclassOfParty(Class c) {
-		c.classHierarchy.exists[conformsToParty]
+	def conformsTo(Class c, String fqn) {
+		c.fullyQualifiedName.toString == fqn
 	}
 	
-	def isSubclassOfAsset(Class c) {
-		c.classHierarchy.exists[conformsToAsset]
-	}
-	
-	def isSubclassOfEvent(Class c) {
-		c.classHierarchy.exists[conformsToEvent]
-	}
-	
-	def isSubclassOfEnum(Class c) {
-		c.classHierarchy.exists[conformsToEnum]
+	def isSubclassOf(Class c, String fqn) {
+		c.classHierarchy.exists[fullyQualifiedName.toString == fqn]
 	}
 	
 	def isSubclassOf(Class c1, Class c2) {

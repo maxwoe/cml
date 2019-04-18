@@ -38,6 +38,7 @@ import at.ac.univie.swa.cml.UnaryExpression
 import at.ac.univie.swa.cml.VariableDeclaration
 import at.ac.univie.swa.cml.XorExpression
 import com.google.inject.Inject
+import at.ac.univie.swa.cml.Actor
 
 class CmlTypeProvider {
 	@Inject extension CmlLib
@@ -60,7 +61,7 @@ class CmlTypeProvider {
 	def Type typeFor(Expression e) {
 		switch (e) {
 			CallerExpression: 
-				return e.getCmlPartyClass()
+				return e.getCmlPartyClass
 			ThisExpression:
 				return e.containingClass
 			SuperExpression:
@@ -118,22 +119,15 @@ class CmlTypeProvider {
 				return e.feature.inferType
 			CastedExpression:
 				return e.type
-			
 		}
 	}
 	
-//	def deriveVarType(Type t) {
-//		switch (t) {
-//			Class case /*t.isConformant(t.cmlCollectionClass)*/ t.conformsToSet,
-//			Class case /*t.isConformant(t.cmlArrayClass)*/t.conformsToArray : return t.typeVars.get(0).type
-//			Class case /*t.isConformant(t.cmlMapClass)*/ t.conformsToMap: return t.typeVars.get(1).type
-//		}
-//	}
-
 	def Type expectedType(Expression e) {
 		val c = e.eContainer
 		val f = e.eContainingFeature
 		switch (c) {
+			Actor case f == ep.actor_Party:
+				c.getCmlPartyClass
 			SymbolReference case f == ep.symbolReference_Args:
 				try {
 					(c.symbol as Operation).params.get(c.args.indexOf(e)).type
@@ -144,12 +138,8 @@ class CmlTypeProvider {
 				ERROR_TYPE
 			ThrowStatement case f == ep.throwStatement_Expression:
 				ERROR_TYPE
-//			CasePart case f == ep.casePart_Case:
-//				c.containingSwitch.^switch.typeFor
 			AssignmentExpression case f == ep.assignmentExpression_Right:
 				c.left.typeFor
-//			case f == ep.repeatLoop_Condition,
-//			case f == ep.whileLoop_Condition,
 			case f == ep.ensureStatement_Expression,
 			case f == ep.ifStatement_Condition:
 				BOOLEAN_TYPE
@@ -168,8 +158,12 @@ class CmlTypeProvider {
 			PeriodicTime case f == ep.periodicTime_Period,
 			TimeConstraint case f == ep.timeConstraint_Timeframe:
 				DURATION_TYPE
-			//Attribute case f == ep.attribute_InitExp:
-			//	c.type.inferType			
+//			Attribute case f == ep.attribute_InitExp:
+//				c.type.inferType	
+//			CasePart case f == ep.casePart_Case:
+//				c.containingSwitch.^switch.typeFor
+//			case f == ep.repeatLoop_Condition,
+//			case f == ep.whileLoop_Condition,		
 			RelationalExpression case f == ep.relationalExpression_Right:
 				c.left.typeFor
 			EqualityExpression case f == ep.equalityExpression_Right:
@@ -195,6 +189,7 @@ class CmlTypeProvider {
 			case "party": getCmlPartyClass(c)
 			case "asset": getCmlAssetClass(c)
 			case "event": getCmlEventClass(c)
+			case "transaction": getCmlTransactionClass(c)
 			case "enum": getCmlEnumClass(c)
 			case "contract": getCmlContractClass(c)
 			default: c.superclass ?: getCmlAnyClass(c)

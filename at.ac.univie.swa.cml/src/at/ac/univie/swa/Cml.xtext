@@ -9,9 +9,9 @@ CmlProgram:
 
 Import:
 	'import' importedNamespace=QualifiedNameWithWildcard;
-	
+
 Declaration:
-	Class | Party | Asset | Transaction | Event |  Contract | Enumeration;
+	Class | Party | Asset | Transaction | Event | Contract | Enumeration;
 
 Class:
 	(abstract?='abstract')? kind='concept' name=ID ('extends' superclass=[Class|QualifiedName])?
@@ -42,7 +42,7 @@ Transaction returns Class:
 	BEGIN
 	features+=FeatureAttribute+
 	END;
-	
+
 Event returns Class:
 	kind='event' name=ID
 	(BEGIN
@@ -63,7 +63,7 @@ Type:
 
 NamedElement:
 	Class | Feature | VariableDeclaration;
-	
+
 Feature:
 	Attribute | Operation | Clause | EnumerationElement;
 
@@ -81,18 +81,18 @@ FeatureEnumeration returns Feature:
 
 fragment TypedDeclaration *:
 	type=[Class|QualifiedName] name=ID;
-	
+
 Attribute:
 	TypedDeclaration;
 
 Operation:
-	access=AccessLevel? TypedDeclaration
+	access=AccessLevel? (type=[Class|QualifiedName])? name=ID
 	'(' (params+=Attribute (',' params+=Attribute)*)? ')'
 	(body=Block)?;
 
 enum AccessLevel:
 	PUBLIC='public' | PRIVATE='private' | PROTECTED='protected';
-	
+
 Clause:
 	'clause' name=ID
 	BEGIN
@@ -134,7 +134,7 @@ AndCompoundAction returns CompoundAction:
 
 PrimaryCompoundAction returns CompoundAction:
 	{AtomicAction} reference=[Operation] |
-	{NestedCompoundAction}'(' child=CompoundAction ')';
+	{NestedCompoundAction} '(' child=CompoundAction ')';
 
 PeriodicTime:
 	'every' period=Expression 'from' start=(TimeQuery | Expression) ('until' end=(TimeQuery | Expression))?;
@@ -147,13 +147,13 @@ enum TemporalPrecedence:
 	AFTER='after';
 
 ClauseQuery:
-	'clause' ref=[Clause];
+	'clause' clause=[Clause];
 
 EventQuery:
-	'event' ref=[Attribute];
+	'event' event=[Attribute];
 
 ActionQuery:
-	multiplicity=('all' | 'any' | 'this')? partyRef=[Attribute] query='did' actionRef=[Operation];
+	party=[Attribute] query='did' action=[Operation];
 
 TimeQuery:
 	ClauseQuery | EventQuery | ActionQuery;
@@ -173,21 +173,21 @@ VariableDeclaration:
 	'var' TypedDeclaration '=' expression=Expression;
 
 ReturnStatement:
-	'return' expression=Expression;
+	{ReturnStatement} 'return' (=> expression=Expression)?;
 
 IfStatement:
 	'if' (('(' condition=Expression ')') | (-> condition=Expression)) thenBlock=ConditionalBlock
 	(=> 'else' elseBlock=ConditionalBlock)?;
-	
+
 ConditionalBlock returns Block:
-	statements+=Statement | 
+	statements+=Statement |
 	Block;
-	
+
 ThrowStatement:
 	'throw' expression=Expression;
 
 EnsureStatement:
-	'ensure' expression=Expression (=>'else' 'throw' throwExpression=Expression)?;
+	'ensure' expression=Expression (=> 'else' 'throw' throwExpression=Expression)?;
 
 Expression:
 	AssignmentExpression;
@@ -232,13 +232,13 @@ CastedExpression returns Expression:
 
 PostfixExpression returns Expression:
 	SelectionExpression
-	(=> ({PostfixExpression.operand=current} op=("++" | "--" | "@pre"))	|
+	(=> ({PostfixExpression.operand=current} op=("++" | "--" | "@pre")) |
 	=> ({ArrayAccessExpression.array=current}
 	'[' indexes+=Expression ']' (=> '[' indexes+=Expression ']')*))?;
- 
+
 SelectionExpression returns Expression:
 	PrimaryExpression
-	(=> ({FeatureSelection.receiver=current} ("."|explicitStatic?="::")) feature=[Feature]
+	(=> ({FeatureSelection.receiver=current} ("." | explicitStatic?="::")) feature=[Feature]
 	(=> opCall?='(' (args+=Expression (',' args+=Expression)*)? ')')?)*;
 
 PrimaryExpression returns Expression:
@@ -260,7 +260,7 @@ LiteralExpression returns Expression:
 	{NullLiteral} 'null' |
 	{SetLiteral} '{' (elements+=Expression (',' elements+=Expression)*)? '}' |
 	{ArrayLiteral} '[' (elements+=Expression (',' elements+=Expression)*)? ']';
-	
+
 enum TimeUnit:
 	MINUTE='minutes' |
 	HOUR='hours' |

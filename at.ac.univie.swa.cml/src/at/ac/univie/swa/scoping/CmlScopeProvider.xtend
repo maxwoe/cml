@@ -8,8 +8,10 @@ import at.ac.univie.swa.cml.Block
 import at.ac.univie.swa.cml.Class
 import at.ac.univie.swa.cml.CmlPackage
 import at.ac.univie.swa.cml.CmlProgram
+import at.ac.univie.swa.cml.FeatureSelection
 import at.ac.univie.swa.cml.Operation
 import at.ac.univie.swa.cml.VariableDeclaration
+import at.ac.univie.swa.typing.CmlTypeConformance
 import at.ac.univie.swa.typing.CmlTypeProvider
 import com.google.common.base.Predicate
 import javax.inject.Inject
@@ -20,7 +22,6 @@ import org.eclipse.xtext.scoping.IScope
 import org.eclipse.xtext.scoping.Scopes
 import org.eclipse.xtext.scoping.impl.FilteringScope
 import org.eclipse.xtext.scoping.impl.SimpleScope
-import at.ac.univie.swa.cml.FeatureSelection
 
 /**
  * This class contains custom scoping description.
@@ -32,12 +33,19 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 
 	@Inject extension CmlTypeProvider
 	@Inject extension CmlModelUtil
+	@Inject extension CmlTypeConformance
 
 	override getScope(EObject context, EReference reference) {
 		if (reference == CmlPackage.Literals.SYMBOL_REFERENCE__SYMBOL) {
 			return scopeForSymbolRef(context, reference)
 		} else if (context instanceof FeatureSelection) {
 			return scopeForFeatureSelection(context)
+		} else if (reference == CmlPackage.Literals.ACTOR__PARTY) {
+			return scopeForPartyRef(context)
+		} else if (reference == CmlPackage.Literals.ACTION_QUERY__PARTY) {
+			return scopeForPartyRef(context)
+		} else if (reference == CmlPackage.Literals.EVENT_QUERY__EVENT) {
+			return scopeForEventRef(context)
 		}
 
 		return super.getScope(context, reference)
@@ -92,6 +100,22 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 			type.operations + type.attributes
 		else
 			type.attributes + type.operations
+	}
+
+	def IScope scopeForPartyRef(EObject context) {
+		var parentScope = IScope::NULLSCOPE
+		for (c : context.containingClass.classHierarchyWithObject.toArray().reverseView) {
+			parentScope = Scopes::scopeFor((c as Class).attributes.filter[type.conformsToParty || type.subclassOfParty], parentScope)
+		}
+		return Scopes::scopeFor(context.containingClass.attributes.filter[type.conformsToParty || type.subclassOfParty], parentScope)
+	}
+
+	def IScope scopeForEventRef(EObject context) {
+		var parentScope = IScope::NULLSCOPE
+		for (c : context.containingClass.classHierarchyWithObject.toArray().reverseView) {
+			parentScope = Scopes::scopeFor((c as Class).attributes.filter[type.conformsToEvent || type.subclassOfEvent], parentScope)
+		}
+		return Scopes::scopeFor(context.containingClass.attributes.filter[type.conformsToEvent || type.subclassOfEvent], parentScope)
 	}
 
 	def allClasses(EObject context, EReference reference) {
