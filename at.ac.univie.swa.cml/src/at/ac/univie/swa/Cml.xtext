@@ -262,11 +262,11 @@ LiteralExpression returns Expression:
 	{ArrayLiteral} '[' (elements+=Expression (',' elements+=Expression)*)? ']';
 
 enum TimeUnit:
+	SECOND='seconds' |
 	MINUTE='minutes' |
 	HOUR='hours' |
 	DAY='days' |
-	WEEK='weeks' |
-	SECOND='seconds';
+	WEEK='weeks';
 
 QualifiedName:
 	ID ('.' ID)*;

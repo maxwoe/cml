@@ -2,13 +2,13 @@ namespace cml.lang
 
 concept Any
 	String toString()
+	Error failure(String s) 
 concept Contract extends Any
 	Integer balance
 	Party anyone
 	DateTime now
 	DateTime contractStart
 	DateTime contractEnd
-	Error failure(String s) 
 concept Party extends Any
 	String id
 	Integer balance
@@ -37,10 +37,32 @@ concept Real extends Any
 concept DateTime extends Any
 	Boolean isBefore(DateTime d)
 	Boolean isAfter(DateTime d)
-concept Duration extends Any
-	DateTime diffDuration(Duration d)
+	Integer second()
+	Integer minute()
+	Integer hour()
+	Integer day()
+	Integer week()
+	Boolean ^equals(DateTime d)
 	DateTime addDuration(Duration d)
 	DateTime subtractDuration(Duration d)
+	Duration durationBetween(DateTime d)
+concept Duration extends Any
+	Duration to(TimeUnit t)
+	Duration toSeconds()
+		return to(TimeUnit::^seconds)
+	Duration toMinutes()
+		return to(TimeUnit::^minutes)
+	Duration toHours()
+		return to(TimeUnit::^hours)
+	Duration toDays()
+		return to(TimeUnit::^days)
+	Duration toWeeks()
+		return to(TimeUnit::^weeks)
+	Duration addDuration(Duration d)
+	Duration subtractDuration(Duration d)
+enum TimeUnit
+	^seconds ^minutes ^hours ^days ^weeks
+concept Error extends Any
 //concept Request extends Transaction
 //concept Response extends Transaction
 //concept Array extends Any
