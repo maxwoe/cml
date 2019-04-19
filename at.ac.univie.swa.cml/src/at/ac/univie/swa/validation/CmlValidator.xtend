@@ -196,7 +196,7 @@ class CmlValidator extends AbstractCmlValidator {
 		if (expectedType === null || actualType === null)
 			return; // nothing to check
 		if (!actualType.isConformant(expectedType)) {
-			error("Incompatible types. Expected '" + expectedType + "' but was '" + actualType + "'",
+			error("Incompatible types. Expected '" + (expectedType as Class).name + "' but was '" + (actualType as Class).name + "'",
 				null, INCOMPATIBLE_TYPES);
 		}
 	}

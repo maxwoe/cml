@@ -32,6 +32,7 @@ class CmlLib {
 	public val static LIB_ARRAY = LIB_PACKAGE + ".Array"
 	public val static LIB_MAP = LIB_PACKAGE + ".Map"
 	public val static LIB_ERROR = LIB_PACKAGE + ".Error"
+	public val static LIB_TIME_UNIT = LIB_PACKAGE + ".TimeUnit"
 	public val static MAIN_LIB = "cml/lang/mainlib.cml"
 
 	def loadLib() {
@@ -98,6 +99,10 @@ class CmlLib {
 	
 	def getCmlEnumClass(EObject context) {
 		getCmlClass(context, LIB_ENUM)
+	}
+	
+	def getCmlTimeUnitClass(EObject context) {
+		getCmlClass(context, LIB_TIME_UNIT)
 	}
 	
 	def getCmlClass(EObject context, String qn) {

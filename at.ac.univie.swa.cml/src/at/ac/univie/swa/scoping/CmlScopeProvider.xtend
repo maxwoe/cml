@@ -117,7 +117,7 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 		}
 		return Scopes::scopeFor(context.containingClass.attributes.filter[type.conformsToEvent || type.subclassOfEvent], parentScope)
 	}
-
+	
 	def allClasses(EObject context, EReference reference) {
 		val IScope delegateScope = delegateGetScope(context, reference)
 		val Predicate<IEObjectDescription> filter = new Predicate<IEObjectDescription>() {
