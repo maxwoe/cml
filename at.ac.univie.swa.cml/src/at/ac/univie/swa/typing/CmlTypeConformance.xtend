@@ -102,6 +102,10 @@ class CmlTypeConformance {
 		c.fullyQualifiedName.toString == CmlLib::LIB_ENUM
 	}
 	
+	def conformsToAny(Class c) {
+		c.fullyQualifiedName.toString == CmlLib::LIB_ANY
+	}
+	
 	def subclassOfParty(Class c) {
 		c.isSubclassOf(CmlLib::LIB_PARTY)
 	}
