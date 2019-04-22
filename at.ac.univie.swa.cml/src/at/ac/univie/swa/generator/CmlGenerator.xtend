@@ -146,8 +146,8 @@ class CmlGenerator extends AbstractGenerator2 {
 				else require(_time - _duration < now && now < _time, "Function not called within expected timeframe."); _;
 			}
 			
-			modifier postCall(bytes4 _selector) {
-			    _; _callSuccessMonitor[_selector] = true;
+			modifier postCall() {
+			    _; _callSuccessMonitor[msg.sig] = true;
 			}
 		    
 		}
@@ -334,7 +334,7 @@ class CmlGenerator extends AbstractGenerator2 {
 		}
 		if(gc !== null)
 			modifiers.put("when", #[gc.expression.compile])
-		modifiers.put("postCall", #["this." + o.name + ".selector"])
+		modifiers.put("postCall", emptyList)
 		modifiers
 	}
 	
