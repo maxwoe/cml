@@ -60,7 +60,7 @@ import org.eclipse.xtext.generator.IFileSystemAccess2
 import org.eclipse.xtext.generator.IGeneratorContext
 
 import static extension org.eclipse.emf.ecore.util.EcoreUtil.*
-import java.io.InputStream
+import static extension org.eclipse.xtext.EcoreUtil2.*
 
 //import static extension org.eclipse.xtext.EcoreUtil2.*
 
@@ -79,6 +79,8 @@ class CmlGenerator extends AbstractGenerator2 {
 		allResources = input.resources.map(r|r.allContents.toIterable.filter(CmlProgram)).flatten
 		
         copyResource("Owned.sol", fsa)
+        copyResource("SafeMath.sol", fsa)
+        copyResource("Payment.sol", fsa)
         copyResource("StateMachine.sol", fsa)
         
 		for (p : resource.allContents.toIterable.filter(CmlProgram)) {
@@ -91,186 +93,39 @@ class CmlGenerator extends AbstractGenerator2 {
 		var url = getClass().getClassLoader().getResource("resources/" + resourceName)
 		var inputStream = url.openStream
 		try {
-			fsa.generateFile("contracts/" + resourceName, inputStream)
+			fsa.generateFile("lib/" + resourceName, inputStream)
 		} finally {
 			inputStream.close();
 		}
 	}
-	
-    def compileOwnedContract() '''
-		contract Owned {
-			address public _owner;
-		
-		  	modifier onlyOwner() {
-				require(msg.sender == _owner); _;
-			}
-		 
-		  	constructor () internal {
-		    	_owner = msg.sender;
-		    }
-		
-		  	function changeOwner(address newOwner) public onlyOwner {
-				require(newOwner != address(0));
-		    	_owner = newOwner;
-			}
-		}
-	'''
-	
-	def compileStateMachineContract() '''
-		contract StateMachine {
-		
-		    struct State { 
-		        bytes32 nextStateId;
-		        mapping(bytes4 => bool) allowedFunctions;
-		        function() internal[] transitionCallbacks;
-		        function(bytes32) internal returns(bool)[] startConditions;
-		    }
-		
-		    mapping(bytes32 => State) states;
-		
-		    // The current state id
-		    bytes32 private currentStateId;
-		
-		    event Transition(bytes32 stateId, uint256 blockNumber);
-		
-		    /* This modifier performs the conditional transitions and checks that the function 
-		     * to be executed is allowed in the current State
-		     */
-		    modifier checkAllowed {
-		        conditionalTransitions();
-		        require(states[currentStateId].allowedFunctions[msg.sig]);
-		        _;
-		    }
-		
-		    ///@dev transitions the state machine into the state it should currently be in
-		    ///@dev by taking into account the current conditions and how many further transitions can occur 
-		    function conditionalTransitions() public {
-		
-		        bytes32 next = states[currentStateId].nextStateId;
-		        bool stateChanged;
-		
-		        while (next != 0) {
-		            // If one of the next state's conditions is met, go to this state and continue
-		            stateChanged = false;
-		            for (uint256 i = 0; i < states[next].startConditions.length; i++) {
-		                if (states[next].startConditions[i](next)) {
-		                    goToNextState();
-		                    next = states[next].nextStateId;
-		                    stateChanged = true;
-		                    break;
-		                }
-		            }
-		            // If none of the next state's conditions are met, then we are in the right current state
-		            if (!stateChanged) break;
-		        }
-		    }
-		
-		    function getCurrentStateId() view public returns(bytes32) {
-		        return currentStateId;
-		    }
-		
-		
-		    /// @dev Setup the state machine with the given states.
-		    /// @param _stateIds Array of state ids.
-		    function setStates(bytes32[] _stateIds) internal {
-		        require(_stateIds.length > 0);
-		        require(currentStateId == 0);
-		
-		        require(_stateIds[0] != 0);
-		
-		        currentStateId = _stateIds[0];
-		
-		        for (uint256 i = 1; i < _stateIds.length; i++) {
-		            require(_stateIds[i] != 0);
-		
-		            states[_stateIds[i - 1]].nextStateId = _stateIds[i];
-		
-		            // Check that the state appears only once in the array
-		            require(states[_stateIds[i]].nextStateId == 0);
-		        }
-		    }
-		
-		    /// @dev Allow a function in the given state.
-		    /// @param _stateId The id of the state
-		    /// @param _functionSelector A function selector (bytes4[keccak256(functionSignature)])
-		    function allowFunction(bytes32 _stateId, bytes4 _functionSelector) internal {
-		        states[_stateId].allowedFunctions[_functionSelector] = true;
-		    }
-		
-		    /// @dev Goes to the next state if possible (if the next state is valid)
-		    function goToNextState() internal {
-		        bytes32 next = states[currentStateId].nextStateId;
-		        require(next != 0);
-		
-		        currentStateId = next;
-		        for (uint256 i = 0; i < states[next].transitionCallbacks.length; i++) {
-		            states[next].transitionCallbacks[i]();
-		        }
-		
-		        emit Transition(next, block.number);
-		    }
-		
-		    ///@dev add a function returning a boolean as a start condition for a state
-		    ///@param _stateId The ID of the state to add the condition for
-		    ///@param _condition Start condition function - returns true if a start condition (for a given state ID) is met
-		    function addStartCondition(bytes32 _stateId, function(bytes32) internal returns(bool) _condition) internal {
-		        states[_stateId].startConditions.push(_condition);
-		    }
-		
-		    ///@dev add a callback function for a state
-		    ///@param _stateId The ID of the state to add a callback function for
-		    ///@param _callback The callback function to add
-		    function addCallback(bytes32 _stateId, function() internal _callback) internal {
-		        states[_stateId].transitionCallbacks.push(_callback);
-		    }
-		
-		}
-	'''
 	    
     def compile(CmlProgram program) '''
 	pragma solidity >=0.4.22 <0.7.0;
 	
 	«FOR contract : program.contracts»
-		«compileOwnedContract»
-		«compileStateMachineContract»
+		import "./lib/Owned.sol";
+		import "./lib/Payment.sol";
+		import "./lib/StateMachine.sol";
 		
-		contract «contract.name» is Owned, StateMachine {
+		contract «contract.name» is Owned, Payment, StateMachine {
 			
+			«contract.compileStates»
 			«program.compileEnums»
 			«contract.compileStructs»
 			«contract.compileEvents»
 			«"/*\n * State variables\n */\n"»
 			«contract.compileAttributes»
-			address _owner;
 			uint _contractStart;
 			mapping(bytes4 => bool) _callSuccessMonitor;
-			mapping(address => uint256) public _balanceOf;
 			
 			«"/*\n * Constructor\n */\n"»
 			«contract.compileConstructor»
 			
+			«contract.compileSetupStates»
+			
 			«"/*\n * Functions\n */\n"»
 		 	«contract.compileFunctions»
 			«contract.compileEventFunctions»
-		    // Payment handling
-		    function deposit(uint256 amount) private 
-		    {
-		    	require(msg.value == amount);
-		    	_balanceOf[msg.sender] += amount;
-		    }
-		    
-		    function withdraw() public 
-		    {
-		    	uint balance = _balanceOf[msg.sender];
-		        _balanceOf[msg.sender] = 0;
-		        msg.sender.transfer(balance);
-		    }
-		    
-		    function transfer(address from, address to, uint256 amount) private 
-		    {
-				_balanceOf[from] -= amount;
-				_balanceOf[to] += amount;
-		    }
 		    
 			// Fallback function
 			function() external payable {}
@@ -351,12 +206,33 @@ class CmlGenerator extends AbstractGenerator2 {
 	
     def compileConstructor(Class c) '''
 		constructor(«FOR a : c.compileConstructorArgs SEPARATOR ', '»«a.key»«a.value»«ENDFOR») public {
-			_owner = msg.sender;
 			«FOR a : c.compileConstructorAttributes»
 				«a.key»= _«a.value»;
 			«ENDFOR»
+			_owner = msg.sender;
 			_contractStart = now;
+			setupStates();
 		}
+    '''
+    
+    def compileStates(Class c) '''
+    	«FOR s : c.clauses.indexed»
+    		bytes32 constant STATE«s.key» = "«s.value.name»";
+    	«ENDFOR»
+    	bytes32[] states = [«FOR s : c.clauses.indexed SEPARATOR ", "»STATE«s.key»«ENDFOR»];
+    	
+    '''
+    
+    def compileSetupStates(Class c) '''
+    	function setupStates() internal {
+    	    setStates(states);
+    	    
+    		«FOR i : c.clauses.indexed»
+    			«FOR j : i.value.action.compoundAction.eAllOfType(AtomicAction)»
+    				allowFunction(STATE«i.key», this.«j.reference.name».selector);    		
+	    	    «ENDFOR»
+    	    «ENDFOR»
+    	}
     '''
     
     def List<Pair<String, String>> compileConstructorArgs(Class c) {
