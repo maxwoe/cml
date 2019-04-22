@@ -133,7 +133,7 @@ AndCompoundAction returns CompoundAction:
 	PrimaryCompoundAction ({AndCompoundAction.left=current} op=('and') right=PrimaryCompoundAction)*;
 
 PrimaryCompoundAction returns CompoundAction:
-	{AtomicAction} reference=[Operation] |
+	{AtomicAction} operation=[Operation] |
 	{NestedCompoundAction} '(' child=CompoundAction ')';
 
 PeriodicTime:

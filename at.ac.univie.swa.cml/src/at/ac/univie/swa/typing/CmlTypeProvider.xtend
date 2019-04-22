@@ -39,6 +39,7 @@ import at.ac.univie.swa.cml.VariableDeclaration
 import at.ac.univie.swa.cml.XorExpression
 import com.google.inject.Inject
 import at.ac.univie.swa.cml.Actor
+import at.ac.univie.swa.cml.Constraint
 
 class CmlTypeProvider {
 	@Inject extension CmlLib
@@ -140,6 +141,7 @@ class CmlTypeProvider {
 				ERROR_TYPE
 			AssignmentExpression case f == ep.assignmentExpression_Right:
 				c.left.typeFor
+			Constraint case f == ep.constraint_Expression,
 			case f == ep.ensureStatement_Expression,
 			case f == ep.ifStatement_Condition:
 				BOOLEAN_TYPE

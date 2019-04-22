@@ -44,7 +44,6 @@ import at.ac.univie.swa.cml.Statement
 import at.ac.univie.swa.cml.StringLiteral
 import at.ac.univie.swa.cml.SuperExpression
 import at.ac.univie.swa.cml.SymbolReference
-import at.ac.univie.swa.cml.ThisExpression
 import at.ac.univie.swa.cml.ThrowStatement
 import at.ac.univie.swa.cml.TimeConstraint
 import at.ac.univie.swa.cml.Type
@@ -62,8 +61,6 @@ import org.eclipse.xtext.generator.IGeneratorContext
 import static extension org.eclipse.emf.ecore.util.EcoreUtil.*
 import static extension org.eclipse.xtext.EcoreUtil2.*
 
-//import static extension org.eclipse.xtext.EcoreUtil2.*
-
 /**
  * Generates code from your model files on save.
  * 
@@ -77,20 +74,21 @@ class CmlGenerator extends AbstractGenerator2 {
 	
 	override doGenerate(Resource resource, ResourceSet input, IFileSystemAccess2 fsa, IGeneratorContext context) {
 		allResources = input.resources.map(r|r.allContents.toIterable.filter(CmlProgram)).flatten
-		
-        copyResource("Owned.sol", fsa)
+			
+		copyResource("Escrow.sol", fsa)
+        copyResource("Ownable.sol", fsa)
+        copyResource("PullPayment.sol", fsa)
         copyResource("SafeMath.sol", fsa)
-        copyResource("Payment.sol", fsa)
-        copyResource("StateMachine.sol", fsa)
+        copyResource("Secondary.sol", fsa)
         
-		for (p : resource.allContents.toIterable.filter(CmlProgram)) {
+        for (p : resource.allContents.toIterable.filter(CmlProgram)) {
 			if(!p.contracts.empty)	
             	fsa.generateFile(resource.URI.trimFileExtension.segmentsList.drop(3).join("/") + ".sol", p.compile)  
         }
 	}
 	
 	def copyResource(String resourceName, IFileSystemAccess2 fsa) {
-		var url = getClass().getClassLoader().getResource("resources/" + resourceName)
+		var url = getClass().getClassLoader().getResource("resources/openzeppelin/" + resourceName)
 		var inputStream = url.openStream
 		try {
 			fsa.generateFile("lib/" + resourceName, inputStream)
@@ -103,13 +101,12 @@ class CmlGenerator extends AbstractGenerator2 {
 	pragma solidity >=0.4.22 <0.7.0;
 	
 	«FOR contract : program.contracts»
-		import "./lib/Owned.sol";
-		import "./lib/Payment.sol";
-		import "./lib/StateMachine.sol";
+		import "./lib/Ownable.sol";
+		import "./lib/PullPayment.sol";
 		
-		contract «contract.name» is Owned, Payment, StateMachine {
+		contract «contract.name» is Ownable, PullPayment {
 			
-			«contract.compileStates»
+«««			«contract.compileStates»
 			«program.compileEnums»
 			«contract.compileStructs»
 			«contract.compileEvents»
@@ -120,38 +117,37 @@ class CmlGenerator extends AbstractGenerator2 {
 			
 			«"/*\n * Constructor\n */\n"»
 			«contract.compileConstructor»
-			
-			«contract.compileSetupStates»
+«««			«contract.compileSetupStates»
 			
 			«"/*\n * Functions\n */\n"»
 		 	«contract.compileFunctions»
-			«contract.compileEventFunctions»
-		    
+			«contract.compileEventFunctions»	    
 			// Fallback function
 			function() external payable {}
 			
 			«"/*\n * Modifiers\n */\n"»
-			// Access control
-			modifier onlyBy(address account) { 
-				require(msg.sender == account, "Sender not authorized."); _;
+			modifier onlyBy(address _account) { 
+				require(msg.sender == _account, "Sender not authorized."); _;
 			}
 			
-			// Temporal control
-			modifier onlyAfter(uint time, uint duration, bool within) {
-				if(!within)
-					require(now > time + duration, "Function called too early.");
-				else require(time + duration > now && now > time, "Function not called within expected timeframe."); _;
+			modifier when(bool _condition) {
+		        require(_condition); _;
+		    }
+			
+			modifier onlyAfter(uint _time, uint _duration, bool _within) {
+				if(!_within)
+					require(now > _time + _duration, "Function called too early.");
+				else require(_time + _duration > now && now > _time, "Function not called within expected timeframe."); _;
 			}
 			
-			modifier onlyBefore(uint time, uint duration, bool within) {
-				if(!within)
-					require(now < time - duration, "Function called too late.");
-				else require(time - duration < now && now < time, "Function not called within expected timeframe."); _;
+			modifier onlyBefore(uint _time, uint _duration, bool _within) {
+				if(!_within)
+					require(now < _time - _duration, "Function called too late.");
+				else require(_time - _duration < now && now < _time, "Function not called within expected timeframe."); _;
 			}
 			
-			// Call control
-			modifier postCall(bytes4 selector) {
-			    _; _callSuccessMonitor[selector] = true;
+			modifier postCall(bytes4 _selector) {
+			    _; _callSuccessMonitor[_selector] = true;
 			}
 		    
 		}
@@ -165,8 +161,10 @@ class CmlGenerator extends AbstractGenerator2 {
 	'''
 			
 	def compileFunctions(Class c) '''
-		«FOR clause : c.clauses SEPARATOR "\n" AFTER "\n"»
-	 		«clause.action.compoundAction.compile»
+		«FOR cl : c.clauses»
+	 		«FOR aa : cl.action.compoundAction.eAllOfType(AtomicAction) SEPARATOR "\n" AFTER "\n"»
+	 			«aa.operation.compile(aa.containingClause)»
+	 		«ENDFOR»
 		«ENDFOR»
 	'''
 
@@ -192,7 +190,7 @@ class CmlGenerator extends AbstractGenerator2 {
 	'''
 	
 	def compileAttributes(Class c) '''
-		«FOR a : c.attributes»
+		«FOR a : c.attributes.filter[!type.conformsToEnum && !type.subclassOfEnum]»
 			«a.compile»;
 		«ENDFOR»
 	'''
@@ -204,14 +202,29 @@ class CmlGenerator extends AbstractGenerator2 {
 		«ENDFOR»
 	'''
 	
-    def compileConstructor(Class c) '''
-		constructor(«FOR a : c.compileConstructorArgs SEPARATOR ', '»«a.key»«a.value»«ENDFOR») public {
-			«FOR a : c.compileConstructorAttributes»
-				«a.key»= _«a.value»;
+    def compileConstructor(Class c) {
+    	val initOperation = c.operations.findFirst[name == "init"]
+    	if(initOperation !== null)
+    		initOperation.compileInitConstructor
+    	else c.compileStandardConstructor
+    }
+	
+	
+	def compileInitConstructor(Operation o) '''	
+		constructor(«o.params.compile») «FOR a : o.compileAnnotations SEPARATOR ' '»«a»«ENDFOR»
+		{
+			«FOR s : o.body?.statements ?: emptyList»
+			«compileStatement(s)»
 			«ENDFOR»
-			_owner = msg.sender;
 			_contractStart = now;
-			setupStates();
+«««			setupStates();
+		}
+	'''
+	
+    def compileStandardConstructor(Class c) '''
+		constructor() public {
+			_contractStart = now;
+«««			setupStates();
 		}
     '''
     
@@ -229,48 +242,33 @@ class CmlGenerator extends AbstractGenerator2 {
     	    
     		«FOR i : c.clauses.indexed»
     			«FOR j : i.value.action.compoundAction.eAllOfType(AtomicAction)»
-    				allowFunction(STATE«i.key», this.«j.reference.name».selector);    		
+    				allowFunction(STATE«i.key», this.«j.operation.name».selector);    		
 	    	    «ENDFOR»
     	    «ENDFOR»
     	}
     '''
     
-    def List<Pair<String, String>> compileConstructorArgs(Class c) {
-    	// TODO
-    	emptyList
-    }
-    
-    def List<Pair<String, String>> compileConstructorAttributes(Class c) {
-    	// TODO
-    	emptyList
-    }
-    
     def String compile(CompoundAction ca) {
 		switch (ca) {
 			OrCompoundAction: {
-				val left = ca.left.compile + "\n"
+				val left = ca.left.compile
 				val right = ca.right.compile
-				//left + " || " + right
-				left + right
+				left + " || " + right
 			}
 			SeqCompoundAction: {
-				val left = ca.left.compile + "\n"
+				val left = ca.left.compile
 				val right = ca.right.compile
-				//left + " then " + right
-				left + right
+				left + " then " + right
 			}
 			AndCompoundAction: {
-				val left = ca.left.compile + "\n"
+				val left = ca.left.compile
 				val right = ca.right.compile
-				//left + " && " + right
-				left + right
+				left + " && " + right
 			}
 			NestedCompoundAction: {
-				ca.child.compile
-				//val child = ca.child.compile				
-				//"(" + child + ")" 
+				"(" + ca.child.compile + ")" 
 			}
-		 	AtomicAction: ca.reference.compile(ca.containingClause).toString
+		 	AtomicAction: ca.operation.name
 		}
 	}
     
@@ -321,6 +319,7 @@ class CmlGenerator extends AbstractGenerator2 {
 		var modifiers = new LinkedHashMap<String, List<String>>(); 
 		var party = c.actor.party
 		var tc = c.antecedent.temporal
+		var gc = c.antecedent.general
 		if(party.name != "anyone")
 			modifiers.put("onlyBy", #[party.name])
 		if(tc !== null) {
@@ -333,6 +332,8 @@ class CmlGenerator extends AbstractGenerator2 {
 					modifiers.put("only" + tc.precedence.literal.toFirstUpper, #[(tc.reference as Expression).compile, tc.timeframe.compile, "true"])
 			}
 		}
+		if(gc !== null)
+			modifiers.put("when", #[gc.expression.compile])
 		modifiers.put("postCall", #["this." + o.name + ".selector"])
 		modifiers
 	}
@@ -357,7 +358,7 @@ class CmlGenerator extends AbstractGenerator2 {
 			«s.elseBlock.compileBlock»
 			«ENDIF»
 			'''
-			EnsureStatement: '''require(«s.expression.compile»«IF s.throwExpression !== null»; «s.throwExpression.compile»«ENDIF»);'''
+			EnsureStatement: '''require(«s.expression.compile»«IF s.throwExpression !== null», «s.throwExpression.compile»«ENDIF»);'''
 			ThrowStatement: '''revert(«s.expression?.compile»);'''
 			default: (s as Expression).compile + ";"
 		}
@@ -388,7 +389,7 @@ class CmlGenerator extends AbstractGenerator2 {
 					case t.conformsToDuration: "uint"
 					case t.conformsToEnum: t.name
 					case t.conformsToAsset: t.name
-					case t.conformsToParty: "address"
+					case t.conformsToParty: "address payable"
 					case t.conformsToEvent: "bool"
 					default: t.name
 				}
@@ -503,7 +504,7 @@ class CmlGenerator extends AbstractGenerator2 {
 			IntegerLiteral: '''«exp.value»'''
 			BooleanLiteral: '''«exp.value»'''
 			StringLiteral: '''"«exp.value»"'''
-			ThisExpression: '''this'''
+			//ThisExpression: '''this''' // concept doesn't exist in solidity
 			SuperExpression: '''super'''
 			DateTimeLiteral: '''«exp.value»'''
 			DurationLiteral: '''«exp.value» «exp.unit»'''
@@ -544,6 +545,7 @@ class CmlGenerator extends AbstractGenerator2 {
 			case c.conformsToDateTime: {
 				switch (o.name) {
 					case "addDuration": receiver.compile + " + " + args.get(0).compile
+					case "subtractDuration" : receiver.compile + " - " + args.get(0).compile
 				}
 			}
 			case c.conformsToInteger: {
@@ -558,14 +560,13 @@ class CmlGenerator extends AbstractGenerator2 {
 			}
 			case c.conformsToParty: {
 				switch (o.name) {
-					case "deposit": "deposit(" + args.get(0).compile + ")"
-					case "withdraw": "//NOOP"
-					case "transfer": "transfer(" + receiver.compile + ", " + args.get(1).compile + ", " + args.get(0).compile +")"
+					case "deposit": "require(msg.value == " + args.get(0).compile + ")"
+					case "transfer": "_asyncTransfer(" + receiver.compile + ", " + args.get(0).compile +")"
 				}
 			}
 			case c.conformsToContract: {
 				switch (o.name) {
-					case "failure": args.get(0).compile
+					case "error": args.get(0).compile
 				}
 			}
 		}
@@ -578,13 +579,13 @@ class CmlGenerator extends AbstractGenerator2 {
 		if (c.conformsToContract) {
 			switch (a.name) {
 				case "contractStart": "_contractStart"
+				case "balance": "address(this).balance"
 			}
 		} else if (t.subclassOfParty) {
 			if (ctx instanceof SymbolReference)
 				a.name + ".id"
 			else if (ctx instanceof FeatureSelection)
-				ctx.receiver.compile + "." + a.name +
-					if(ctx.eContainer instanceof FeatureSelection) "" else ".id"
+				ctx.receiver.compile + "." + a.name + if(ctx.eContainer instanceof FeatureSelection) "" else ".id"
 		} else if (c.conformsToParty) {
 			switch (a.name) {
 				case "id": "address " + a.name
