@@ -21,11 +21,13 @@ import at.ac.univie.swa.cml.Clause
 import at.ac.univie.swa.cml.CmlProgram
 import at.ac.univie.swa.cml.CompoundAction
 import at.ac.univie.swa.cml.DateTimeLiteral
+import at.ac.univie.swa.cml.DoWhileStatement
 import at.ac.univie.swa.cml.DurationLiteral
 import at.ac.univie.swa.cml.EnsureStatement
 import at.ac.univie.swa.cml.EqualityExpression
 import at.ac.univie.swa.cml.Expression
 import at.ac.univie.swa.cml.FeatureSelection
+import at.ac.univie.swa.cml.ForStatement
 import at.ac.univie.swa.cml.IfStatement
 import at.ac.univie.swa.cml.Import
 import at.ac.univie.swa.cml.IntegerLiteral
@@ -43,12 +45,15 @@ import at.ac.univie.swa.cml.SeqCompoundAction
 import at.ac.univie.swa.cml.Statement
 import at.ac.univie.swa.cml.StringLiteral
 import at.ac.univie.swa.cml.SuperExpression
+import at.ac.univie.swa.cml.SwitchStatement
 import at.ac.univie.swa.cml.SymbolReference
 import at.ac.univie.swa.cml.ThrowStatement
 import at.ac.univie.swa.cml.TimeConstraint
 import at.ac.univie.swa.cml.Type
 import at.ac.univie.swa.cml.UnaryExpression
 import at.ac.univie.swa.cml.VariableDeclaration
+import at.ac.univie.swa.cml.WhileStatement
+import at.ac.univie.swa.cml.XorCompoundAction
 import at.ac.univie.swa.typing.CmlTypeConformance
 import com.google.inject.Inject
 import java.util.LinkedHashMap
@@ -250,6 +255,11 @@ class CmlGenerator extends AbstractGenerator2 {
     
     def String compile(CompoundAction ca) {
 		switch (ca) {
+			XorCompoundAction: {
+				val left = ca.left.compile
+				val right = ca.right.compile
+				left + " || " + right
+			}
 			OrCompoundAction: {
 				val left = ca.left.compile
 				val right = ca.right.compile
@@ -351,14 +361,37 @@ class CmlGenerator extends AbstractGenerator2 {
 			VariableDeclaration: '''«s.name» = «s.expression.compile»;'''
 			ReturnStatement: "return " + s.expression.compile + ";"
 			IfStatement: '''
-			if («s.condition.compile»)
-			«s.thenBlock.compileBlock»
-			«IF s.elseBlock !== null»
-			else
-			«s.elseBlock.compileBlock»
-			«ENDIF»
-			'''
-			EnsureStatement: '''require(«s.expression.compile»«IF s.throwExpression !== null», «s.throwExpression.compile»«ENDIF»);'''
+				if («s.condition.compile»)
+				«s.thenBlock.compileBlock»
+				«IF s.elseBlock !== null»
+				else
+				«s.elseBlock.compileBlock»
+				«ENDIF»
+				'''
+			SwitchStatement: '''
+				«FOR c : s.cases.indexed»
+					«IF c.key == 0»if «ELSE»else if«ENDIF»(«s.declaration.compile» == «c.value.^case.compile»)
+					«c.value.thenBlock.compileBlock»
+				«ENDFOR»
+				«IF s.^default»
+					else
+					«s.defaultBlock.compileBlock»
+				«ENDIF»
+				'''
+			DoWhileStatement: '''
+				do
+				«s.block.compileBlock»
+				while («s.condition.compile»);
+				'''
+			WhileStatement: '''
+				while («s.condition.compile»)
+				«s.block.compileBlock»
+				'''
+			ForStatement: '''
+				for («s.declaration.name» = «s.declaration.expression.compile»; «s.condition.compile»; «s.progression.compile»)
+				«s.block.compileBlock»
+				'''
+			EnsureStatement: '''require(«s.condition.compile»«IF s.throwExpression !== null», «s.throwExpression.compile»«ENDIF»);'''
 			ThrowStatement: '''revert(«s.expression?.compile»);'''
 			default: (s as Expression).compile + ";"
 		}

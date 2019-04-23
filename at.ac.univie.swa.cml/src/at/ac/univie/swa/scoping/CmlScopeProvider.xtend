@@ -22,6 +22,7 @@ import org.eclipse.xtext.scoping.IScope
 import org.eclipse.xtext.scoping.Scopes
 import org.eclipse.xtext.scoping.impl.FilteringScope
 import org.eclipse.xtext.scoping.impl.SimpleScope
+import at.ac.univie.swa.cml.ForStatement
 
 /**
  * This class contains custom scoping description.
@@ -68,8 +69,8 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 				parentScope = Scopes::scopeFor(container.attributes + container.operations, parentScope)
 				new SimpleScope(scopeForSymbolRef(container, reference), parentScope.allElements)
 			}
-//			ForLoop:
-//				Scopes.scopeFor(#[container.declaration], scopeForSymbolRef(container) )
+			ForStatement:
+				Scopes.scopeFor(#[container.declaration], scopeForSymbolRef(container, reference) )
 			CmlProgram:
 				allClasses(container, reference)
 			default:

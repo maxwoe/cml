@@ -16,6 +16,7 @@ import com.google.inject.Inject
 import org.eclipse.emf.ecore.EObject
 
 import static extension org.eclipse.xtext.EcoreUtil2.*
+import at.ac.univie.swa.cml.SwitchStatement
 
 class CmlModelUtil {
 
@@ -85,9 +86,9 @@ class CmlModelUtil {
 		e.getContainerOfType(Operation)
 	}
 	
-//	def containingSwitch(EObject e) {
-//		e.getContainerOfType(Switch)
-//	}
+	def containingSwitch(EObject e) {
+		e.getContainerOfType(SwitchStatement)
+	}
 	
 	def containingAttribute(EObject e) {
 		e.getContainerOfType(Attribute)

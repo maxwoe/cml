@@ -2,22 +2,24 @@ package at.ac.univie.swa.typing
 
 import at.ac.univie.swa.CmlLib
 import at.ac.univie.swa.CmlModelUtil
+import at.ac.univie.swa.cml.Actor
 import at.ac.univie.swa.cml.AdditiveExpression
 import at.ac.univie.swa.cml.AndExpression
 import at.ac.univie.swa.cml.AssignmentExpression
 import at.ac.univie.swa.cml.BooleanLiteral
 import at.ac.univie.swa.cml.CallerExpression
+import at.ac.univie.swa.cml.CasePart
 import at.ac.univie.swa.cml.CastedExpression
 import at.ac.univie.swa.cml.Class
 import at.ac.univie.swa.cml.CmlFactory
 import at.ac.univie.swa.cml.CmlPackage
+import at.ac.univie.swa.cml.Constraint
 import at.ac.univie.swa.cml.DateTimeLiteral
 import at.ac.univie.swa.cml.DurationLiteral
 import at.ac.univie.swa.cml.EnsureStatement
 import at.ac.univie.swa.cml.EqualityExpression
 import at.ac.univie.swa.cml.Expression
 import at.ac.univie.swa.cml.FeatureSelection
-import at.ac.univie.swa.cml.ImpliesExpression
 import at.ac.univie.swa.cml.IntegerLiteral
 import at.ac.univie.swa.cml.MultiplicativeExpression
 import at.ac.univie.swa.cml.NullLiteral
@@ -36,10 +38,7 @@ import at.ac.univie.swa.cml.TimeConstraint
 import at.ac.univie.swa.cml.Type
 import at.ac.univie.swa.cml.UnaryExpression
 import at.ac.univie.swa.cml.VariableDeclaration
-import at.ac.univie.swa.cml.XorExpression
 import com.google.inject.Inject
-import at.ac.univie.swa.cml.Actor
-import at.ac.univie.swa.cml.Constraint
 
 class CmlTypeProvider {
 	@Inject extension CmlLib
@@ -62,64 +61,62 @@ class CmlTypeProvider {
 	def Type typeFor(Expression e) {
 		switch (e) {
 			CallerExpression: 
-				return e.getCmlPartyClass
+				e.getCmlPartyClass
 			ThisExpression:
-				return e.containingClass
+				e.containingClass
 			SuperExpression:
-				return e.containingClass.superclassOrObject
+				e.containingClass.superclassOrObject
 			SymbolReference: 
-				return e.symbol.inferType				
+				e.symbol.inferType				
 			NullLiteral:
-				return NULL_TYPE
+				NULL_TYPE
 			StringLiteral:
-				return STRING_TYPE
+				STRING_TYPE
 			BooleanLiteral:
-				return BOOLEAN_TYPE
+				BOOLEAN_TYPE
 			IntegerLiteral:
-				return INTEGER_TYPE
+				INTEGER_TYPE
 			RealLiteral:
-				return REAL_TYPE
+				REAL_TYPE
 			DateTimeLiteral:
-				return DATETIME_TYPE
+				DATETIME_TYPE
 			DurationLiteral:
-				return DURATION_TYPE
-			XorExpression,
+				DURATION_TYPE
 			OrExpression,
 			AndExpression,
 			EqualityExpression,
-			RelationalExpression,
-			ImpliesExpression:
-				return BOOLEAN_TYPE
+			RelationalExpression:
+				BOOLEAN_TYPE
 			AdditiveExpression: {
 				val type = e.left.typeFor
 				if (type.isConformant(INTEGER_TYPE))
-					return INTEGER_TYPE
-				else if(type.isConformant(REAL_TYPE)) return REAL_TYPE else return UNDEFINED_TYPE
+					INTEGER_TYPE
+				else if(type.isConformant(REAL_TYPE)) REAL_TYPE else UNDEFINED_TYPE
 			}
 			MultiplicativeExpression: {
 				val type = e.left.typeFor
 				if (type.isConformant(INTEGER_TYPE))
-					return INTEGER_TYPE
-				else if(type.isConformant(REAL_TYPE)) return REAL_TYPE else return UNDEFINED_TYPE
+					INTEGER_TYPE
+				else if(type.isConformant(REAL_TYPE)) REAL_TYPE else UNDEFINED_TYPE
 			}
 			UnaryExpression: 
 				switch (e.op) {
 					case ('not'),
 					case ('!'):
-						return BOOLEAN_TYPE
+						BOOLEAN_TYPE
 					case ('+'),
 					case ('-'): {
 						val type = e.operand.typeFor
-						if(type.isConformant(INTEGER_TYPE)) return INTEGER_TYPE else if(type.
-							isConformant(REAL_TYPE)) return REAL_TYPE else return UNDEFINED_TYPE
+						if(type.isConformant(INTEGER_TYPE)) INTEGER_TYPE else if(type.
+							isConformant(REAL_TYPE)) REAL_TYPE else UNDEFINED_TYPE
 					}
 				}
 			AssignmentExpression:
-				return e.left.typeFor
+				e.left.typeFor
 			FeatureSelection: 
-				return e.feature.inferType
+				e.feature.inferType
 			CastedExpression:
-				return e.type
+				e.type
 		}
 	}
 	
@@ -142,7 +139,10 @@ class CmlTypeProvider {
 			AssignmentExpression case f == ep.assignmentExpression_Right:
 				c.left.typeFor
 			Constraint case f == ep.constraint_Expression,
-			case f == ep.ensureStatement_Expression,
+			case f == ep.forStatement_Condition,
+			case f == ep.doWhileStatement_Condition,
+			case f == ep.whileStatement_Condition,		
+			case f == ep.ensureStatement_Condition,
 			case f == ep.ifStatement_Condition:
 				BOOLEAN_TYPE
 			AdditiveExpression case f == ep.additiveExpression_Right:
@@ -162,10 +162,8 @@ class CmlTypeProvider {
 				DURATION_TYPE
 //			Attribute case f == ep.attribute_InitExp:
 //				c.type.inferType	
-//			CasePart case f == ep.casePart_Case:
-//				c.containingSwitch.^switch.typeFor
-//			case f == ep.repeatLoop_Condition,
-//			case f == ep.whileLoop_Condition,		
+			CasePart case f == ep.casePart_Case:
+				c.containingSwitch.declaration.typeFor
 			RelationalExpression case f == ep.relationalExpression_Right:
 				c.left.typeFor
 			EqualityExpression case f == ep.equalityExpression_Right:
