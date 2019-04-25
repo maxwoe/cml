@@ -22,6 +22,8 @@ import at.ac.univie.swa.cml.Expression
 import at.ac.univie.swa.cml.FeatureSelection
 import at.ac.univie.swa.cml.IntegerLiteral
 import at.ac.univie.swa.cml.MultiplicativeExpression
+import at.ac.univie.swa.cml.NestedExpression
+import at.ac.univie.swa.cml.NewExpression
 import at.ac.univie.swa.cml.NullLiteral
 import at.ac.univie.swa.cml.Operation
 import at.ac.univie.swa.cml.OrExpression
@@ -60,6 +62,8 @@ class CmlTypeProvider {
 
 	def Type typeFor(Expression e) {
 		switch (e) {
+			NewExpression:
+				e.type
 			CallerExpression: 
 				e.getCmlPartyClass
 			ThisExpression:
@@ -117,6 +121,9 @@ class CmlTypeProvider {
 				e.feature.inferType
 			CastedExpression:
 				e.type
+			NestedExpression:
+				e.child.typeFor
+			default: UNDEFINED_TYPE
 		}
 	}
 	
@@ -129,6 +136,12 @@ class CmlTypeProvider {
 			SymbolReference case f == ep.symbolReference_Args:
 				try {
 					(c.symbol as Operation).params.get(c.args.indexOf(e)).type
+				} catch (Throwable t) {
+					null // otherwise there is no specific expected type
+				}
+			NewExpression case f == ep.newExpression_Args:
+				try {
+					c.type.attributes.get(c.args.indexOf(e)).type
 				} catch (Throwable t) {
 					null // otherwise there is no specific expected type
 				}
@@ -177,6 +190,8 @@ class CmlTypeProvider {
 					null // otherwise there is no specific expected type
 				}
 			}
+			NestedExpression:
+				c.child.typeFor
 		}
 	}
 

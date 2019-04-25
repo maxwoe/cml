@@ -10,13 +10,13 @@ import at.ac.univie.swa.cml.Feature
 import at.ac.univie.swa.cml.NamedElement
 import at.ac.univie.swa.cml.Operation
 import at.ac.univie.swa.cml.ReturnStatement
+import at.ac.univie.swa.cml.SwitchStatement
 import at.ac.univie.swa.cml.VariableDeclaration
 import at.ac.univie.swa.typing.CmlTypeProvider
 import com.google.inject.Inject
 import org.eclipse.emf.ecore.EObject
 
 import static extension org.eclipse.xtext.EcoreUtil2.*
-import at.ac.univie.swa.cml.SwitchStatement
 
 class CmlModelUtil {
 

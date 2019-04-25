@@ -6,10 +6,14 @@ package at.ac.univie.swa.scoping
 import at.ac.univie.swa.CmlModelUtil
 import at.ac.univie.swa.cml.Block
 import at.ac.univie.swa.cml.Class
+import at.ac.univie.swa.cml.Closure
 import at.ac.univie.swa.cml.CmlPackage
 import at.ac.univie.swa.cml.CmlProgram
 import at.ac.univie.swa.cml.FeatureSelection
+import at.ac.univie.swa.cml.ForStatement
+import at.ac.univie.swa.cml.NewExpression
 import at.ac.univie.swa.cml.Operation
+import at.ac.univie.swa.cml.OtherOperatorExpression
 import at.ac.univie.swa.cml.VariableDeclaration
 import at.ac.univie.swa.typing.CmlTypeConformance
 import at.ac.univie.swa.typing.CmlTypeProvider
@@ -22,7 +26,6 @@ import org.eclipse.xtext.scoping.IScope
 import org.eclipse.xtext.scoping.Scopes
 import org.eclipse.xtext.scoping.impl.FilteringScope
 import org.eclipse.xtext.scoping.impl.SimpleScope
-import at.ac.univie.swa.cml.ForStatement
 
 /**
  * This class contains custom scoping description.
@@ -56,6 +59,19 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 		var container = context.eContainer
 
 		return switch (container) {
+			Closure: {
+				var scope = IScope::NULLSCOPE
+				var eContainer = container.eContainer
+				switch (eContainer) {
+					OtherOperatorExpression case eContainer.op == "=>": {
+						var left = eContainer.left
+						if (left instanceof NewExpression)
+							if (left.type instanceof Class)
+								scope = Scopes.scopeFor((left.type as Class).attributes)
+					}
+				}
+				new SimpleScope(scopeForSymbolRef(container, reference), scope.allElements)
+			}
 			Operation:
 				Scopes.scopeFor(container.params, scopeForSymbolRef(container, reference))
 			Block:

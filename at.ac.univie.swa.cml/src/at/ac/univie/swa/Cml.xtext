@@ -150,7 +150,7 @@ enum TemporalPrecedence:
 	AFTER='after';
 
 ClauseQuery:
-	'clause' clause=[Clause];
+	'clause' clause=[Clause] ('fulfilled'|'failed');
 
 EventQuery:
 	'event' event=[Attribute];
@@ -236,7 +236,7 @@ RelationalExpression returns Expression:
 	=> ({RelationalExpression.left=current} op=('>' | '<' | '>=' | '<=')) right=OtherOperatorExpression)*;
 
 OtherOperatorExpression returns Expression:
-	AdditiveExpression (=> ({OtherOperatorExpression.leftOperand=current} op='=>') right=AdditiveExpression)*;
+	AdditiveExpression (=> ({OtherOperatorExpression.left=current} op='=>') right=AdditiveExpression)*;
 
 AdditiveExpression returns Expression:
 	MultiplicativeExpression (=> ({AdditiveExpression.left=current} op=('+' | '-')) right=MultiplicativeExpression)*;
@@ -267,9 +267,9 @@ PrimaryExpression returns Expression:
 	{SuperExpression} 'super' |
 	{CallerExpression} 'caller' |
 	{SymbolReference} symbol=[NamedElement] (=> opCall?='(' (args+=Expression (',' args+=Expression)*)? ')')? |
-	{NewExpression} 'new' type=[Class|QualifiedName] '(' ')' |
+	{NewExpression} 'new' type=[Class|QualifiedName] '(' (args+=Expression (',' args+=Expression)*)? ')' |
 	{NestedExpression} '(' child=Expression ')';
-
+	
 LiteralExpression returns Expression:
 	{IntegerLiteral} value=INT |
 	{BooleanLiteral} value=('false' | 'true') |
@@ -277,7 +277,11 @@ LiteralExpression returns Expression:
 	{RealLiteral} value=REAL |
 	{DurationLiteral} value=INT unit=TimeUnit |
 	{DateTimeLiteral} value=DATE |
-	{NullLiteral} 'null';
+	{NullLiteral} 'null' |
+	{Closure} '[' expression=ExpressionInClosure ']';
+	
+ExpressionInClosure returns Expression:
+	{Block}	(expressions+=Expression ';'?)*;
 
 enum TimeUnit:
 	SECOND='seconds' |

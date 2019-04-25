@@ -27,6 +27,11 @@ import org.eclipse.xtext.validation.Check
 import org.eclipse.xtext.validation.CheckType
 
 import static extension org.eclipse.xtext.EcoreUtil2.*
+import at.ac.univie.swa.cml.SymbolReference
+import at.ac.univie.swa.cml.Closure
+import at.ac.univie.swa.cml.OtherOperatorExpression
+import at.ac.univie.swa.cml.NewExpression
+import at.ac.univie.swa.cml.AssignmentExpression
 
 /**
  * This class contains custom validation rules. 
@@ -57,6 +62,7 @@ class CmlValidator extends AbstractCmlValidator {
 	public static val REDUCED_ACCESSIBILITY = ISSUE_CODE_PREFIX + "ReducedAccessibility"
 	public static val OPPOSITE_INCONSISTENCY = ISSUE_CODE_PREFIX + "OppositeInconsistency"
 	public static val MISSING_IDENTITY_DEFINITION = ISSUE_CODE_PREFIX + "MissingIdentityDefinition"
+	public static val WRONG_SYMBOL_USAGE = ISSUE_CODE_PREFIX + "WrongSymbolUsage"
 	
 	@Check
     def void checkNameStartsWithCapital(Class c) {
@@ -182,17 +188,21 @@ class CmlValidator extends AbstractCmlValidator {
 	}
 
 	@Check
-	def void checkSuper(SuperExpression s) {
+	def void checkSuperUsage(SuperExpression s) {
 		if (s.eContainingFeature != CmlPackage.eINSTANCE.featureSelection_Receiver)
 			error("'super' can be used only as feature selection receiver", null, WRONG_SUPER_USAGE)
+	}
+	
+	@Check
+	def void checkReferenceUsage(SymbolReference sr) {
+		if (sr.symbol instanceof Class && sr.eContainingFeature != CmlPackage.eINSTANCE.featureSelection_Receiver)
+			error("'" + sr.symbol.name + "' can be used only as feature selection receiver", null, WRONG_SYMBOL_USAGE)
 	}
 	
 	@Check
 	def void checkConformance(Expression exp) {
 		val actualType = exp.typeFor
 		val expectedType = exp.expectedType
-		//println("checkConformance: " + exp.class.simpleName)
-		//println("checkConformance: " + actualType.typeName + " : " + expectedType.typeName)
 		if (expectedType === null || actualType === null)
 			return; // nothing to check
 		if (!actualType.isConformant(expectedType)) {
@@ -200,8 +210,38 @@ class CmlValidator extends AbstractCmlValidator {
 				null, INCOMPATIBLE_TYPES);
 		}
 	}
+	
+	@Check
+	def void checkClosureConstuctorArguments(Closure c) {
+		var container = c.eContainer
+		switch (container) {
+			OtherOperatorExpression case container.op == "=>": {
+				var left = container.left
+				if (left instanceof NewExpression)
+					if (left.type instanceof Class) {
+						val expressionInBlock = (c.expression as Block)
+						val expressions = expressionInBlock.expressions
+						val reference = (left.type as Class)
+						val types = expressions.map[typeFor]
+						println(types)
+						val attributes = expressions.filter(AssignmentExpression).map[it.left].filter(SymbolReference).
+							map[it.symbol].filter(Attribute)
+						println(attributes)
+						if (attributes.size != reference.attributes.size) {
+							error("Invalid number of arguments: expected " + reference.attributes.size + " but was " +
+								expressions.size, CmlPackage.eINSTANCE.closure_Expression, INVALID_ARGS)
+						}
+						if (!attributes.sortBy[name].elementsEqual(reference.attributes.sortBy[name])) {
+							error("Invalid declaration", CmlPackage.eINSTANCE.closure_Expression, OPPOSITE_INCONSISTENCY)
+						}
 
-	@Check def void checkMethodInvocationArguments(FeatureSelection fs) {
+					}
+			}
+		}
+	}
+	
+	@Check 
+	def void checkMethodInvocationArguments(FeatureSelection fs) {
 		val operation = fs.feature
 		if (operation instanceof Operation) {
 			if (operation.params.size != fs.args.size) {
@@ -211,16 +251,28 @@ class CmlValidator extends AbstractCmlValidator {
 		}
 	}
 	
-	/* 
-	@Check
-	def void checkNoDeclarationOutsideOfOperationBlock(VariableDeclaration decl){
-		if(decl.containingBlock instanceof ConditionalBlock)
-			error("Variable declaration allowed only in operations' top-level block", 
-				CmlPackage::eINSTANCE.local_Name, 
-				DECLARATION_WITHIN_BLOCK)
+	@Check 
+	def void checkMethodInvocationArguments(SymbolReference sr) {
+		val operation = sr.symbol
+		if (operation instanceof Operation) {
+			if (operation.params.size != sr.args.size) {
+				error("Invalid number of arguments: expected " + operation.params.size + " but was " + sr.args.size,
+					CmlPackage.eINSTANCE.symbolReference_Symbol, INVALID_ARGS)
+			}
+		}
 	}
-	*/
-
+	
+	@Check 
+	def void checkConstructorArguments(NewExpression ne) {
+		val type = ne.type
+		if (type instanceof Class) {
+			if (type.attributes.size != ne.args.size) {
+				error("Invalid number of arguments: expected " + type.attributes.size + " but was " + ne.args.size,
+					CmlPackage.eINSTANCE.newExpression_Type, INVALID_ARGS)
+			}
+		}
+	}
+	
 	def private void checkNoDuplicateElements(Iterable<? extends NamedElement> elements, String desc) {
 		val multiMap = HashMultimap.create()
 

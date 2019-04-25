@@ -65,6 +65,8 @@ import org.eclipse.xtext.generator.IGeneratorContext
 
 import static extension org.eclipse.emf.ecore.util.EcoreUtil.*
 import static extension org.eclipse.xtext.EcoreUtil2.*
+import at.ac.univie.swa.cml.NewExpression
+import at.ac.univie.swa.cml.ThisExpression
 
 /**
  * Generates code from your model files on save.
@@ -305,7 +307,8 @@ class CmlGenerator extends AbstractGenerator2 {
 		function «o.name»(«o.params.compile») «FOR a : o.compileAnnotations SEPARATOR ' '»«a»«ENDFOR»
 			«FOR m : o.deriveModifiers(c).entrySet SEPARATOR ' '»
 				«m.key»(«m.value.join(", ")»)
-		«ENDFOR»
+			«ENDFOR»
+			«IF o.type !== null»returns («(o.type as Type).compile»)«ENDIF»
 		{
 			«FOR s : o.body?.statements ?: emptyList»
 			«compileStatement(s)»
@@ -358,8 +361,8 @@ class CmlGenerator extends AbstractGenerator2 {
 	
 	def String compileStatement(Statement s) {
 		switch (s) {
-			VariableDeclaration: '''«s.name» = «s.expression.compile»;'''
-			ReturnStatement: "return " + s.expression.compile + ";"
+			VariableDeclaration: '''«(s.type as Type).compile» «s.name» = «s.expression.compile»;'''
+			ReturnStatement: "return (" + s.expression.compile + ");"
 			IfStatement: '''
 				if («s.condition.compile»)
 				«s.thenBlock.compileBlock»
@@ -388,7 +391,7 @@ class CmlGenerator extends AbstractGenerator2 {
 				«s.block.compileBlock»
 				'''
 			ForStatement: '''
-				for («s.declaration.name» = «s.declaration.expression.compile»; «s.condition.compile»; «s.progression.compile»)
+				for («s.declaration.compileStatement» «s.condition.compile»; «s.progression.compile»)
 				«s.block.compileBlock»
 				'''
 			EnsureStatement: '''require(«s.condition.compile»«IF s.throwExpression !== null», «s.throwExpression.compile»«ENDIF»);'''
@@ -537,7 +540,8 @@ class CmlGenerator extends AbstractGenerator2 {
 			IntegerLiteral: '''«exp.value»'''
 			BooleanLiteral: '''«exp.value»'''
 			StringLiteral: '''"«exp.value»"'''
-			//ThisExpression: '''this''' // concept doesn't exist in solidity
+			ThisExpression: '''this''' // concept doesn't exist in solidity
+			NewExpression: '''«exp.compile»'''
 			SuperExpression: '''super'''
 			DateTimeLiteral: '''«exp.value»'''
 			DurationLiteral: '''«exp.value» «exp.unit»'''
@@ -547,15 +551,19 @@ class CmlGenerator extends AbstractGenerator2 {
 		}
 	}
 	
+	def compile(NewExpression ne) {
+		ne.type.name + "(" + ne.args.map[compile].join(", ") + ")"
+	}
+			
 	def compile(FeatureSelection fs) {
 		var String rslt
-		
+
 		if (!fs.opCall && fs.feature instanceof Attribute)
 			rslt = interceptAttribute(fs.feature as Attribute, fs)
-		
+
 		if (fs.opCall && fs.feature instanceof Operation)
 			rslt = interceptOperation(fs.feature as Operation, fs.args, fs.receiver)
-		
+
 		rslt ?: {
 			rslt = fs.receiver.compile + "." + fs.feature.name + if (fs.opCall) {
 				"(" + fs.args.map[compile].join(", ") + ")"
@@ -565,61 +573,65 @@ class CmlGenerator extends AbstractGenerator2 {
 	}
 	
 	def compile(SymbolReference sr) {
-		if (!sr.opCall && sr.symbol instanceof Attribute) {
-			interceptAttribute(sr.symbol as Attribute, sr) ?: sr.symbol.name
-		} else if (sr.opCall && sr.symbol instanceof Operation) {
-			interceptOperation(sr.symbol as Operation, sr.args, sr)
-		} else sr.symbol.name
+		var String rslt
+
+		if (!sr.opCall && sr.symbol instanceof Attribute)
+			rslt = interceptAttribute(sr.symbol as Attribute, sr)
+
+		if (sr.opCall && sr.symbol instanceof Operation)
+			rslt = interceptOperation(sr.symbol as Operation, sr.args, sr)
+
+		rslt ?: {
+			sr.symbol.name + if (sr.opCall) {
+				"(" + sr.args.map[compile].join(", ") + ")"
+			} else
+				""
+		}
 	}
 	
 	def interceptOperation(Operation o, List<Expression> args, Expression receiver) {
-		var c = o.containingClass
-		switch (c) {
-			case c.conformsToDateTime: {
+		var containingClass = o.containingClass
+		switch (containingClass) {
+			case containingClass.conformsToDateTime: {
 				switch (o.name) {
 					case "addDuration": receiver.compile + " + " + args.get(0).compile
-					case "subtractDuration" : receiver.compile + " - " + args.get(0).compile
+					case "subtractDuration": receiver.compile + " - " + args.get(0).compile
 				}
 			}
-			case c.conformsToInteger: {
+			case containingClass.conformsToInteger: {
 				switch (o.name) {
-					case "toReal": "IntLib.toReal(" + receiver.compile +")"
+					case "toReal": "IntLib.toReal(" + receiver.compile + ")"
 				}
 			}
-			case c.conformsToReal: {
+			case containingClass.conformsToReal: {
 				switch (o.name) {
-					case "toInteger": "RealLib.toReal(" + receiver.compile +")"
+					case "toInteger": "RealLib.toReal(" + receiver.compile + ")"
 				}
 			}
-			case c.conformsToParty: {
+			case containingClass.conformsToParty: {
 				switch (o.name) {
 					case "deposit": "require(msg.value == " + args.get(0).compile + ")"
-					case "transfer": "_asyncTransfer(" + receiver.compile + ", " + args.get(0).compile +")"
-				}
-			}
-			case c.conformsToContract: {
-				switch (o.name) {
-					case "error": args.get(0).compile
+					case "transfer": "_asyncTransfer(" + receiver.compile + ", " + args.get(0).compile + ")"
 				}
 			}
 		}
 	}
 	
 	def interceptAttribute(Attribute a, Expression ctx) {
-		var c = a.containingClass
-		var t = a.type
+		var containingClass = a.containingClass
+		var attributeType = a.type
 
-		if (c.conformsToContract) {
+		if (containingClass.conformsToContract) {
 			switch (a.name) {
 				case "contractStart": "_contractStart"
 				case "balance": "address(this).balance"
 			}
-		} else if (t.subclassOfParty) {
-			if (ctx instanceof SymbolReference)
+		} else if (attributeType.subclassOfParty) {
+			if (ctx instanceof SymbolReference && !(ctx.eContainer instanceof AssignmentExpression))
 				a.name + ".id"
 			else if (ctx instanceof FeatureSelection)
 				ctx.receiver.compile + "." + a.name + if(ctx.eContainer instanceof FeatureSelection) "" else ".id"
-		} else if (c.conformsToParty) {
+		} else if (containingClass.conformsToParty) {
 			switch (a.name) {
 				case "id": "address " + a.name
 			}
