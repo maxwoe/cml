@@ -23,7 +23,6 @@ import at.ac.univie.swa.cml.FeatureSelection
 import at.ac.univie.swa.cml.IntegerLiteral
 import at.ac.univie.swa.cml.MultiplicativeExpression
 import at.ac.univie.swa.cml.NestedExpression
-import at.ac.univie.swa.cml.NewExpression
 import at.ac.univie.swa.cml.NullLiteral
 import at.ac.univie.swa.cml.Operation
 import at.ac.univie.swa.cml.OrExpression
@@ -62,8 +61,6 @@ class CmlTypeProvider {
 
 	def Type typeFor(Expression e) {
 		switch (e) {
-			NewExpression:
-				e.type
 			CallerExpression: 
 				e.getCmlPartyClass
 			ThisExpression:
@@ -133,18 +130,22 @@ class CmlTypeProvider {
 		switch (c) {
 			Actor case f == ep.actor_Party:
 				c.getCmlPartyClass
-			SymbolReference case f == ep.symbolReference_Args:
-				try {
-					(c.symbol as Operation).params.get(c.args.indexOf(e)).type
-				} catch (Throwable t) {
-					null // otherwise there is no specific expected type
+			SymbolReference case f == ep.symbolReference_Args: {
+				var symbol = c.symbol
+				if (symbol instanceof Operation) {
+					try {
+						symbol.params.get(c.args.indexOf(e)).type
+					} catch (Throwable t) {
+						null // otherwise there is no specific expected type
+					}
+				} else if (symbol instanceof Class) {
+					try {
+						symbol.attributes.get(c.args.indexOf(e)).type
+					} catch (Throwable t) {
+						null // otherwise there is no specific expected type
+					}
 				}
-			NewExpression case f == ep.newExpression_Args:
-				try {
-					c.type.attributes.get(c.args.indexOf(e)).type
-				} catch (Throwable t) {
-					null // otherwise there is no specific expected type
-				}
+			}
 			EnsureStatement case f == ep.ensureStatement_ThrowExpression:
 				ERROR_TYPE
 			ThrowStatement case f == ep.throwStatement_Expression:

@@ -11,7 +11,6 @@ import at.ac.univie.swa.cml.CmlPackage
 import at.ac.univie.swa.cml.CmlProgram
 import at.ac.univie.swa.cml.FeatureSelection
 import at.ac.univie.swa.cml.ForStatement
-import at.ac.univie.swa.cml.NewExpression
 import at.ac.univie.swa.cml.Operation
 import at.ac.univie.swa.cml.OtherOperatorExpression
 import at.ac.univie.swa.cml.VariableDeclaration
@@ -26,6 +25,7 @@ import org.eclipse.xtext.scoping.IScope
 import org.eclipse.xtext.scoping.Scopes
 import org.eclipse.xtext.scoping.impl.FilteringScope
 import org.eclipse.xtext.scoping.impl.SimpleScope
+import at.ac.univie.swa.cml.SymbolReference
 
 /**
  * This class contains custom scoping description.
@@ -65,9 +65,9 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 				switch (eContainer) {
 					OtherOperatorExpression case eContainer.op == "=>": {
 						var left = eContainer.left
-						if (left instanceof NewExpression)
-							if (left.type instanceof Class)
-								scope = Scopes.scopeFor((left.type as Class).attributes)
+						if (left instanceof SymbolReference)
+							if (left.symbol instanceof Class)
+								scope = Scopes.scopeFor((left.symbol as Class).attributes)
 					}
 				}
 				new SimpleScope(scopeForSymbolRef(container, reference), scope.allElements)

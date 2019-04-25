@@ -125,7 +125,7 @@ CompoundAction:
 
 XorCompoundAction returns CompoundAction:
 	OrCompoundAction (=> ({XorCompoundAction.left=current} op='xor') right=OrCompoundAction)*;
-	
+
 OrCompoundAction returns CompoundAction:
 	SeqCompoundAction ({OrCompoundAction.left=current} op=('or') right=SeqCompoundAction)*;
 
@@ -150,7 +150,7 @@ enum TemporalPrecedence:
 	AFTER='after';
 
 ClauseQuery:
-	'clause' clause=[Clause] ('fulfilled'|'failed');
+	'clause' clause=[Clause] ('fulfilled' | 'failed');
 
 EventQuery:
 	'event' event=[Attribute];
@@ -197,7 +197,7 @@ EnsureStatement:
 	'ensure' condition=Expression (=> 'else' 'throw' throwExpression=Expression)?;
 
 SwitchStatement:
-	'switch' ('(' declaration=Expression ')' | => declaration=Expression)
+	'match' ('(' declaration=Expression ')' | => declaration=Expression)
 	BEGIN
 	(cases+=CasePart)*
 	(default?='default' ':' defaultBlock=ConditionalBlock)?
@@ -213,7 +213,7 @@ DoWhileStatement:
 	'do' block=ConditionalBlock 'while' ('(' condition=Expression ')' | => condition=Expression);
 
 ForStatement:
-	'for' '(' declaration=VariableDeclaration ',' condition=Expression ',' progression=Expression ')' block=Block;
+	'for' '(' declaration=VariableDeclaration ';' condition=Expression ';' progression=Expression ')' block=Block;
 
 Expression:
 	AssignmentExpression;
@@ -232,7 +232,7 @@ EqualityExpression returns Expression:
 
 RelationalExpression returns Expression:
 	OtherOperatorExpression
-	(=> ({InstanceOfExpression.expression=current} 'instanceof') type=[Class|QualifiedName] |
+	(=> ({InstanceOfExpression.expression=current} 'is') type=[Class|QualifiedName] |
 	=> ({RelationalExpression.left=current} op=('>' | '<' | '>=' | '<=')) right=OtherOperatorExpression)*;
 
 OtherOperatorExpression returns Expression:
@@ -267,9 +267,8 @@ PrimaryExpression returns Expression:
 	{SuperExpression} 'super' |
 	{CallerExpression} 'caller' |
 	{SymbolReference} symbol=[NamedElement] (=> opCall?='(' (args+=Expression (',' args+=Expression)*)? ')')? |
-	{NewExpression} 'new' type=[Class|QualifiedName] '(' (args+=Expression (',' args+=Expression)*)? ')' |
 	{NestedExpression} '(' child=Expression ')';
-	
+
 LiteralExpression returns Expression:
 	{IntegerLiteral} value=INT |
 	{BooleanLiteral} value=('false' | 'true') |
@@ -279,9 +278,9 @@ LiteralExpression returns Expression:
 	{DateTimeLiteral} value=DATE |
 	{NullLiteral} 'null' |
 	{Closure} '[' expression=ExpressionInClosure ']';
-	
+
 ExpressionInClosure returns Expression:
-	{Block}	(expressions+=Expression ';'?)*;
+	{Block} (expressions+=Expression ';'?)*;
 
 enum TimeUnit:
 	SECOND='seconds' |
