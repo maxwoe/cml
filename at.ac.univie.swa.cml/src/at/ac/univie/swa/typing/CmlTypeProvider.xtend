@@ -40,12 +40,14 @@ import at.ac.univie.swa.cml.Type
 import at.ac.univie.swa.cml.UnaryExpression
 import at.ac.univie.swa.cml.VariableDeclaration
 import com.google.inject.Inject
+import at.ac.univie.swa.cml.OtherOperatorExpression
+import at.ac.univie.swa.cml.Closure
 
 class CmlTypeProvider {
 	@Inject extension CmlLib
 	@Inject extension CmlModelUtil
 	@Inject extension CmlTypeConformance
-	
+
 	public static val STRING_TYPE = CmlFactory::eINSTANCE.createClass => [name = "String"]
 	public static val INTEGER_TYPE = CmlFactory::eINSTANCE.createClass => [name = "Integer"]
 	public static val BOOLEAN_TYPE = CmlFactory::eINSTANCE.createClass => [name = "Boolean"]
@@ -61,14 +63,14 @@ class CmlTypeProvider {
 
 	def Type typeFor(Expression e) {
 		switch (e) {
-			CallerExpression: 
+			CallerExpression:
 				e.getCmlPartyClass
 			ThisExpression:
 				e.containingClass
 			SuperExpression:
 				e.containingClass.superclassOrObject
-			SymbolReference: 
-				e.symbol.inferType				
+			SymbolReference:
+				e.symbol.inferType
 			NullLiteral:
 				NULL_TYPE
 			StringLiteral:
@@ -100,7 +102,7 @@ class CmlTypeProvider {
 					INTEGER_TYPE
 				else if(type.isConformant(REAL_TYPE)) REAL_TYPE else UNDEFINED_TYPE
 			}
-			UnaryExpression: 
+			UnaryExpression:
 				switch (e.op) {
 					case ('not'),
 					case ('!'):
@@ -108,22 +110,38 @@ class CmlTypeProvider {
 					case ('+'),
 					case ('-'): {
 						val type = e.operand.typeFor
-						if(type.isConformant(INTEGER_TYPE)) INTEGER_TYPE else if(type.
-							isConformant(REAL_TYPE)) REAL_TYPE else UNDEFINED_TYPE
+						if (type.isConformant(INTEGER_TYPE))
+							INTEGER_TYPE
+						else if(type.isConformant(REAL_TYPE)) REAL_TYPE else UNDEFINED_TYPE
 					}
 				}
 			AssignmentExpression:
 				e.left.typeFor
-			FeatureSelection: 
+			FeatureSelection:
 				e.feature.inferType
 			CastedExpression:
 				e.type
 			NestedExpression:
 				e.child.typeFor
-			default: UNDEFINED_TYPE
+			OtherOperatorExpression: {
+				val left = e.left
+				val right = e.right
+				if (e.op == "=>") {
+					if (right instanceof Closure) {
+						if (left instanceof SymbolReference) {
+							val symbol = left.symbol
+							if (symbol instanceof Class) {
+								symbol
+							}
+						}
+					}
+				}
+			}
+			default:
+				UNDEFINED_TYPE
 		}
 	}
-	
+
 	def Type expectedType(Expression e) {
 		val c = e.eContainer
 		val f = e.eContainingFeature
@@ -140,7 +158,7 @@ class CmlTypeProvider {
 					}
 				} else if (symbol instanceof Class) {
 					try {
-						symbol.attributes.get(c.args.indexOf(e)).type
+						symbol.classHierarchyAttributes.values.get(c.args.indexOf(e)).type
 					} catch (Throwable t) {
 						null // otherwise there is no specific expected type
 					}
@@ -155,7 +173,7 @@ class CmlTypeProvider {
 			Constraint case f == ep.constraint_Expression,
 			case f == ep.forStatement_Condition,
 			case f == ep.doWhileStatement_Condition,
-			case f == ep.whileStatement_Condition,		
+			case f == ep.whileStatement_Condition,
 			case f == ep.ensureStatement_Condition,
 			case f == ep.ifStatement_Condition:
 				BOOLEAN_TYPE
@@ -199,7 +217,7 @@ class CmlTypeProvider {
 	def isPrimitive(Type c) {
 		c instanceof Class && (c as Class).eResource === null
 	}
-	
+
 	def getSuperclassOrObject(Class c) {
 		switch (c.kind) {
 			case "party": getCmlPartyClass(c)
@@ -210,7 +228,7 @@ class CmlTypeProvider {
 			case "contract": getCmlContractClass(c)
 			default: c.superclass ?: getCmlAnyClass(c)
 		}
-		
+
 	}
-	
+
 }

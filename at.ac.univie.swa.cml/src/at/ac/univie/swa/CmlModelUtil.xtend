@@ -34,6 +34,10 @@ class CmlModelUtil {
 		p.declarations.filter(Class)
 	}
 	
+	def concepts(CmlProgram p) {
+		p.classes.filter[kind=="concept"]
+	}
+	
 	def parties(CmlProgram p) {
 		p.classes.filter[kind=="party"]
 	}
@@ -152,19 +156,17 @@ class CmlModelUtil {
 	}
 
 	def classHierarchyOperations(Class c) {
-		// reverse the list so that methods in subclasses
-		// will be added later to the map, thus overriding
-		// the one already present in the superclasses
-		// if the methods have the same name
-		c.classHierarchyWithObject.toList.reverseView.map[operations].flatten.toMap[name]
+		var hierarchy = newLinkedHashSet()
+		hierarchy.add(c)
+		hierarchy.addAll(c.classHierarchyWithObject)
+		hierarchy.toList.reverseView.map[operations].flatten.toMap[name]
 	}
 	
 	def classHierarchyAttributes(Class c) {
-		c.classHierarchyWithObject.toList.reverseView.map[attributes].flatten.toMap[name]
+		var hierarchy = newLinkedHashSet()
+		hierarchy.add(c)
+		hierarchy.addAll(c.classHierarchyWithObject)
+		hierarchy.toList.reverseView.map[attributes].flatten.toMap[name]
 	}
-
-	def classHierarchyFeatures(Class c) {
-		c.classHierarchyWithObject.map[features].flatten
-	}
-
+	
 }

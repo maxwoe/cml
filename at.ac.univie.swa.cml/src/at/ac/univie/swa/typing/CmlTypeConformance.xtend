@@ -38,6 +38,11 @@ class CmlTypeConformance {
 		(c1.conformsToDuration && c2.conformsToDuration) ||
 		(c1.conformsToError && c2.conformsToError)
 	}
+	
+	def conformsToLibraryType(Class c) {
+		c.conformsToString || c.conformsToInteger || c.conformsToBoolean || c.conformsToReal || c.conformsToDateTime ||
+			c.conformsToDuration || c.conformsToError
+	}
 
 	def conformsToVoid(Class c) {
 		c == VOID_TYPE

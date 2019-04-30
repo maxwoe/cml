@@ -47,6 +47,7 @@ import at.ac.univie.swa.cml.StringLiteral
 import at.ac.univie.swa.cml.SuperExpression
 import at.ac.univie.swa.cml.SwitchStatement
 import at.ac.univie.swa.cml.SymbolReference
+import at.ac.univie.swa.cml.ThisExpression
 import at.ac.univie.swa.cml.ThrowStatement
 import at.ac.univie.swa.cml.TimeConstraint
 import at.ac.univie.swa.cml.Type
@@ -55,9 +56,12 @@ import at.ac.univie.swa.cml.VariableDeclaration
 import at.ac.univie.swa.cml.WhileStatement
 import at.ac.univie.swa.cml.XorCompoundAction
 import at.ac.univie.swa.typing.CmlTypeConformance
+import at.ac.univie.swa.typing.CmlTypeProvider
 import com.google.inject.Inject
+import java.util.HashMap
 import java.util.LinkedHashMap
 import java.util.List
+import java.util.Set
 import org.eclipse.emf.ecore.resource.Resource
 import org.eclipse.emf.ecore.resource.ResourceSet
 import org.eclipse.xtext.generator.IFileSystemAccess2
@@ -65,7 +69,6 @@ import org.eclipse.xtext.generator.IGeneratorContext
 
 import static extension org.eclipse.emf.ecore.util.EcoreUtil.*
 import static extension org.eclipse.xtext.EcoreUtil2.*
-import at.ac.univie.swa.cml.ThisExpression
 
 /**
  * Generates code from your model files on save.
@@ -74,8 +77,11 @@ import at.ac.univie.swa.cml.ThisExpression
  */
 class CmlGenerator extends AbstractGenerator2 {
 
+	public final boolean DECOMPOSE_STRUCTS = true  
+	
 	@Inject extension CmlModelUtil
 	@Inject extension CmlTypeConformance
+	@Inject extension CmlTypeProvider
 	Iterable<CmlProgram> allResources;
 
 	override doGenerate(Resource resource, ResourceSet input, IFileSystemAccess2 fsa, IGeneratorContext context) {
@@ -105,57 +111,56 @@ class CmlGenerator extends AbstractGenerator2 {
 
 	def compile(CmlProgram program) '''
 		pragma solidity >=0.4.22 <0.7.0;
-		
 		«FOR contract : program.contracts»
 			import "./lib/Ownable.sol";
 			import "./lib/PullPayment.sol";
 			
 			contract «contract.name» is Ownable, PullPayment {
+			
+«««				«contract.compileStates»
+				«contract.compileEnums»
+				«contract.compileStructs»
+				«contract.compileEvents»
+				«"/*\n * State variables\n */\n"»
+				«contract.compileAttributes»
+				uint _contractStart;
+				mapping(bytes4 => bool) _callSuccessMonitor;
 				
-		«««			«contract.compileStates»
-			«program.compileEnums»
-			«contract.compileStructs»
-			«contract.compileEvents»
-			«"/*\n * State variables\n */\n"»
-			«contract.compileAttributes»
-			uint _contractStart;
-			mapping(bytes4 => bool) _callSuccessMonitor;
-			
-			«"/*\n * Constructor\n */\n"»
-			«contract.compileConstructor»
-		«««			«c	tract.compileSetupStates»
-			
-			«"/*\n * Functions\n */\n"»
+				«"/*\n * Constructor\n */\n"»
+				«contract.compileConstructor»
+«««				«contract.compileSetupStates»
+
+				«"/*\n * Functions\n */\n"»
 				«contract.compileFunctions»
-			«contract.compileEventFunctions»	    
-			// Fallback function
-			function() external payable {}
-			
-			«"/*\n * Modifiers\n */\n"»
-			modifier onlyBy(address _account) { 
-				require(msg.sender == _account, "Sender not authorized."); _;
-			}
-			
-			modifier when(bool _condition) {
-			       require(_condition); _;
-			}
-			
-			modifier onlyAfter(uint _time, uint _duration, bool _within) {
-				if(!_within)
-					require(now > _time + _duration, "Function called too early.");
-				else require(_time + _duration > now && now > _time, "Function not called within expected timeframe."); _;
-			}
-			
-			modifier onlyBefore(uint _time, uint _duration, bool _within) {
-				if(!_within)
-					require(now < _time - _duration, "Function called too late.");
-				else require(_time - _duration < now && now < _time, "Function not called within expected timeframe."); _;
-			}
-			
-			modifier postCall() {
-			    _; _callSuccessMonitor[msg.sig] = true;
-			}
-			   
+				«contract.compileEventFunctions»
+				// Fallback function
+				function() external payable {}
+				
+				«"/*\n * Modifiers\n */\n"»
+				modifier onlyBy(address _account) { 
+					require(msg.sender == _account, "Sender not authorized."); _;
+				}
+				
+				modifier when(bool _condition) {
+				       require(_condition); _;
+				}
+				
+				modifier onlyAfter(uint _time, uint _duration, bool _within) {
+					if(!_within)
+						require(now > _time + _duration, "Function called too early.");
+					else require(_time + _duration > now && now > _time, "Function not called within expected timeframe."); _;
+				}
+				
+				modifier onlyBefore(uint _time, uint _duration, bool _within) {
+					if(!_within)
+						require(now < _time - _duration, "Function called too late.");
+					else require(_time - _duration < now && now < _time, "Function not called within expected timeframe."); _;
+				}
+				
+				modifier postCall() {
+				    _; _callSuccessMonitor[msg.sig] = true;
+				}
+				   
 			}
 		«ENDFOR»
 	   '''
@@ -174,24 +179,37 @@ class CmlGenerator extends AbstractGenerator2 {
 		«ENDFOR»
 	'''
 
-	def compileEnums(CmlProgram p) '''
-		«FOR e : p.enums + p.gatherImportedEnums BEFORE "/*\n * Enums\n */\n" AFTER "\n"»
-			«e.compileEnum»
+	def String compileEnums(Class c) '''
+		«FOR a : c.gatherEnums BEFORE "/*\n * Enums\n */\n" SEPARATOR "" AFTER "\n"»
+			«a.compileEnum»
 		«ENDFOR»
 	'''
-
-//	def referencedEnums(Class c) {
-//		(c.getAllContentsOfType(SymbolReference).map[symbol].filter(Class).filter[subclassOfEnum] +
-//			c.getAllContentsOfType(Operation).map[inferType]?.filter[subclassOfEnum] +
-//			c.getAllContentsOfType(Operation).map[params]?.filter(Attribute).map[type].filter[subclassOfEnum] +
-//			c.getAllContentsOfType(Attribute).map[type].filter[subclassOfEnum]).toSet
-//	}
-	def compileStructs(Class c) '''
-		«FOR a : c.attributes.filter[type.conformsToAsset || type.subclassOfAsset || type.subclassOfParty].map[type].toSet BEFORE "/*\n * Structs\n */\n" SEPARATOR "\n" AFTER "\n"»
-			«a.compile»
+	
+	def Set<Class> gatherEnums(Class c) {
+		var set = newLinkedHashSet
+		for(class : c.attributes.map[type]) {
+			if(class.conformsToEnum || class.subclassOfEnum)
+				set.add(class)
+			set.addAll(gatherEnums(class))
+		}
+		set
+	}
+	
+	def String compileStructs(Class c) '''
+		«FOR entry : c.gatherStructs BEFORE "/*\n * Structs\n */\n" SEPARATOR "\n" AFTER "\n"»
+			«entry.compile»
 		«ENDFOR»
 	'''
-
+	
+	def Set<Class> gatherStructs(Class c) {
+		var set = newLinkedHashSet
+		for(class : c.attributes.filter[type.conformsToAsset || type.subclassOfAsset || type.subclassOfParty].map[type]) {
+			set.add(class)
+			set.addAll(gatherStructs(class))
+		}
+		set
+	}
+	
 	def compileAttributes(Class c) '''
 		«FOR a : c.attributes.filter[!type.conformsToEnum && !type.subclassOfEnum]»
 			«a.compile»;
@@ -213,20 +231,20 @@ class CmlGenerator extends AbstractGenerator2 {
 	}
 
 	def compileInitConstructor(Operation o) '''	
-		constructor(«o.params.compile») «FOR a : o.compileAnnotations SEPARATOR ' '»«a»«ENDFOR»
+		constructor(«o.params.compileOperationParams») «FOR a : o.compileAnnotations SEPARATOR ' '»«a»«ENDFOR»
 		{
 			«FOR s : o.body?.statements ?: emptyList»
 				«compileStatement(s)»
 			«ENDFOR»
 			_contractStart = now;
-		«««			setupStates();
+«««			setupStates();
 		}
 	'''
 
 	def compileStandardConstructor(Class c) '''
 		constructor() public {
 			_contractStart = now;
-		«««			setpStates();
+«««			setpStates();
 		}
     '''
 
@@ -279,38 +297,58 @@ class CmlGenerator extends AbstractGenerator2 {
 				ca.operation.name
 		}
 	}
-
-	def compile(List<Attribute> attributes) '''
-	«FOR a : attributes SEPARATOR ', '»«a.compile»«ENDFOR»'''
-
-	def compile(Attribute a) {
-		interceptAttribute(a, null) ?: '''«(a.type as Type).compile» «a.name»'''
-	}
+	
+	def compile(Attribute a) '''
+		«(a.type as Type).compile» «a.name»'''
 
 	def compile(Class c) '''
 		struct «c.name.toFirstUpper» {
-		   	«FOR a : c.classHierarchyAttributes.values»
-		   		«a.compile»;
-		   	«ENDFOR»
-		   	«FOR a : c.attributes»
-		   		«a.compile»;
-		   	«ENDFOR»
+			«FOR a : c.classHierarchyAttributes.values»
+				«a.compile»;
+	   		«ENDFOR»
 		}
 	'''
 
 	def compile(Operation o, Clause c) '''	
 		// @notice function for clause «c.name»
-		function «o.name»(«o.params.compile») «FOR a : o.compileAnnotations SEPARATOR ' '»«a»«ENDFOR»
+		function «o.name»(«o.params.compileOperationParams») «FOR a : o.compileAnnotations SEPARATOR ' '»«a»«ENDFOR»
 			«FOR m : o.deriveModifiers(c).entrySet SEPARATOR ' '»
 				«m.key»(«m.value.join(", ")»)
 			«ENDFOR»
-			«IF o.type !== null»returns («(o.type as Type).compile»)«ENDIF»
+			«IF o.type !== null»returns («o.type.compileOperationReturn»)«ENDIF»
 		{
 			«FOR s : o.body?.statements ?: emptyList»
 				«compileStatement(s)»
 			«ENDFOR»
 		}
 	'''
+	
+	def HashMap<Attribute, String> decompose(Class c, String prefix) {
+		var map = newLinkedHashMap
+		for(entry : c.classHierarchyAttributes.entrySet) {
+			if(entry.value.type.conformsToLibraryType) {
+				var name = ""
+				if (prefix.nullOrEmpty)
+					name = entry.value.name
+				else name = prefix + entry.value.name.toFirstUpper
+				map.put(entry.value, name)
+			}
+			else map.putAll(decompose(entry.value.type, entry.value.name))
+		}
+		map
+	}
+	
+	def compileOperationParams(List<Attribute> attributes) '''
+		«FOR a : attributes SEPARATOR ', '»
+			«IF !a.type.conformsToLibraryType && DECOMPOSE_STRUCTS»		
+			«FOR da : a.type.decompose("").entrySet SEPARATOR ', '»
+			«da.key.compile»«ENDFOR»«ELSE»«a.compile»
+			«ENDIF»
+		«ENDFOR»'''
+		
+	def compileOperationReturn(Class c) '''
+		«IF !c.conformsToLibraryType && DECOMPOSE_STRUCTS»
+			«FOR a : c.decompose("").keySet SEPARATOR ', '»«(a.type as Type).compile»«ENDFOR»«ELSE»«(c as Type).compile»«ENDIF»'''
 
 	def List<String> compileAnnotations(Operation o) {
 		var list = newArrayList
@@ -358,12 +396,31 @@ class CmlGenerator extends AbstractGenerator2 {
 			«ENDFOR»
 		}
 	'''
+	
+	def String compileReturn(Expression exp) {
+		if (DECOMPOSE_STRUCTS) {
+			switch (exp) {
+				SymbolReference: {
+					val symbol = exp.symbol
+					switch (symbol) {
+						Class case exp.opCall ==
+							true: '''«FOR arg : exp.args SEPARATOR ', '»«arg.compileReturn»«ENDFOR»'''
+						VariableDeclaration: '''«FOR a : symbol.type.decompose("").keySet SEPARATOR ', '»«symbol.name».«a.name»«ENDFOR»'''
+						Attribute: '''«FOR a : symbol.type.decompose("").keySet SEPARATOR ', '»«symbol.name».«a.name»«ENDFOR»'''
+					}
+				}
+				default:
+					exp.compile
+			}
+		} else
+			exp.compile
+	}
 
 	def String compileStatement(Statement s) {
 		switch (s) {
-			VariableDeclaration: '''«(s.type as Type).compile» «s.name» = «s.expression.compile»;'''
+			VariableDeclaration: '''«(s.type as Type).compile» «IF !s.expression.eAllOfType(SymbolReference).filter[typeFor instanceof Class && opCall].empty»memory «ENDIF»«s.name» = «s.expression.compile»;'''
 			ReturnStatement:
-				"return (" + s.expression.compile + ");"
+				"return (" + s.expression.compileReturn + ");"
 			IfStatement: '''
 				if («s.condition.compile»)
 				«s.thenBlock.compileBlock»
@@ -464,10 +521,6 @@ class CmlGenerator extends AbstractGenerator2 {
 			resources.findFirst[name == i.copy.importedNamespace.replace(".*", "")]
 	}
 
-	def gatherImportedEnums(CmlProgram program) {
-		program.gatherImportedResources.map[enums].flatten
-	}
-
 	def gatherImportedResources(CmlProgram program) {
 		var list = newArrayList
 		for (import : program.imports) {
@@ -557,7 +610,8 @@ class CmlGenerator extends AbstractGenerator2 {
 			rslt = interceptOperation(fs.feature as Operation, fs.args, fs.receiver)
 
 		rslt ?: {
-			rslt = fs.receiver.compile + "." + fs.feature.name + if (fs.opCall) {
+			(if(!fs.receiver.compile.nullOrEmpty) fs.receiver.compile + "." else "") +
+			fs.feature.name + if (fs.opCall) {
 				"(" + fs.args.map[compile].join(", ") + ")"
 			} else
 				""
@@ -577,7 +631,8 @@ class CmlGenerator extends AbstractGenerator2 {
 			rslt = interceptClass(sr.symbol as Class, sr.args, sr)
 
 		rslt ?: {
-			sr.symbol.name + if (sr.opCall) {
+			(if(sr.containingOperation !== null && sr.containingOperation.params.contains(sr.symbol) && DECOMPOSE_STRUCTS) "" else sr.symbol.name) + 
+			if (sr.opCall) {
 				"(" + sr.args.map[compile].join(", ") + ")"
 			} else
 				""
@@ -593,22 +648,16 @@ class CmlGenerator extends AbstractGenerator2 {
 	}
 
 	def interceptAttribute(Attribute a, Expression reference) {
-		var containingClass = a.containingClass
-		var attributeType = a.type
+		val containingClass = a.containingClass
 
 		if (containingClass.conformsToContract) {
 			switch (a.name) {
 				case "contractStart": "_contractStart"
 				case "balance": "address(this).balance"
 			}
-		} else if (attributeType.subclassOfParty) {
-			if (reference instanceof SymbolReference && !(reference.eContainer instanceof AssignmentExpression))
-				a.name + ".id"
-			else if (reference instanceof FeatureSelection)
-				reference.receiver.compile + "." + a.name + if(reference.eContainer instanceof FeatureSelection) "" else ".id"
-		} else if (containingClass.conformsToParty) {
+		} else if (containingClass.conformsToParty && reference === null) {
 			switch (a.name) {
-				case "id": "address " + a.name
+				case "id": "address payable" + a.name
 			}
 		}
 	}

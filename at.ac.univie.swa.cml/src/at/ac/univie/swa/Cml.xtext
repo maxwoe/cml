@@ -21,27 +21,27 @@ Class:
 
 Contract returns Class:
 	(abstract?='abstract')? kind='contract' name=ID ('extends' superclass=[Class|QualifiedName])?
-	BEGIN
+	(BEGIN
 	features+=FeatureAttributeAndOperationAndClause*
-	END;
+	END)?;
 
 Party returns Class:
 	(abstract?='abstract')? kind='party' name=ID ('extends' superclass=[Class|QualifiedName])?
-	BEGIN
+	(BEGIN
 	features+=FeatureAttribute+
-	END;
+	END)?;
 
 Asset returns Class:
 	(abstract?='abstract')? kind='asset' name=ID ('extends' superclass=[Class|QualifiedName])?
-	BEGIN
+	(BEGIN
 	features+=FeatureAttribute+
-	END;
+	END)?;
 
 Transaction returns Class:
 	(abstract?='abstract')? kind='transaction' name=ID ('extends' superclass=[Class|QualifiedName])?
-	BEGIN
+	(BEGIN
 	features+=FeatureAttribute+
-	END;
+	END)?;
 
 Event returns Class:
 	kind='event' name=ID
@@ -86,12 +86,9 @@ Attribute:
 	TypedDeclaration;
 
 Operation:
-	access=AccessLevel? (type=[Class|QualifiedName])? name=ID
+	(type=[Class|QualifiedName])? name=ID
 	'(' (params+=Attribute (',' params+=Attribute)*)? ')'
 	(body=Block)?;
-
-enum AccessLevel:
-	PUBLIC='public' | PRIVATE='private' | PROTECTED='protected';
 
 Clause:
 	'clause' name=ID

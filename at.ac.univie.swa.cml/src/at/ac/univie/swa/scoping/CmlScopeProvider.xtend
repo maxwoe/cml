@@ -66,8 +66,12 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 					OtherOperatorExpression case eContainer.op == "=>": {
 						var left = eContainer.left
 						if (left instanceof SymbolReference)
-							if (left.symbol instanceof Class)
-								scope = Scopes.scopeFor((left.symbol as Class).attributes)
+							if (left.symbol instanceof Class) {
+								for (c : (left.symbol as Class).classHierarchyWithObject.toList.reverseView) {
+									scope = Scopes::scopeFor((c as Class).attributes, scope)
+								}
+								scope = Scopes.scopeFor((left.symbol as Class).attributes, scope)
+							}
 					}
 				}
 				new SimpleScope(scopeForSymbolRef(container, reference), scope.allElements)
@@ -86,7 +90,7 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 				new SimpleScope(scopeForSymbolRef(container, reference), parentScope.allElements)
 			}
 			ForStatement:
-				Scopes.scopeFor(#[container.declaration], scopeForSymbolRef(container, reference) )
+				Scopes.scopeFor(#[container.declaration], scopeForSymbolRef(container, reference))
 			CmlProgram:
 				allClasses(container, reference)
 			default:
@@ -105,7 +109,7 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 				return Scopes::scopeFor(type.enumElements)
 
 			var parentScope = IScope::NULLSCOPE
-			for (c : type.classHierarchyWithObject.toArray().reverseView) {
+			for (c : type.classHierarchyWithObject.toList.reverseView) {
 				parentScope = Scopes::scopeFor((c as Class).selectedFeatures(fs), parentScope)
 			}
 			return Scopes::scopeFor(type.selectedFeatures(fs), parentScope)
@@ -121,20 +125,24 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 
 	def IScope scopeForPartyRef(EObject context) {
 		var parentScope = IScope::NULLSCOPE
-		for (c : context.containingClass.classHierarchyWithObject.toArray().reverseView) {
-			parentScope = Scopes::scopeFor((c as Class).attributes.filter[type.conformsToParty || type.subclassOfParty], parentScope)
+		for (c : context.containingClass.classHierarchyWithObject.toList.reverseView) {
+			parentScope = Scopes::scopeFor((c as Class).attributes.filter[type.conformsToParty || type.subclassOfParty],
+				parentScope)
 		}
-		return Scopes::scopeFor(context.containingClass.attributes.filter[type.conformsToParty || type.subclassOfParty], parentScope)
+		return Scopes::scopeFor(context.containingClass.attributes.filter[type.conformsToParty || type.subclassOfParty],
+			parentScope)
 	}
 
 	def IScope scopeForEventRef(EObject context) {
 		var parentScope = IScope::NULLSCOPE
-		for (c : context.containingClass.classHierarchyWithObject.toArray().reverseView) {
-			parentScope = Scopes::scopeFor((c as Class).attributes.filter[type.conformsToEvent || type.subclassOfEvent], parentScope)
+		for (c : context.containingClass.classHierarchyWithObject.toList.reverseView) {
+			parentScope = Scopes::scopeFor((c as Class).attributes.filter[type.conformsToEvent || type.subclassOfEvent],
+				parentScope)
 		}
-		return Scopes::scopeFor(context.containingClass.attributes.filter[type.conformsToEvent || type.subclassOfEvent], parentScope)
+		return Scopes::scopeFor(context.containingClass.attributes.filter[type.conformsToEvent || type.subclassOfEvent],
+			parentScope)
 	}
-	
+
 	def allClasses(EObject context, EReference reference) {
 		val IScope delegateScope = delegateGetScope(context, reference)
 		val Predicate<IEObjectDescription> filter = new Predicate<IEObjectDescription>() {

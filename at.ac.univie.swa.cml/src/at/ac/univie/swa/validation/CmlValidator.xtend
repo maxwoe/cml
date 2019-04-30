@@ -4,9 +4,11 @@
 package at.ac.univie.swa.validation
 
 import at.ac.univie.swa.CmlModelUtil
+import at.ac.univie.swa.cml.AssignmentExpression
 import at.ac.univie.swa.cml.Attribute
 import at.ac.univie.swa.cml.Block
 import at.ac.univie.swa.cml.Class
+import at.ac.univie.swa.cml.Closure
 import at.ac.univie.swa.cml.CmlPackage
 import at.ac.univie.swa.cml.CmlProgram
 import at.ac.univie.swa.cml.Expression
@@ -23,14 +25,11 @@ import at.ac.univie.swa.typing.CmlTypeConformance
 import at.ac.univie.swa.typing.CmlTypeProvider
 import com.google.common.collect.HashMultimap
 import com.google.inject.Inject
-import java.util.ArrayList
 import org.eclipse.xtext.naming.IQualifiedNameProvider
 import org.eclipse.xtext.validation.Check
 import org.eclipse.xtext.validation.CheckType
 
 import static extension org.eclipse.xtext.EcoreUtil2.*
-import at.ac.univie.swa.cml.AssignmentExpression
-import at.ac.univie.swa.cml.Closure
 
 /**
  * This class contains custom validation rules. 
@@ -102,9 +101,7 @@ class CmlValidator extends AbstractCmlValidator {
 
 	@Check
 	def void checkNoDuplicateFeatures(Class c) {
-		val attributes = new ArrayList(c.classHierarchyAttributes.values);
-		attributes.addAll(c.attributes)
-		checkNoDuplicateElements(attributes, "attribute")
+		checkNoDuplicateElements(c.classHierarchyAttributes.values, "attribute")
 		checkNoDuplicateElements(c.operations, "operation")
 		checkNoDuplicateElements(c.clauses, "clause")
 		checkNoDuplicateElements(c.enumElements, "enumeration literal")
@@ -212,10 +209,13 @@ class CmlValidator extends AbstractCmlValidator {
 							val expLeft = exp.left
 							if (expLeft instanceof SymbolReference) {
 								val expSymbol = expLeft.symbol
-								if (!symbol.attributes.map[name].exists[it == expSymbol.name]) {
-									error("Couldn't resolve reference to attribute '" + expSymbol.name + "'", null,
-										OPPOSITE_INCONSISTENCY)
-								}
+								if (expSymbol instanceof Attribute) {
+									if (!symbol.classHierarchyAttributes.values.exists[it == expSymbol]) {
+										error("Couldn't resolve reference to attribute '" + expSymbol.name + "'", null,
+											OPPOSITE_INCONSISTENCY)
+									}
+								} else
+									error("Is not a valid reference", null, INVALID_ARGS)
 							} else
 								error("Is not a valid reference", null, INVALID_ARGS)
 						} else
@@ -230,15 +230,16 @@ class CmlValidator extends AbstractCmlValidator {
 	def void checkClosureConstructorArguments(OtherOperatorExpression exp) {
 		val left = exp.left
 		val right = exp.right
-		if (right instanceof Closure) {
-			if (exp.op == "=>") {
+		if (exp.op == "=>") {
+			if (right instanceof Closure) {
 				if (left instanceof SymbolReference) {
 					val symbol = left.symbol
 					if (symbol instanceof Class) {
-						if ((right.expression as Block).expressions.size != symbol.attributes.size) {
-							error("Invalid number of arguments: expected " + symbol.attributes.size + " but was " +
-								(right.expression as Block).expressions.size,
-								CmlPackage.eINSTANCE.otherOperatorExpression_Left, INVALID_ARGS)
+						if ((right.expression as Block).expressions.size != symbol.classHierarchyAttributes.size) {
+							error(
+								"Invalid number of arguments: expected " + symbol.classHierarchyAttributes.size +
+									" but was " + (right.expression as Block).expressions.size,
+								CmlPackage.eINSTANCE.otherOperatorExpression_Op, INVALID_ARGS)
 						}
 					}
 				}
@@ -276,9 +277,9 @@ class CmlValidator extends AbstractCmlValidator {
 				!(sr.eContainer instanceof FeatureSelection || sr.eContainer instanceof OtherOperatorExpression))
 				error("Invalid usage of '" + sr.symbol.name + "'", CmlPackage.eINSTANCE.symbolReference_Symbol,
 					WRONG_SYMBOL_USAGE)
-			if (sr.opCall && class.attributes.size != sr.args.size) {
-				error("Invalid number of arguments: expected " + class.attributes.size + " but was " + sr.args.size,
-					CmlPackage.eINSTANCE.symbolReference_Symbol, INVALID_ARGS)
+			if (sr.opCall && class.classHierarchyAttributes.size != sr.args.size) {
+				error("Invalid number of arguments: expected " + class.classHierarchyAttributes.size + " but was " +
+					sr.args.size, CmlPackage.eINSTANCE.symbolReference_Symbol, INVALID_ARGS)
 			}
 		}
 	}
