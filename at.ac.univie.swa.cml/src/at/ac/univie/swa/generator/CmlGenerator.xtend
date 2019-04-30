@@ -56,14 +56,13 @@ import at.ac.univie.swa.cml.VariableDeclaration
 import at.ac.univie.swa.cml.WhileStatement
 import at.ac.univie.swa.cml.XorCompoundAction
 import at.ac.univie.swa.typing.CmlTypeConformance
-import at.ac.univie.swa.typing.CmlTypeProvider
 import com.google.inject.Inject
-import java.util.HashMap
 import java.util.LinkedHashMap
 import java.util.List
 import java.util.Set
 import org.eclipse.emf.ecore.resource.Resource
 import org.eclipse.emf.ecore.resource.ResourceSet
+import org.eclipse.xtext.EcoreUtil2
 import org.eclipse.xtext.generator.IFileSystemAccess2
 import org.eclipse.xtext.generator.IGeneratorContext
 
@@ -77,11 +76,8 @@ import static extension org.eclipse.xtext.EcoreUtil2.*
  */
 class CmlGenerator extends AbstractGenerator2 {
 
-	public final boolean DECOMPOSE_STRUCTS = true  
-	
 	@Inject extension CmlModelUtil
 	@Inject extension CmlTypeConformance
-	@Inject extension CmlTypeProvider
 	Iterable<CmlProgram> allResources;
 
 	override doGenerate(Resource resource, ResourceSet input, IFileSystemAccess2 fsa, IGeneratorContext context) {
@@ -111,6 +107,7 @@ class CmlGenerator extends AbstractGenerator2 {
 
 	def compile(CmlProgram program) '''
 		pragma solidity >=0.4.22 <0.7.0;
+		pragma experimental ABIEncoderV2;
 		«FOR contract : program.contracts»
 			import "./lib/Ownable.sol";
 			import "./lib/PullPayment.sol";
@@ -166,7 +163,7 @@ class CmlGenerator extends AbstractGenerator2 {
 	   '''
 
 	def compileEventFunctions(Class c) '''
-		«FOR e : c.attributes.filter[type.conformsToEvent] SEPARATOR "\n" AFTER "\n"»
+		«FOR e : c.attributes.filter[type.mapsToEvent] SEPARATOR "\n" AFTER "\n"»
 			«e.compileEventAsFunction»
 		«ENDFOR»
 	'''
@@ -185,39 +182,77 @@ class CmlGenerator extends AbstractGenerator2 {
 		«ENDFOR»
 	'''
 	
-	def Set<Class> gatherEnums(Class c) {
-		var set = newLinkedHashSet
-		for(class : c.attributes.map[type]) {
-			if(class.conformsToEnum || class.subclassOfEnum)
-				set.add(class)
-			set.addAll(gatherEnums(class))
-		}
-		set
-	}
-	
 	def String compileStructs(Class c) '''
 		«FOR entry : c.gatherStructs BEFORE "/*\n * Structs\n */\n" SEPARATOR "\n" AFTER "\n"»
 			«entry.compile»
 		«ENDFOR»
 	'''
 	
+	def Set<Class> gatherEnums(Class c) {
+		var set = newLinkedHashSet
+		set.addAll(c.referredTypes.filter[mapsToEnum])
+		for(entry : c.referredTypes.filter[mapsToStruct])
+			set.addAll(entry.traverseForEnums)
+		set
+	}
+	
+	def Set<Class> traverseForEnums(Class c) {
+		var set = newLinkedHashSet
+		for(class : c.attributes.map[type]) {
+			if(class.mapsToEnum)
+				set.add(class)
+			set.addAll(traverseForEnums(class))
+		}
+		set
+	}
+
 	def Set<Class> gatherStructs(Class c) {
 		var set = newLinkedHashSet
-		for(class : c.attributes.filter[type.conformsToAsset || type.subclassOfAsset || type.subclassOfParty].map[type]) {
+		val types = c.referredTypes.filter[mapsToStruct]
+		set.addAll(types)
+		for(entry : types)
+			set.addAll(entry.traverseForStructs)
+		set
+	}
+	
+	def Set<Class> traverseForStructs(Class c) {
+		var set = newLinkedHashSet
+		for(class : c.attributes.filter[type.mapsToStruct].map[type]) {
 			set.add(class)
-			set.addAll(gatherStructs(class))
+			set.addAll(traverseForStructs(class))
 		}
 		set
 	}
 	
+	def Set<Class> referredTypes(Class c) {
+		val root = EcoreUtil2.getContainerOfType(c, CmlProgram)
+		val types = EcoreUtil2.getAllContentsOfType(root, Operation).filter[type !== null].map[type] +
+			EcoreUtil2.getAllContentsOfType(root, Attribute).map[type] +
+			EcoreUtil2.getAllContentsOfType(root, VariableDeclaration).map[type] + 
+			EcoreUtil2.getAllContentsOfType(root, SymbolReference).map[symbol.inferType]
+		types.toSet
+	}
+	
+	def mapsToStruct(Class c) {
+		!c.conformsToLibraryType && !c.conformsToEnum && !c.subclassOfEnum && !c.conformsToParty
+	}
+	
+	def mapsToEnum(Class c) {
+		c.conformsToEnum || c.subclassOfEnum
+	}
+	
+	def mapsToEvent(Class c) {
+		c.conformsToEvent
+	}
+	
 	def compileAttributes(Class c) '''
-		«FOR a : c.attributes.filter[!type.conformsToEnum && !type.subclassOfEnum]»
+		«FOR a : c.attributes.filter[!type.mapsToEnum]»
 			«a.compile»;
 		«ENDFOR»
 	'''
 
 	def compileEvents(Class c) '''
-		«FOR e : c.attributes.filter[type.conformsToEvent] BEFORE "/*\n * Events\n */\n" AFTER "\n"»
+		«FOR e : c.attributes.filter[type.mapsToEvent] BEFORE "/*\n * Events\n */\n" AFTER "\n"»
 			event «e.type.name.toFirstUpper»();
 		«ENDFOR»
 	'''
@@ -231,7 +266,7 @@ class CmlGenerator extends AbstractGenerator2 {
 	}
 
 	def compileInitConstructor(Operation o) '''	
-		constructor(«o.params.compileOperationParams») «FOR a : o.compileAnnotations SEPARATOR ' '»«a»«ENDFOR»
+		constructor(«o.params.compile») «FOR a : o.compileAnnotations SEPARATOR ' '»«a»«ENDFOR»
 		{
 			«FOR s : o.body?.statements ?: emptyList»
 				«compileStatement(s)»
@@ -262,7 +297,7 @@ class CmlGenerator extends AbstractGenerator2 {
 		    
 			«FOR i : c.clauses.indexed»
 				«FOR j : i.value.action.compoundAction.eAllOfType(AtomicAction)»
-					allowFunction(STATE«i.key», this.«j.operation.name».selector);    		
+					allowFunction(STATE«i.key», this.«j.operation.name».selector);
 					«ENDFOR»
 				«ENDFOR»
 			}
@@ -298,8 +333,12 @@ class CmlGenerator extends AbstractGenerator2 {
 		}
 	}
 	
-	def compile(Attribute a) '''
-		«(a.type as Type).compile» «a.name»'''
+	def compile(List<Attribute> attributes) '''
+		«FOR a : attributes SEPARATOR ', '»«a.compile»«ENDFOR»'''
+
+	def compile(Attribute a) {
+		interceptAttribute(a, null) ?: '''«(a.type as Type).compile» «IF a.type.mapsToStruct && a.containingOperation !== null»memory «ENDIF»«a.name»'''
+	}
 
 	def compile(Class c) '''
 		struct «c.name.toFirstUpper» {
@@ -311,11 +350,11 @@ class CmlGenerator extends AbstractGenerator2 {
 
 	def compile(Operation o, Clause c) '''	
 		// @notice function for clause «c.name»
-		function «o.name»(«o.params.compileOperationParams») «FOR a : o.compileAnnotations SEPARATOR ' '»«a»«ENDFOR»
+		function «o.name»(«o.params.compile») «FOR a : o.compileAnnotations SEPARATOR ' '»«a»«ENDFOR»
 			«FOR m : o.deriveModifiers(c).entrySet SEPARATOR ' '»
 				«m.key»(«m.value.join(", ")»)
 			«ENDFOR»
-			«IF o.type !== null»returns («o.type.compileOperationReturn»)«ENDIF»
+			«IF o.type !== null»returns («(o.type as Type).compile»«IF o.type.mapsToStruct» memory«ENDIF»)«ENDIF»
 		{
 			«FOR s : o.body?.statements ?: emptyList»
 				«compileStatement(s)»
@@ -323,33 +362,11 @@ class CmlGenerator extends AbstractGenerator2 {
 		}
 	'''
 	
-	def HashMap<Attribute, String> decompose(Class c, String prefix) {
-		var map = newLinkedHashMap
-		for(entry : c.classHierarchyAttributes.entrySet) {
-			if(entry.value.type.conformsToLibraryType) {
-				var name = ""
-				if (prefix.nullOrEmpty)
-					name = entry.value.name
-				else name = prefix + entry.value.name.toFirstUpper
-				map.put(entry.value, name)
-			}
-			else map.putAll(decompose(entry.value.type, entry.value.name))
-		}
-		map
-	}
-	
 	def compileOperationParams(List<Attribute> attributes) '''
 		«FOR a : attributes SEPARATOR ', '»
-			«IF !a.type.conformsToLibraryType && DECOMPOSE_STRUCTS»		
-			«FOR da : a.type.decompose("").entrySet SEPARATOR ', '»
-			«da.key.compile»«ENDFOR»«ELSE»«a.compile»
-			«ENDIF»
+			«IF !a.type.mapsToStruct»«ENDIF»
 		«ENDFOR»'''
-		
-	def compileOperationReturn(Class c) '''
-		«IF !c.conformsToLibraryType && DECOMPOSE_STRUCTS»
-			«FOR a : c.decompose("").keySet SEPARATOR ', '»«(a.type as Type).compile»«ENDFOR»«ELSE»«(c as Type).compile»«ENDIF»'''
-
+	
 	def List<String> compileAnnotations(Operation o) {
 		var list = newArrayList
 		list.add("public")
@@ -397,30 +414,11 @@ class CmlGenerator extends AbstractGenerator2 {
 		}
 	'''
 	
-	def String compileReturn(Expression exp) {
-		if (DECOMPOSE_STRUCTS) {
-			switch (exp) {
-				SymbolReference: {
-					val symbol = exp.symbol
-					switch (symbol) {
-						Class case exp.opCall ==
-							true: '''«FOR arg : exp.args SEPARATOR ', '»«arg.compileReturn»«ENDFOR»'''
-						VariableDeclaration: '''«FOR a : symbol.type.decompose("").keySet SEPARATOR ', '»«symbol.name».«a.name»«ENDFOR»'''
-						Attribute: '''«FOR a : symbol.type.decompose("").keySet SEPARATOR ', '»«symbol.name».«a.name»«ENDFOR»'''
-					}
-				}
-				default:
-					exp.compile
-			}
-		} else
-			exp.compile
-	}
-
 	def String compileStatement(Statement s) {
 		switch (s) {
-			VariableDeclaration: '''«(s.type as Type).compile» «IF !s.expression.eAllOfType(SymbolReference).filter[typeFor instanceof Class && opCall].empty»memory «ENDIF»«s.name» = «s.expression.compile»;'''
+			VariableDeclaration: '''«(s.type as Type).compile» «s.name» = «s.expression.compile»;'''
 			ReturnStatement:
-				"return (" + s.expression.compileReturn + ");"
+				"return (" + s.expression.compile + ");"
 			IfStatement: '''
 				if («s.condition.compile»)
 				«s.thenBlock.compileBlock»
@@ -530,7 +528,7 @@ class CmlGenerator extends AbstractGenerator2 {
 	}
 
 	def String compile(Expression exp) {
-
+	
 		switch (exp) {
 			AssignmentExpression: '''«(exp.left.compile)» = «(exp.right.compile)»'''
 			OrExpression: '''«(exp.left.compile)» || «(exp.right.compile)»'''
@@ -610,8 +608,7 @@ class CmlGenerator extends AbstractGenerator2 {
 			rslt = interceptOperation(fs.feature as Operation, fs.args, fs.receiver)
 
 		rslt ?: {
-			(if(!fs.receiver.compile.nullOrEmpty) fs.receiver.compile + "." else "") +
-			fs.feature.name + if (fs.opCall) {
+			rslt = fs.receiver.compile + "." + fs.feature.name + if (fs.opCall) {
 				"(" + fs.args.map[compile].join(", ") + ")"
 			} else
 				""
@@ -631,8 +628,7 @@ class CmlGenerator extends AbstractGenerator2 {
 			rslt = interceptClass(sr.symbol as Class, sr.args, sr)
 
 		rslt ?: {
-			(if(sr.containingOperation !== null && sr.containingOperation.params.contains(sr.symbol) && DECOMPOSE_STRUCTS) "" else sr.symbol.name) + 
-			if (sr.opCall) {
+			sr.symbol.name + if (sr.opCall) {
 				"(" + sr.args.map[compile].join(", ") + ")"
 			} else
 				""
@@ -657,7 +653,7 @@ class CmlGenerator extends AbstractGenerator2 {
 			}
 		} else if (containingClass.conformsToParty && reference === null) {
 			switch (a.name) {
-				case "id": "address payable" + a.name
+				case "id": "address payable " + a.name
 			}
 		}
 	}

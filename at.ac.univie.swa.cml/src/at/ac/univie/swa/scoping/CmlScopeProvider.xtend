@@ -126,20 +126,20 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 	def IScope scopeForPartyRef(EObject context) {
 		var parentScope = IScope::NULLSCOPE
 		for (c : context.containingClass.classHierarchyWithObject.toList.reverseView) {
-			parentScope = Scopes::scopeFor((c as Class).attributes.filter[type.conformsToParty || type.subclassOfParty],
+			parentScope = Scopes::scopeFor((c as Class).attributes.filter[type !== null].filter[type.conformsToParty || type.subclassOfParty],
 				parentScope)
 		}
-		return Scopes::scopeFor(context.containingClass.attributes.filter[type.conformsToParty || type.subclassOfParty],
+		return Scopes::scopeFor(context.containingClass.attributes.filter[type !== null].filter[type.conformsToParty || type.subclassOfParty],
 			parentScope)
 	}
 
 	def IScope scopeForEventRef(EObject context) {
 		var parentScope = IScope::NULLSCOPE
 		for (c : context.containingClass.classHierarchyWithObject.toList.reverseView) {
-			parentScope = Scopes::scopeFor((c as Class).attributes.filter[type.conformsToEvent || type.subclassOfEvent],
+			parentScope = Scopes::scopeFor((c as Class).attributes.filter[type !== null].filter[type.conformsToEvent || type.subclassOfEvent],
 				parentScope)
 		}
-		return Scopes::scopeFor(context.containingClass.attributes.filter[type.conformsToEvent || type.subclassOfEvent],
+		return Scopes::scopeFor(context.containingClass.attributes.filter[type !== null].filter[type.conformsToEvent || type.subclassOfEvent],
 			parentScope)
 	}
 
