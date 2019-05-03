@@ -34,32 +34,68 @@ class CmlModelUtil {
 		p.declarations.filter(Class)
 	}
 	
+	def operations(CmlProgram p) {
+		p.declarations.filter(Operation)
+	}
+	
+	def attributes(CmlProgram p) {
+		p.declarations.filter(Attribute)
+	}
+	
 	def concepts(CmlProgram p) {
-		p.classes.filter[kind=="concept"]
+		p.classes.filter[concept]
 	}
 	
 	def parties(CmlProgram p) {
-		p.classes.filter[kind=="party"]
+		p.classes.filter[party]
 	}
 	
 	def assets(CmlProgram p) {
-		p.classes.filter[kind=="asset"]
+		p.classes.filter[asset]
 	}
 	
 	def events(CmlProgram p) {
-		p.classes.filter[kind=="event"]
+		p.classes.filter[event]
 	}
 	
 	def transactions(CmlProgram p) {
-		p.classes.filter[kind=="transaction"]
+		p.classes.filter[transaction]
 	}
 
 	def enums(CmlProgram p) {
-		p.classes.filter[kind=="enum"]
+		p.classes.filter[enum]
 	}
 	
 	def contracts(CmlProgram p) {
-		p.classes.filter[kind=="contract"]
+		p.classes.filter[contract]
+	}
+	
+	def isConcept(Class c) {
+		c.kind == "concept"
+	}
+	
+	def isParty(Class c) {
+		c.kind == "party"
+	}
+	
+	def isAsset(Class c) {
+		c.kind == "asset"
+	}
+	
+	def isEvent(Class c) {
+		c.kind == "event"
+	}
+	
+	def isTransaction(Class c) {
+		c.kind == "transaction"
+	}
+	
+	def isEnum(Class c) {
+		c.kind == "enum"
+	}
+	
+	def isContract(Class c) {
+		c.kind == "contract"
 	}
 	
 	def clauses(Class c) {

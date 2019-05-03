@@ -62,6 +62,11 @@ enum TimeUnit
 	^seconds ^minutes ^hours ^days ^weeks
 concept Error extends Any
 	String message
+//concept Optional<T> extends Any
+//	Boolean hasValue()
+//	T getValueOrDefault() 
+//	T getValueOrDefault(T)
+//concept None extends Any
 //concept Request extends Transaction
 //concept Response extends Transaction
 //concept Array extends Any

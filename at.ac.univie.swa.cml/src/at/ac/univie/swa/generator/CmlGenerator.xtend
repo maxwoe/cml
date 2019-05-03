@@ -68,6 +68,7 @@ import org.eclipse.xtext.generator.IGeneratorContext
 
 import static extension org.eclipse.emf.ecore.util.EcoreUtil.*
 import static extension org.eclipse.xtext.EcoreUtil2.*
+import at.ac.univie.swa.typing.CmlTypeProvider
 
 /**
  * Generates code from your model files on save.
@@ -130,6 +131,7 @@ class CmlGenerator extends AbstractGenerator2 {
 				«"/*\n * Functions\n */\n"»
 				«contract.compileFunctions»
 				«contract.compileEventFunctions»
+				«contract.compileStaticFunctions»
 				// Fallback function
 				function() external payable {}
 				
@@ -167,11 +169,18 @@ class CmlGenerator extends AbstractGenerator2 {
 			«e.compileEventAsFunction»
 		«ENDFOR»
 	'''
+	
+	def compileStaticFunctions(Class c) '''
+		«FOR o : c.staticOperations SEPARATOR "\n" AFTER "\n"»
+			«o.compile(o.deriveAnnotations, newLinkedHashMap)»
+		«ENDFOR»
+	'''
 
 	def compileFunctions(Class c) '''
 		«FOR cl : c.clauses»
 			«FOR aa : cl.action.compoundAction.eAllOfType(AtomicAction) SEPARATOR "\n" AFTER "\n"»
-				«aa.operation.compile(aa.containingClause)»
+				// @notice function for clause «cl.name»
+				«aa.operation.compile(aa.operation.deriveAnnotations, cl.deriveModifiers)»
 			«ENDFOR»
 		«ENDFOR»
 	'''
@@ -226,11 +235,23 @@ class CmlGenerator extends AbstractGenerator2 {
 	
 	def Set<Class> referredTypes(Class c) {
 		val root = EcoreUtil2.getContainerOfType(c, CmlProgram)
-		val types = EcoreUtil2.getAllContentsOfType(root, Operation).filter[type !== null].map[type] +
+		val types = EcoreUtil2.getAllContentsOfType(root, Operation).filter[inferType !== CmlTypeProvider::VOID_TYPE].map[type] +
 			EcoreUtil2.getAllContentsOfType(root, Attribute).map[type] +
 			EcoreUtil2.getAllContentsOfType(root, VariableDeclaration).map[type] + 
-			EcoreUtil2.getAllContentsOfType(root, SymbolReference).map[symbol.inferType]
+			EcoreUtil2.getAllContentsOfType(root, SymbolReference).filter[symbol.inferType !== CmlTypeProvider::VOID_TYPE].map[symbol.inferType]
 		types.toSet
+	}
+	
+	def Set<Operation> staticOperations(Class c) {
+		val root = EcoreUtil2.getContainerOfType(c, CmlProgram)
+		EcoreUtil2.getAllContentsOfType(root, SymbolReference).filter[symbol instanceof Operation].map[symbol as Operation].filter[containingClass === null].toSet
+	}
+	
+	def Set<Attribute> staticAttributes(Class c) {
+		var set = newLinkedHashSet
+		for (o : c.staticOperations)
+			set.addAll(o.eAllOfType(SymbolReference).filter[symbol instanceof Attribute].map[symbol as Attribute].filter[containingClass === null])
+		set
 	}
 	
 	def mapsToStruct(Class c) {
@@ -246,6 +267,9 @@ class CmlGenerator extends AbstractGenerator2 {
 	}
 	
 	def compileAttributes(Class c) '''
+		«FOR a : c.staticAttributes»
+			«a.compile»;
+		«ENDFOR»
 		«FOR a : c.attributes.filter[!type.mapsToEnum]»
 			«a.compile»;
 		«ENDFOR»
@@ -266,7 +290,7 @@ class CmlGenerator extends AbstractGenerator2 {
 	}
 
 	def compileInitConstructor(Operation o) '''	
-		constructor(«o.params.compile») «FOR a : o.compileAnnotations SEPARATOR ' '»«a»«ENDFOR»
+		constructor(«o.params.compile») «FOR a : o.deriveAnnotations SEPARATOR ' '»«a»«ENDFOR»
 		{
 			«FOR s : o.body?.statements ?: emptyList»
 				«compileStatement(s)»
@@ -337,7 +361,7 @@ class CmlGenerator extends AbstractGenerator2 {
 		«FOR a : attributes SEPARATOR ', '»«a.compile»«ENDFOR»'''
 
 	def compile(Attribute a) {
-		interceptAttribute(a, null) ?: '''«(a.type as Type).compile» «IF a.type.mapsToStruct && a.containingOperation !== null»memory «ENDIF»«a.name»'''
+		interceptAttribute(a, null) ?: '''«(a.type as Type).compile»«IF a.constant» constant«ENDIF»«IF a.type.mapsToStruct && a.containingOperation !== null» memory«ENDIF» «a.name»«IF a.expression !== null» = «a.expression.compile»«ENDIF»'''
 	}
 
 	def compile(Class c) '''
@@ -348,10 +372,9 @@ class CmlGenerator extends AbstractGenerator2 {
 		}
 	'''
 
-	def compile(Operation o, Clause c) '''	
-		// @notice function for clause «c.name»
-		function «o.name»(«o.params.compile») «FOR a : o.compileAnnotations SEPARATOR ' '»«a»«ENDFOR»
-			«FOR m : o.deriveModifiers(c).entrySet SEPARATOR ' '»
+	def compile(Operation o, List<String> annotations, LinkedHashMap<String, List<String>> modifiers) '''	
+		function «o.name»(«o.params.compile») «FOR a : annotations SEPARATOR ' '»«a»«ENDFOR»
+			«FOR m : modifiers.entrySet SEPARATOR ' '»
 				«m.key»(«m.value.join(", ")»)
 			«ENDFOR»
 			«IF o.type !== null»returns («(o.type as Type).compile»«IF o.type.mapsToStruct» memory«ENDIF»)«ENDIF»
@@ -365,22 +388,25 @@ class CmlGenerator extends AbstractGenerator2 {
 	def compileOperationParams(List<Attribute> attributes) '''
 		«FOR a : attributes SEPARATOR ', '»
 			«IF !a.type.mapsToStruct»«ENDIF»
-		«ENDFOR»'''
+		«ENDFOR»
+	'''
 	
-	def List<String> compileAnnotations(Operation o) {
-		var list = newArrayList
-		list.add("public")
-		if (o.containsDepositOperation)
-			list.add("payable")
-		list
-	}
-
 	def containsDepositOperation(Operation o) {
 		o.body?.statements?.filter(FeatureSelection)?.filter[opCall && feature instanceof Operation]?.map[feature]?.
 			findFirst[containingClass.conformsToParty && name == "deposit"] !== null
 	}
+	
+	def List<String> deriveAnnotations(Operation o) {
+		var list = newArrayList
+		list.add("public")
+		if (o.containsDepositOperation)
+			list.add("payable")
+		if (o.containingClass === null)
+			list.add("view")
+		list
+	}
 
-	def deriveModifiers(Operation o, Clause c) {
+	def deriveModifiers(Clause c) {
 		var modifiers = new LinkedHashMap<String, List<String>>();
 		var party = c.actor.party
 		var tc = c.antecedent.temporal
@@ -645,35 +671,36 @@ class CmlGenerator extends AbstractGenerator2 {
 
 	def interceptAttribute(Attribute a, Expression reference) {
 		val containingClass = a.containingClass
-
-		if (containingClass.conformsToContract) {
-			switch (a.name) {
-				case "contractStart": "_contractStart"
-				case "balance": "address(this).balance"
-			}
-		} else if (containingClass.conformsToParty && reference === null) {
-			switch (a.name) {
-				case "id": "address payable " + a.name
+		if (containingClass !== null) {
+			if (containingClass.conformsToContract) {
+				switch (a.name) {
+					case "contractStart": "_contractStart"
+					case "balance": "address(this).balance"
+				}
+			} else if (containingClass.conformsToParty && reference === null) {
+				switch (a.name) {
+					case "id": "address payable " + a.name
+				}
 			}
 		}
 	}
 
 	def interceptOperation(Operation o, List<Expression> args, Expression reference) {
-		var containingClass = o.containingClass
-		switch (containingClass) {
-			case containingClass.conformsToDateTime: {
+		val containingClass = o.containingClass
+		if (containingClass !== null) {
+			if (containingClass.conformsToDateTime) {
 				switch (o.name) {
 					case "addDuration": reference.compile + " + " + args.get(0).compile
 					case "subtractDuration": reference.compile + " - " + args.get(0).compile
 				}
-			}
-			case containingClass.conformsToParty: {
+			} else if (containingClass.conformsToParty) {
 				switch (o.name) {
 					case "deposit": "require(msg.value == " + args.get(0).compile + ")"
 					case "transfer": "_asyncTransfer(" + reference.compile + ", " + args.get(0).compile + ")"
 				}
 			}
 		}
+
 	}
 
 }

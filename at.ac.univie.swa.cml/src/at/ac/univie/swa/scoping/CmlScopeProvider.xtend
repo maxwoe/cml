@@ -26,6 +26,7 @@ import org.eclipse.xtext.scoping.Scopes
 import org.eclipse.xtext.scoping.impl.FilteringScope
 import org.eclipse.xtext.scoping.impl.SimpleScope
 import at.ac.univie.swa.cml.SymbolReference
+import at.ac.univie.swa.cml.Attribute
 
 /**
  * This class contains custom scoping description.
@@ -148,7 +149,7 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 		val Predicate<IEObjectDescription> filter = new Predicate<IEObjectDescription>() {
 			override boolean apply(IEObjectDescription od) {
 				val obj = od.EObjectOrProxy
-				if (obj instanceof Class)
+				if (obj instanceof Class || obj instanceof Operation || obj instanceof Attribute)
 					true
 				else
 					false

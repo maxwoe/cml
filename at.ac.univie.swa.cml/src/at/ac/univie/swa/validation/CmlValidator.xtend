@@ -53,15 +53,19 @@ class CmlValidator extends AbstractCmlValidator {
 	public static val DUPLICATE_ELEMENT = ISSUE_CODE_PREFIX + "DuplicateElement"
 	public static val INCOMPATIBLE_TYPES = ISSUE_CODE_PREFIX + "IncompatibleTypes"
 	public static val INVALID_ARGS = ISSUE_CODE_PREFIX + "InvalidArgs"
-	public static val WRONG_METHOD_OVERRIDE = ISSUE_CODE_PREFIX + "WrongMethodOverride"
-	public static val MEMBER_NOT_ACCESSIBLE = ISSUE_CODE_PREFIX + "MemberNotAccessible"
 	public static val DUPLICATE_CLASS = ISSUE_CODE_PREFIX + "DuplicateClass"
 	public static val WRONG_SUPER_USAGE = ISSUE_CODE_PREFIX + "WrongSuperUsage"
-	public static val REDUCED_ACCESSIBILITY = ISSUE_CODE_PREFIX + "ReducedAccessibility"
 	public static val OPPOSITE_INCONSISTENCY = ISSUE_CODE_PREFIX + "OppositeInconsistency"
-	public static val MISSING_IDENTITY_DEFINITION = ISSUE_CODE_PREFIX + "MissingIdentityDefinition"
 	public static val WRONG_SYMBOL_USAGE = ISSUE_CODE_PREFIX + "WrongSymbolUsage"
-
+	public static val INVALID_ATTRIBUTE_DECLARATION = ISSUE_CODE_PREFIX + "NamespaceAttributeWithoutConstantDeclaration"
+	public static val INVALID_INSTANTIATION = ISSUE_CODE_PREFIX + "InvalidInstantiation"
+	public static val MISSING_INITZIALIZATION = ISSUE_CODE_PREFIX + "MissingInitialization"
+	public static val INVALID_ASSIGNMENT = ISSUE_CODE_PREFIX + "InvalidAssignment"
+	// public static val REDUCED_ACCESSIBILITY = ISSUE_CODE_PREFIX + "ReducedAccessibility"
+	// public static val MISSING_IDENTITY_DEFINITION = ISSUE_CODE_PREFIX + "MissingIdentityDefinition"
+	// public static val WRONG_METHOD_OVERRIDE = ISSUE_CODE_PREFIX + "WrongMethodOverride"
+	// public static val MEMBER_NOT_ACCESSIBLE = ISSUE_CODE_PREFIX + "MemberNotAccessible"
+	
 	@Check
 	def void checkNameStartsWithCapital(Class c) {
 		if (!Character.isUpperCase(c.name.charAt(0))) {
@@ -97,11 +101,13 @@ class CmlValidator extends AbstractCmlValidator {
 	@Check
 	def void checkNoDuplicateClasses(CmlProgram cmlp) {
 		checkNoDuplicateElements(cmlp.classes, "class")
+		checkNoDuplicateElements(cmlp.attributes, "attribute")
+		checkNoDuplicateElements(cmlp.operations, "operation")
 	}
 
 	@Check
 	def void checkNoDuplicateFeatures(Class c) {
-		checkNoDuplicateElements(c.classHierarchyAttributes.values, "attribute")
+		checkNoDuplicateElements(c.attributes, "attribute")
 		checkNoDuplicateElements(c.operations, "operation")
 		checkNoDuplicateElements(c.clauses, "clause")
 		checkNoDuplicateElements(c.enumElements, "enumeration literal")
@@ -194,6 +200,23 @@ class CmlValidator extends AbstractCmlValidator {
 					(actualType as Class).name + "'", null, INCOMPATIBLE_TYPES);
 		}
 	}
+	
+	@Check
+	def void checkAssignment(SymbolReference sr) {
+		val assignment = sr.getContainerOfType(AssignmentExpression)
+		if (assignment !== null) {
+			val left = assignment.left
+			if (left instanceof SymbolReference) {
+				val attribute = left.symbol
+				if (attribute instanceof Attribute) {
+					if (attribute.constant) {
+						error("The constant attribute '" + attribute.name + "' cannot be assigned", null,
+							INVALID_ASSIGNMENT)
+					}
+				}
+			}
+		}
+	}	
 
 	@Check
 	def void checkClosureConstructorArguments(Expression exp) {
@@ -235,6 +258,9 @@ class CmlValidator extends AbstractCmlValidator {
 				if (left instanceof SymbolReference) {
 					val symbol = left.symbol
 					if (symbol instanceof Class) {
+						if (symbol.abstract)
+							error("Cannot instantiate the type '" + symbol.name + "'",
+								CmlPackage.eINSTANCE.otherOperatorExpression_Op, INVALID_INSTANTIATION)
 						if ((right.expression as Block).expressions.size != symbol.classHierarchyAttributes.size) {
 							error(
 								"Invalid number of arguments: expected " + symbol.classHierarchyAttributes.size +
@@ -245,6 +271,20 @@ class CmlValidator extends AbstractCmlValidator {
 				}
 			}
 		}
+	}
+
+	@Check
+	def void checkAttributeDeclaration(Attribute a) {
+		if (a.containingClass === null && !a.constant || !a.containingClass.contract && a.expression !== null) {
+			error("Invalid attribute declaration", null, INVALID_ATTRIBUTE_DECLARATION)
+		}
+	}
+
+	@Check
+	def void checkConstantDeclaration(Attribute a) {
+		if (a.constant && a.expression === null)
+			error("The blank constant attribute '" + a.name + "' may not have been initialized", null,
+				MISSING_INITZIALIZATION)
 	}
 
 	@Check
@@ -262,7 +302,7 @@ class CmlValidator extends AbstractCmlValidator {
 	def void checkMethodInvocationArguments(SymbolReference sr) {
 		val operation = sr.symbol
 		if (operation instanceof Operation) {
-			if (operation.params.size != sr.args.size) {
+			if (sr.args.size != operation.params.size) {
 				error("Invalid number of arguments: expected " + operation.params.size + " but was " + sr.args.size,
 					CmlPackage.eINSTANCE.symbolReference_Symbol, INVALID_ARGS)
 			}
@@ -277,6 +317,9 @@ class CmlValidator extends AbstractCmlValidator {
 				!(sr.eContainer instanceof FeatureSelection || sr.eContainer instanceof OtherOperatorExpression))
 				error("Invalid usage of '" + sr.symbol.name + "'", CmlPackage.eINSTANCE.symbolReference_Symbol,
 					WRONG_SYMBOL_USAGE)
+			if (sr.opCall && class.abstract)
+				error("Cannot instantiate the type '" + sr.symbol.name + "'",
+					CmlPackage.eINSTANCE.symbolReference_Symbol, INVALID_INSTANTIATION)
 			if (sr.opCall && class.classHierarchyAttributes.size != sr.args.size) {
 				error("Invalid number of arguments: expected " + class.classHierarchyAttributes.size + " but was " +
 					sr.args.size, CmlPackage.eINSTANCE.symbolReference_Symbol, INVALID_ARGS)

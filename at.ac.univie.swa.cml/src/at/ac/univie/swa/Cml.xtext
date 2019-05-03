@@ -11,7 +11,7 @@ Import:
 	'import' importedNamespace=QualifiedNameWithWildcard;
 
 Declaration:
-	Class | Party | Asset | Transaction | Event | Contract | Enumeration;
+	Class | Party | Asset | Transaction | Event | Contract | Enumeration | Attribute | Operation;
 
 Class:
 	(abstract?='abstract')? kind='concept' name=ID ('extends' superclass=[Class|QualifiedName])?
@@ -83,13 +83,13 @@ fragment TypedDeclaration *:
 	type=[Class|QualifiedName] name=ID;
 
 Attribute:
-	TypedDeclaration;
+	constant?='constant'? TypedDeclaration ('=' expression=Expression)?;
 
 Operation:
 	(type=[Class|QualifiedName])? name=ID
 	'(' (params+=Attribute (',' params+=Attribute)*)? ')'
 	(body=Block)?;
-
+	
 Clause:
 	'clause' name=ID
 	BEGIN

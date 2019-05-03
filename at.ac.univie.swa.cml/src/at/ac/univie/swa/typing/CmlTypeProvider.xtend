@@ -42,6 +42,7 @@ import at.ac.univie.swa.cml.VariableDeclaration
 import com.google.inject.Inject
 import at.ac.univie.swa.cml.OtherOperatorExpression
 import at.ac.univie.swa.cml.Closure
+import at.ac.univie.swa.cml.Attribute
 
 class CmlTypeProvider {
 	@Inject extension CmlLib
@@ -137,6 +138,8 @@ class CmlTypeProvider {
 					}
 				}
 			}
+			Attribute:
+				e.expression.typeFor
 			default:
 				UNDEFINED_TYPE
 		}
@@ -192,8 +195,8 @@ class CmlTypeProvider {
 			PeriodicTime case f == ep.periodicTime_Period,
 			TimeConstraint case f == ep.timeConstraint_Timeframe:
 				DURATION_TYPE
-//			Attribute case f == ep.attribute_InitExp:
-//				c.type.inferType	
+			Attribute case f == ep.attribute_Expression:
+				c.type.inferType
 			CasePart case f == ep.casePart_Case:
 				c.containingSwitch.declaration.typeFor
 			RelationalExpression case f == ep.relationalExpression_Right:
