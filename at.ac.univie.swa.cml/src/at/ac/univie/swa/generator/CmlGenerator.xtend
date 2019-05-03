@@ -171,7 +171,7 @@ class CmlGenerator extends AbstractGenerator2 {
 	'''
 	
 	def compileStaticFunctions(Class c) '''
-		«FOR o : c.staticOperations SEPARATOR "\n" AFTER "\n"»
+		«FOR o : c.referredStaticOperations SEPARATOR "\n" AFTER "\n"»
 			«o.compile(o.deriveAnnotations, newLinkedHashMap)»
 		«ENDFOR»
 	'''
@@ -242,16 +242,22 @@ class CmlGenerator extends AbstractGenerator2 {
 		types.toSet
 	}
 	
-	def Set<Operation> staticOperations(Class c) {
+	def Set<Operation> referredStaticOperations(Class c) {
 		val root = EcoreUtil2.getContainerOfType(c, CmlProgram)
 		EcoreUtil2.getAllContentsOfType(root, SymbolReference).filter[symbol instanceof Operation].map[symbol as Operation].filter[containingClass === null].toSet
 	}
 	
 	def Set<Attribute> staticAttributes(Class c) {
 		var set = newLinkedHashSet
-		for (o : c.staticOperations)
-			set.addAll(o.eAllOfType(SymbolReference).filter[symbol instanceof Attribute].map[symbol as Attribute].filter[containingClass === null])
+		for (o : c.referredStaticOperations)
+			set.addAll(o.referredStaticNamespaceAttributes)
+		for (o : c.operations)
+			set.addAll(o.referredStaticNamespaceAttributes)
 		set
+	}
+	
+	def referredStaticNamespaceAttributes(Operation o) {
+		o.eAllOfType(SymbolReference).filter[symbol instanceof Attribute].map[symbol as Attribute].filter[containingClass === null]
 	}
 	
 	def mapsToStruct(Class c) {
