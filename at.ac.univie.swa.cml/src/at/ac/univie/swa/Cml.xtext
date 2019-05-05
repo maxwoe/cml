@@ -62,7 +62,7 @@ Type:
 	Class;
 
 NamedElement:
-	Class | Feature | VariableDeclaration;
+	CmlProgram | Class | Feature | VariableDeclaration;
 
 Feature:
 	Attribute | Operation | Clause | EnumerationElement;

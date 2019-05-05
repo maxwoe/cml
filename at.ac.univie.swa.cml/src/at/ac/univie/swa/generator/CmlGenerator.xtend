@@ -32,6 +32,7 @@ import at.ac.univie.swa.cml.IfStatement
 import at.ac.univie.swa.cml.Import
 import at.ac.univie.swa.cml.IntegerLiteral
 import at.ac.univie.swa.cml.MultiplicativeExpression
+import at.ac.univie.swa.cml.NamedElement
 import at.ac.univie.swa.cml.NestedCompoundAction
 import at.ac.univie.swa.cml.NestedExpression
 import at.ac.univie.swa.cml.Operation
@@ -58,17 +59,16 @@ import at.ac.univie.swa.cml.XorCompoundAction
 import at.ac.univie.swa.typing.CmlTypeConformance
 import com.google.inject.Inject
 import java.util.LinkedHashMap
+import java.util.LinkedHashSet
 import java.util.List
 import java.util.Set
 import org.eclipse.emf.ecore.resource.Resource
 import org.eclipse.emf.ecore.resource.ResourceSet
-import org.eclipse.xtext.EcoreUtil2
 import org.eclipse.xtext.generator.IFileSystemAccess2
 import org.eclipse.xtext.generator.IGeneratorContext
 
 import static extension org.eclipse.emf.ecore.util.EcoreUtil.*
 import static extension org.eclipse.xtext.EcoreUtil2.*
-import at.ac.univie.swa.typing.CmlTypeProvider
 
 /**
  * Generates code from your model files on save.
@@ -171,7 +171,7 @@ class CmlGenerator extends AbstractGenerator2 {
 	'''
 	
 	def compileStaticFunctions(Class c) '''
-		«FOR o : c.referredStaticOperations SEPARATOR "\n" AFTER "\n"»
+		«FOR o : c.staticOperations SEPARATOR "\n" AFTER "\n"»
 			«o.compile(o.deriveAnnotations, newLinkedHashMap)»
 		«ENDFOR»
 	'''
@@ -199,8 +199,8 @@ class CmlGenerator extends AbstractGenerator2 {
 	
 	def Set<Class> gatherEnums(Class c) {
 		var set = newLinkedHashSet
-		set.addAll(c.referredTypes.filter[mapsToEnum])
-		for(entry : c.referredTypes.filter[mapsToStruct])
+		set.addAll(c.referencedNamedElements.map[inferType].filter[mapsToEnum])
+		for(entry : c.referencedNamedElements.map[inferType].filter[mapsToStruct])
 			set.addAll(entry.traverseForEnums)
 		set
 	}
@@ -217,9 +217,8 @@ class CmlGenerator extends AbstractGenerator2 {
 
 	def Set<Class> gatherStructs(Class c) {
 		var set = newLinkedHashSet
-		val types = c.referredTypes.filter[mapsToStruct]
-		set.addAll(types)
-		for(entry : types)
+		set.addAll(c.referencedNamedElements.map[inferType].filter[!conformsToVoid].filter[mapsToStruct])
+		for(entry : c.referencedNamedElements.map[inferType].filter[mapsToStruct])
 			set.addAll(entry.traverseForStructs)
 		set
 	}
@@ -233,31 +232,33 @@ class CmlGenerator extends AbstractGenerator2 {
 		set
 	}
 	
-	def Set<Class> referredTypes(Class c) {
-		val root = EcoreUtil2.getContainerOfType(c, CmlProgram)
-		val types = EcoreUtil2.getAllContentsOfType(root, Operation).filter[inferType !== CmlTypeProvider::VOID_TYPE].map[type] +
-			EcoreUtil2.getAllContentsOfType(root, Attribute).map[type] +
-			EcoreUtil2.getAllContentsOfType(root, VariableDeclaration).map[type] + 
-			EcoreUtil2.getAllContentsOfType(root, SymbolReference).filter[symbol.inferType !== CmlTypeProvider::VOID_TYPE].map[symbol.inferType]
-		types.toSet
-	}
-	
-	def Set<Operation> referredStaticOperations(Class c) {
-		val root = EcoreUtil2.getContainerOfType(c, CmlProgram)
-		EcoreUtil2.getAllContentsOfType(root, SymbolReference).filter[symbol instanceof Operation].map[symbol as Operation].filter[containingClass === null].toSet
-	}
-	
-	def Set<Attribute> staticAttributes(Class c) {
-		var set = newLinkedHashSet
-		for (o : c.referredStaticOperations)
-			set.addAll(o.referredStaticNamespaceAttributes)
-		for (o : c.operations)
-			set.addAll(o.referredStaticNamespaceAttributes)
+	def Set<NamedElement> referencedNamedElements(Class c) {
+		var set = new LinkedHashSet<NamedElement>
+		set.addAll(c.attributes)
+		set.addAll(c.operations)
+		set.addAll(c.operations.map[params].flatten)
+		for(o : c.operations) {
+			set.addAll(o.traverseForTypes)
+		}
 		set
 	}
 	
-	def referredStaticNamespaceAttributes(Operation o) {
-		o.eAllOfType(SymbolReference).filter[symbol instanceof Attribute].map[symbol as Attribute].filter[containingClass === null]
+	def Set<NamedElement> traverseForTypes(Operation o) {
+		var set = new LinkedHashSet<NamedElement>
+		set.addAll(o.referencedSymbols)
+		set.addAll(o.variableDeclarations)
+		for(op : o.referencedOperations) {
+			set.addAll(traverseForTypes(op))
+		}
+		set
+	}
+	
+	def Set<Operation> staticOperations(Class c) {
+		c.referencedNamedElements.filter(Operation).filter[static].toSet
+	}
+	
+	def Set<Attribute> staticAttributes(Class c) {
+		c.referencedNamedElements.filter(Attribute).filter[static].toSet
 	}
 	
 	def mapsToStruct(Class c) {
@@ -402,13 +403,19 @@ class CmlGenerator extends AbstractGenerator2 {
 			findFirst[containingClass.conformsToParty && name == "deposit"] !== null
 	}
 	
+	def modifiesStateAttributes(Operation o) {
+		!o.eAllOfType(AssignmentExpression).map[left].filter(SymbolReference).map[symbol].filter(Attribute).filter[!static].empty
+	}
+	
 	def List<String> deriveAnnotations(Operation o) {
 		var list = newArrayList
 		list.add("public")
 		if (o.containsDepositOperation)
 			list.add("payable")
-		if (o.containingClass === null)
+		else if (!o.modifiesStateAttributes)
 			list.add("view")
+		else if (o.static) 
+			list.add("pure")
 		list
 	}
 

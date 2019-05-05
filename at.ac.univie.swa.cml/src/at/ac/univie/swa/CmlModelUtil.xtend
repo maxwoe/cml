@@ -17,6 +17,7 @@ import com.google.inject.Inject
 import org.eclipse.emf.ecore.EObject
 
 import static extension org.eclipse.xtext.EcoreUtil2.*
+import at.ac.univie.swa.cml.SymbolReference
 
 class CmlModelUtil {
 
@@ -137,6 +138,34 @@ class CmlModelUtil {
 	def containingClause(EObject e) {
 		e.getContainerOfType(Clause)
 	}
+	
+	def referencedSymbols(Operation o) {
+		o.eAllOfType(SymbolReference).map[symbol]
+	}
+	
+	def referencedOperations(Operation o) {
+		o.referencedSymbols.filter(Operation).toSet
+	}
+	
+	def referencedAttributes(Operation o) {
+		o.referencedSymbols.filter(Attribute).toSet
+	}
+	
+	def referencedClasses(Operation o) {
+		o.referencedSymbols.filter(Class).toSet
+	}
+	
+	def variableDeclarations(Operation o) {
+		o.eAllOfType(VariableDeclaration)
+	}
+	
+	def isStatic(Attribute a) {
+		a.containingClass === null
+	}
+	
+	def isStatic(Operation o) {
+		o.containingClass === null
+	}
 
 	def featureAsString(Feature f) {
 		f.name + if (f instanceof Operation)
@@ -149,13 +178,13 @@ class CmlModelUtil {
 		f.featureAsString + " : " + f.inferType.name
 	}
 
-	def Class inferType(NamedElement s) {
-		switch (s) {
-			Attribute: s.type
-			Operation: s.type ?: CmlTypeProvider.VOID_TYPE
-			EnumerationElement: s.containingClass
-			VariableDeclaration: s.type
-			Class: s
+	def Class inferType(NamedElement ne) {
+		switch (ne) {
+			Attribute: ne.type
+			Operation: ne.type ?: CmlTypeProvider.VOID_TYPE
+			EnumerationElement: ne.containingClass
+			VariableDeclaration: ne.type
+			Class: ne
 		}
 	}
 	

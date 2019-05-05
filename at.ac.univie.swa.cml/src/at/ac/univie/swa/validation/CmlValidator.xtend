@@ -275,7 +275,7 @@ class CmlValidator extends AbstractCmlValidator {
 
 	@Check
 	def void checkAttributeDeclaration(Attribute a) {
-		if (a.containingClass === null && !a.constant || !a.containingClass.contract && a.expression !== null) {
+		if (a.containingClass === null && !a.constant && !(a.eContainer instanceof Operation) || !a.containingClass.contract && a.expression !== null) {
 			error("Invalid attribute declaration", null, INVALID_ATTRIBUTE_DECLARATION)
 		}
 	}
