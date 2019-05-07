@@ -58,6 +58,7 @@ import at.ac.univie.swa.cml.WhileStatement
 import at.ac.univie.swa.cml.XorCompoundAction
 import at.ac.univie.swa.typing.CmlTypeConformance
 import com.google.inject.Inject
+import java.math.BigDecimal
 import java.util.LinkedHashMap
 import java.util.LinkedHashSet
 import java.util.List
@@ -77,6 +78,9 @@ import static extension org.eclipse.xtext.EcoreUtil2.*
  */
 class CmlGenerator extends AbstractGenerator2 {
 
+	static int FIXED_POINT_DECIMALS = 18
+	static boolean FIXED_POINT_ARITHMETIC = true;
+	static boolean SAFE_MATH = true;
 	@Inject extension CmlModelUtil
 	@Inject extension CmlTypeConformance
 	Iterable<CmlProgram> allResources;
@@ -84,11 +88,13 @@ class CmlGenerator extends AbstractGenerator2 {
 	override doGenerate(Resource resource, ResourceSet input, IFileSystemAccess2 fsa, IGeneratorContext context) {
 		allResources = input.resources.map(r|r.allContents.toIterable.filter(CmlProgram)).flatten
 
-		copyResource("Escrow.sol", fsa)
-		copyResource("Ownable.sol", fsa)
-		copyResource("PullPayment.sol", fsa)
-		copyResource("SafeMath.sol", fsa)
-		copyResource("Secondary.sol", fsa)
+		copyResource("resources/openzeppelin/Escrow.sol", fsa)
+		copyResource("resources/openzeppelin/Ownable.sol", fsa)
+		copyResource("resources/openzeppelin/PullPayment.sol", fsa)
+		copyResource("resources/openzeppelin/Math.sol", fsa)
+		copyResource("resources/openzeppelin/SafeMath.sol", fsa)
+		copyResource("resources/openzeppelin/Secondary.sol", fsa)
+		copyResource("resources/other/DSMAth.sol", fsa)
 
 		for (p : resource.allContents.toIterable.filter(CmlProgram)) {
 			if (!p.contracts.empty)
@@ -97,10 +103,10 @@ class CmlGenerator extends AbstractGenerator2 {
 	}
 
 	def copyResource(String resourceName, IFileSystemAccess2 fsa) {
-		var url = getClass().getClassLoader().getResource("resources/openzeppelin/" + resourceName)
+		var url = getClass().getClassLoader().getResource(resourceName)
 		var inputStream = url.openStream
 		try {
-			fsa.generateFile("lib/" + resourceName, inputStream)
+			fsa.generateFile("lib/" + resourceName.substring(resourceName.lastIndexOf("/")), inputStream)
 		} finally {
 			inputStream.close();
 		}
@@ -112,6 +118,9 @@ class CmlGenerator extends AbstractGenerator2 {
 		«FOR contract : program.contracts»
 			import "./lib/Ownable.sol";
 			import "./lib/PullPayment.sol";
+			import "./lib/Math.sol";
+			import "./lib/SafeMath.sol";
+			import "./lib/DSMath.sol";
 			
 			contract «contract.name» is Ownable, PullPayment {
 			
@@ -122,7 +131,7 @@ class CmlGenerator extends AbstractGenerator2 {
 				«"/*\n * State variables\n */\n"»
 				«contract.compileAttributes»
 				uint _contractStart;
-				mapping(bytes4 => bool) _callSuccessMonitor;
+«««				mapping(bytes4 => bool) _callSuccessMonitor;
 				
 				«"/*\n * Constructor\n */\n"»
 				«contract.compileConstructor»
@@ -141,7 +150,7 @@ class CmlGenerator extends AbstractGenerator2 {
 				}
 				
 				modifier when(bool _condition) {
-				       require(_condition); _;
+				    require(_condition); _;
 				}
 				
 				modifier onlyAfter(uint _time, uint _duration, bool _within) {
@@ -156,10 +165,10 @@ class CmlGenerator extends AbstractGenerator2 {
 					else require(_time - _duration < now && now < _time, "Function not called within expected timeframe."); _;
 				}
 				
-				modifier postCall() {
-				    _; _callSuccessMonitor[msg.sig] = true;
-				}
-				   
+«««				modifier postCall() {
+«««				    _; _callSuccessMonitor[msg.sig] = true;
+«««				}
+«««				   
 			}
 		«ENDFOR»
 	   '''
@@ -412,10 +421,10 @@ class CmlGenerator extends AbstractGenerator2 {
 		list.add("public")
 		if (o.containsDepositOperation)
 			list.add("payable")
-		else if (!o.modifiesStateAttributes)
-			list.add("view")
 		else if (o.static) 
 			list.add("pure")
+		else if (!o.modifiesStateAttributes)
+			list.add("view")
 		list
 	}
 
@@ -441,7 +450,7 @@ class CmlGenerator extends AbstractGenerator2 {
 		}
 		if (gc !== null)
 			modifiers.put("when", #[gc.expression.compile])
-		modifiers.put("postCall", emptyList)
+		//modifiers.put("postCall", emptyList)
 		modifiers
 	}
 
@@ -513,10 +522,10 @@ class CmlGenerator extends AbstractGenerator2 {
 		switch (t) {
 			Class:
 				switch (t) {
-					case t.conformsToInteger: "uint"
+					case t.conformsToInteger: "uint" // "int"
 					case t.conformsToBoolean: "bool"
 					case t.conformsToString: "bytes32"
-					case t.conformsToReal: "uint"
+					case t.conformsToReal: if (FIXED_POINT_ARITHMETIC) "uint" else "ufixed" //"fixed"
 					case t.conformsToDateTime: "uint"
 					case t.conformsToDuration: "uint"
 					case t.conformsToEnum: t.name
@@ -567,7 +576,6 @@ class CmlGenerator extends AbstractGenerator2 {
 	}
 
 	def String compile(Expression exp) {
-	
 		switch (exp) {
 			AssignmentExpression: '''«(exp.left.compile)» = «(exp.right.compile)»'''
 			OrExpression: '''«(exp.left.compile)» || «(exp.right.compile)»'''
@@ -581,7 +589,6 @@ class CmlGenerator extends AbstractGenerator2 {
 			RelationalExpression: {
 				val left = exp.left.compile
 				val right = exp.right.compile
-
 				switch (exp.op) {
 					case '<': '''«left» < «right»'''
 					case '>': '''«left» > «right»'''
@@ -592,18 +599,48 @@ class CmlGenerator extends AbstractGenerator2 {
 				}
 			}
 			AdditiveExpression: {
-				if (exp.op == '+')
-					'''«(exp.left.compile)» + «(exp.right.compile)»'''
+				val left = exp.left.compile
+				val right = exp.right.compile
+				if (SAFE_MATH && !FIXED_POINT_ARITHMETIC)
+					switch (exp.op) {
+						case '+': '''SafeMath.add(«(left)», «(right)»)'''
+						case '-': '''SafeMath.sub(«(left)», «(right)»)'''
+					}
+				else if (SAFE_MATH && FIXED_POINT_ARITHMETIC)
+					switch (exp.op) {
+						case '+': '''DSMath.add(«(left)», «(right)»)'''
+						case '-': '''DSMath.sub(«(left)», «(right)»)'''
+					}
 				else
-					'''«(exp.left.compile)» - «(exp.right.compile)»'''
+					switch (exp.op) {
+						case '+': '''«(left)» + «(right)»'''
+						case '-': '''«(left)» - «(right)»'''
+					}
 			}
 			MultiplicativeExpression: {
 				val left = exp.left.compile
 				val right = exp.right.compile
-				if (exp.op == '*')
-					'''«left» * «right»'''
+				if (SAFE_MATH && !FIXED_POINT_ARITHMETIC)
+					switch (exp.op) {
+						case '*': '''SafeMath.mul(«(left)», «(right)»)'''
+						case '/': '''SafeMath.div(«(left)», «(right)»)'''
+						case '%': '''SafeMath.mod(«(left)», «(right)»)'''
+						case '**': '''«(left)» ** «(right)»'''
+					}
+				else if (SAFE_MATH && FIXED_POINT_ARITHMETIC)
+					switch (exp.op) {
+						case '*': '''DSMath.wmul(«(left)», «(right)»)'''
+						case '/': '''DSMath.wdiv(«(left)», «(right)»)'''
+						case '%': '''SafeMath.mod(«(left)», «(right)»)'''
+						case '**': '''«(left)» ** «(right)»'''
+					}
 				else
-					'''«left» / «right»'''
+					switch (exp.op) {
+						case '*': '''«left» * «right»'''
+						case '/': '''«(left)» / «(right)»'''
+						case '%': '''«(left)» % «(right)»'''
+						case '**': '''«(left)» ** «(right)»'''
+					}
 			}
 			UnaryExpression: {
 				switch (exp.op) {
@@ -611,8 +648,6 @@ class CmlGenerator extends AbstractGenerator2 {
 					case '-': ''' -«(exp.operand.compile)»'''
 					case '!',
 					case 'not': ''' !«(exp.operand.compile)»'''
-					default:
-						""
 				}
 			}
 			PostfixExpression: {
@@ -623,8 +658,16 @@ class CmlGenerator extends AbstractGenerator2 {
 			}
 			CastedExpression: '''«exp.target.compile»'''
 			NestedExpression: '''(«exp.child.compile»)'''
-			RealLiteral: '''«exp.value»'''
-			IntegerLiteral: '''«exp.value»'''
+			RealLiteral:
+				if (FIXED_POINT_ARITHMETIC)
+					'''«fixedPointRepresentation(exp.value)»'''
+				else
+					'''«exp.value»'''
+			IntegerLiteral:
+				if (FIXED_POINT_ARITHMETIC)
+					'''«fixedPointRepresentation(BigDecimal.valueOf(exp.value))»'''
+				else
+					'''«exp.value»'''
 			BooleanLiteral: '''«exp.value»'''
 			StringLiteral: '''"«exp.value»"'''
 			SuperExpression: '''super'''
@@ -637,6 +680,10 @@ class CmlGenerator extends AbstractGenerator2 {
 		}
 	}
 
+	def fixedPointRepresentation(BigDecimal b) {
+		b.scaleByPowerOfTen(FIXED_POINT_DECIMALS).toString().replace("E+", "E")
+	}
+ 	
 	def compile(FeatureSelection fs) {
 		var String rslt
 
@@ -694,7 +741,7 @@ class CmlGenerator extends AbstractGenerator2 {
 				switch (a.name) {
 					case "id": "address payable " + a.name
 				}
-			}
+			} 
 		}
 	}
 
@@ -711,9 +758,30 @@ class CmlGenerator extends AbstractGenerator2 {
 					case "deposit": "require(msg.value == " + args.get(0).compile + ")"
 					case "transfer": "_asyncTransfer(" + reference.compile + ", " + args.get(0).compile + ")"
 				}
+			} else if (containingClass.conformsToInteger) {
+				switch (o.name) {
+					case "average": "Math.average(" + reference.compile + ", " + args.get(0).compile + ")"
+					case "max": "Math.max(" + reference.compile + ", " + args.get(0).compile + ")"
+					case "min": "Math.min(" + reference.compile + ", " + args.get(0).compile + ")"
+					case "toReal": if (FIXED_POINT_ARITHMETIC) reference.compile else "???(" + reference.compile + ")"
+				}
+			} else if (containingClass.conformsToReal) {
+				switch (o.name) {
+					case "sqrt": "???(" + reference.compile + ", " + args.get(0).compile + ")"
+					case "exp": "???(" + reference.compile + ", " + args.get(0).compile + ")"
+					case "ceil": "???(" + reference.compile + ", " + args.get(0).compile + ")"
+					case "floor": "???(" + reference.compile + ", " + args.get(0).compile + ")"
+					case "toInteger": if (FIXED_POINT_ARITHMETIC) reference.compile else "???(" + reference.compile + ")"
+				}
+			} else if (containingClass.conformsToDateTime) {
+				switch (o.name) {
+					// TODO
+				}
+			} else if (containingClass.conformsToDuration) {
+				switch (o.name) {
+					// TODO
+				}
 			}
 		}
-
 	}
-
 }

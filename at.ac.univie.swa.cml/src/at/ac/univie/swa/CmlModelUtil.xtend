@@ -160,11 +160,11 @@ class CmlModelUtil {
 	}
 	
 	def isStatic(Attribute a) {
-		a.containingClass === null
+		a.eContainer instanceof CmlProgram
 	}
 	
 	def isStatic(Operation o) {
-		o.containingClass === null
+		o.eContainer instanceof CmlProgram
 	}
 
 	def featureAsString(Feature f) {

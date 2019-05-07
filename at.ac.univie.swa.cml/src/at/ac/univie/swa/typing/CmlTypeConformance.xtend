@@ -30,9 +30,10 @@ class CmlTypeConformance {
 	}
 
 	def conformToLibraryTypes(Class c1, Class c2) {
-		(c1.conformsToString && c2.conformsToString) || 
-		(c1.conformsToInteger && c2.conformsToInteger)       ||
 		(c1.conformsToBoolean && c2.conformsToBoolean) ||
+		(c1.conformsToString && c2.conformsToString) || 
+		//(c1.conformsToNumber && c2.conformsToNumber) ||
+		(c1.conformsToInteger && c2.conformsToInteger) ||
 		(c1.conformsToReal && c2.conformsToReal) ||
 		(c1.conformsToDateTime && c2.conformsToDateTime) ||
 		(c1.conformsToDuration && c2.conformsToDuration) ||
@@ -40,7 +41,7 @@ class CmlTypeConformance {
 	}
 	
 	def conformsToLibraryType(Class c) {
-		c.conformsToString || c.conformsToInteger || c.conformsToBoolean || c.conformsToReal || c.conformsToDateTime ||
+		c.conformsToBoolean ||  c.conformsToString || c.conformsToInteger || c.conformsToReal || c.conformsToDateTime ||
 			c.conformsToDuration || c.conformsToError
 	}
 
@@ -52,19 +53,24 @@ class CmlTypeConformance {
 		c == NULL_TYPE
 	}
 	
+	def conformsToBoolean(Class c) {
+		c == BOOLEAN_TYPE || 
+		c.fullyQualifiedName.toString == CmlLib::LIB_BOOLEAN
+	}
+	
 	def conformsToString(Class c) {
 		c == STRING_TYPE || 
 		c.fullyQualifiedName.toString == CmlLib::LIB_STRING
+	}
+	
+	def conformsToNumber(Class c) {
+		c == NUMBER_TYPE || 
+		c.fullyQualifiedName.toString == CmlLib::LIB_NUMBER
 	}
 
 	def conformsToInteger(Class c) {
 		c == INTEGER_TYPE || 
 		c.fullyQualifiedName.toString == CmlLib::LIB_INTEGER
-	}
-
-	def conformsToBoolean(Class c) {
-		c == BOOLEAN_TYPE || 
-		c.fullyQualifiedName.toString == CmlLib::LIB_BOOLEAN
 	}
 	
 	def conformsToReal(Class c) {

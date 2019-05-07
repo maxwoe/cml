@@ -14,22 +14,23 @@ concept Party extends Any
 	Boolean deposit(Integer amount)
 	Boolean transfer(Integer amount)
 concept Asset extends Any
+	String id
 concept Transaction extends Any
 concept Event extends Any
 concept Enum extends Any
 concept String extends Any
-concept Integer extends Any
-	Integer mod(Integer i)
+concept Boolean extends Any
+abstract concept Number extends Any
+concept Integer extends Number
+	Integer average(Integer i)
 	Integer max(Integer i)
 	Integer min(Integer i)
-	Integer abs() 
 	Real toReal()
-concept Boolean extends Any
-concept Real extends Any
-	Real abs()
+concept Real extends Number
+	Real max(Real i)
+	Real min(Real i)
 	Real sqrt()
-	Real exp() 
-	Real ceil()	
+	Real ceil()
 	Real floor()
 	Integer toInteger()
 concept DateTime extends Any

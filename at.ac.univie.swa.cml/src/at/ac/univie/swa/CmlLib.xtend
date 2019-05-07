@@ -14,9 +14,10 @@ class CmlLib {
 
 	public val static LIB_PACKAGE = "cml.lang"
 	public val static LIB_ANY = LIB_PACKAGE + ".Any"
-	public val static LIB_STRING = LIB_PACKAGE + ".String"
-	public val static LIB_INTEGER = LIB_PACKAGE + ".Integer"
 	public val static LIB_BOOLEAN = LIB_PACKAGE + ".Boolean"
+	public val static LIB_STRING = LIB_PACKAGE + ".String"
+	public val static LIB_NUMBER = LIB_PACKAGE + ".Number"
+	public val static LIB_INTEGER = LIB_PACKAGE + ".Integer"
 	public val static LIB_REAL = LIB_PACKAGE + ".Real"
 	public val static LIB_DURATION = LIB_PACKAGE + ".Duration"
 	public val static LIB_DATETIME = LIB_PACKAGE + ".DateTime"

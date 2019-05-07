@@ -49,9 +49,10 @@ class CmlTypeProvider {
 	@Inject extension CmlModelUtil
 	@Inject extension CmlTypeConformance
 
-	public static val STRING_TYPE = CmlFactory::eINSTANCE.createClass => [name = "String"]
-	public static val INTEGER_TYPE = CmlFactory::eINSTANCE.createClass => [name = "Integer"]
 	public static val BOOLEAN_TYPE = CmlFactory::eINSTANCE.createClass => [name = "Boolean"]
+	public static val STRING_TYPE = CmlFactory::eINSTANCE.createClass => [name = "String"]
+	public static val NUMBER_TYPE = CmlFactory::eINSTANCE.createClass => [name = "Number"]
+	public static val INTEGER_TYPE = CmlFactory::eINSTANCE.createClass => [name = "Integer"]
 	public static val REAL_TYPE = CmlFactory::eINSTANCE.createClass => [name = "Real"]
 	public static val DATETIME_TYPE = CmlFactory::eINSTANCE.createClass => [name = "DateTime"]
 	public static val DURATION_TYPE = CmlFactory::eINSTANCE.createClass => [name = "Duration"]
