@@ -102,7 +102,7 @@ class CmlValidator extends AbstractCmlValidator {
 	def void checkNoDuplicateClasses(CmlProgram cmlp) {
 		checkNoDuplicateElements(cmlp.classes, "class")
 		checkNoDuplicateElements(cmlp.attributes, "attribute")
-		checkNoDuplicateElements(cmlp.operations, "operation")
+		checkNoDuplicateElements(cmlp.operations, [signature], "operation")
 	}
 
 	@Check
@@ -326,12 +326,16 @@ class CmlValidator extends AbstractCmlValidator {
 			}
 		}
 	}
-
+	
 	def private void checkNoDuplicateElements(Iterable<? extends NamedElement> elements, String desc) {
+		checkNoDuplicateElements(elements, [NamedElement e | e.name], desc)
+	}
+
+	def private void checkNoDuplicateElements(Iterable<? extends NamedElement> elements, (NamedElement)=>String calledFunction, String desc) {
 		val multiMap = HashMultimap.create()
 
 		for (e : elements)
-			multiMap.put(e.name, e)
+			multiMap.put(calledFunction.apply(e), e)
 
 		for (entry : multiMap.asMap.entrySet) {
 			val duplicates = entry.value
@@ -341,6 +345,23 @@ class CmlValidator extends AbstractCmlValidator {
 						DUPLICATE_ELEMENT)
 			}
 		}
+	}
+	
+	def signature(NamedElement ne) {
+		val sb = new StringBuilder();
+		if (ne instanceof Operation) {
+			sb.append(ne.name)
+			if (!ne.params.empty)
+				sb.append("(")
+			for (param : ne.params) {
+				sb.append(param.type.fullyQualifiedName)
+				sb.append(";")
+			}
+			if (!ne.params.empty)
+				sb.append(")")
+			sb.append(ne.inferType.fullyQualifiedName)
+		}
+		sb.toString
 	}
 
 }

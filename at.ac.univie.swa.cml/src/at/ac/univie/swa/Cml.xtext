@@ -21,6 +21,7 @@ Class:
 	END)?;
 
 Contract returns Class:
+	annotations+=AnnotationDeclaration*
 	(abstract?='abstract')? kind='contract' name=ID ('extends' superclass=[Class|QualifiedName])?
 	(BEGIN
 	features+=FeatureAttributeAndOperationAndClause*
@@ -58,7 +59,19 @@ Enumeration returns Class:
 
 EnumerationElement:
 	name=ID;
+	
+AnnotationDeclaration:
+    '@' name=Annotation ('(' (params+=AnnotationParameter (',' params+=AnnotationParameter)*)? ')')?;
 
+AnnotationParameter:
+	(name=ID '=')? => value=Expression;
+
+enum Annotation:
+	OWNABLE='Ownable' |
+	PULL_PAYMENT='PullPayment' |
+	SAFE_MATH='SafeMath' |
+	FIXED_POINT_ARITMHMETIC='FixedPointArithmetic';
+	
 Type:
 	Class;
 

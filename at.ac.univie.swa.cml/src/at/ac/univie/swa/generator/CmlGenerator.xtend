@@ -78,9 +78,11 @@ import static extension org.eclipse.xtext.EcoreUtil2.*
  */
 class CmlGenerator extends AbstractGenerator2 {
 
-	static int FIXED_POINT_DECIMALS = 18
-	static boolean FIXED_POINT_ARITHMETIC = true;
-	static boolean SAFE_MATH = true;
+	int fixedPointDecimals
+	boolean fixedPointArithmetic
+	boolean safeMath
+	boolean pullPayment
+	boolean ownable
 	@Inject extension CmlModelUtil
 	@Inject extension CmlTypeConformance
 	Iterable<CmlProgram> allResources;
@@ -112,17 +114,58 @@ class CmlGenerator extends AbstractGenerator2 {
 		}
 	}
 
+	def deriveInheritance(Class c) {
+		var list = newLinkedList
+			if(ownable)
+				list.add("Ownable")
+			if(pullPayment)
+				list.add("PullPayment")
+		list
+	}
+	
+	def initGeneratorSettings() {
+		fixedPointDecimals = 18
+		fixedPointArithmetic = false;
+		safeMath = false; 
+		pullPayment = false;
+		ownable = false;
+	}
+	
+	def deriveGeneratorSettings(Class c) {
+		initGeneratorSettings
+		for (a : c.annotations) {
+			val annotation = a.name
+			switch (annotation) {
+				case SAFE_MATH:
+					safeMath = true
+				case FIXED_POINT_ARITMHMETIC: {
+					fixedPointArithmetic = true
+					if (!a.params.empty) {
+						val integerLiteral = a.params.get(0).value
+						if (integerLiteral instanceof IntegerLiteral)
+							fixedPointDecimals = integerLiteral.value
+					}
+				}
+				case OWNABLE:
+					ownable = true
+				case PULL_PAYMENT:
+					pullPayment = true
+			}
+		}
+	}
+	
 	def compile(CmlProgram program) '''
 		pragma solidity >=0.4.22 <0.7.0;
 		pragma experimental ABIEncoderV2;
 		«FOR contract : program.contracts»
-			import "./lib/Ownable.sol";
-			import "./lib/PullPayment.sol";
+			«contract.deriveGeneratorSettings»
+			«IF ownable»import "./lib/Ownable.sol";«ENDIF»
+			«IF pullPayment»import "./lib/PullPayment.sol";«ENDIF»
 			import "./lib/Math.sol";
-			import "./lib/SafeMath.sol";
-			import "./lib/DSMath.sol";
+			«IF safeMath»import "./lib/SafeMath.sol";«ENDIF»
+			«IF fixedPointArithmetic»import "./lib/DSMath.sol";«ENDIF»
 			
-			contract «contract.name» is Ownable, PullPayment {
+			contract «contract.name»«FOR a : contract.deriveInheritance BEFORE " is " SEPARATOR ", "»«a»«ENDFOR» {
 			
 «««				«contract.compileStates»
 				«contract.compileEnums»
@@ -171,7 +214,7 @@ class CmlGenerator extends AbstractGenerator2 {
 «««				   
 			}
 		«ENDFOR»
-	   '''
+	'''
 
 	def compileEventFunctions(Class c) '''
 		«FOR e : c.attributes.filter[type.mapsToEvent] SEPARATOR "\n" AFTER "\n"»
@@ -424,7 +467,7 @@ class CmlGenerator extends AbstractGenerator2 {
 		else if (o.static) 
 			list.add("pure")
 		else if (!o.modifiesStateAttributes)
-			list.add("view")
+			list.add("view") // TODO
 		list
 	}
 
@@ -525,7 +568,7 @@ class CmlGenerator extends AbstractGenerator2 {
 					case t.conformsToInteger: "uint" // "int"
 					case t.conformsToBoolean: "bool"
 					case t.conformsToString: "bytes32"
-					case t.conformsToReal: if (FIXED_POINT_ARITHMETIC) "uint" else "ufixed" //"fixed"
+					case t.conformsToReal: if (fixedPointArithmetic) "uint" else "ufixed" //"fixed"
 					case t.conformsToDateTime: "uint"
 					case t.conformsToDuration: "uint"
 					case t.conformsToEnum: t.name
@@ -601,12 +644,12 @@ class CmlGenerator extends AbstractGenerator2 {
 			AdditiveExpression: {
 				val left = exp.left.compile
 				val right = exp.right.compile
-				if (SAFE_MATH && !FIXED_POINT_ARITHMETIC)
+				if (safeMath && !fixedPointArithmetic)
 					switch (exp.op) {
 						case '+': '''SafeMath.add(«(left)», «(right)»)'''
 						case '-': '''SafeMath.sub(«(left)», «(right)»)'''
 					}
-				else if (SAFE_MATH && FIXED_POINT_ARITHMETIC)
+				else if (safeMath && fixedPointArithmetic)
 					switch (exp.op) {
 						case '+': '''DSMath.add(«(left)», «(right)»)'''
 						case '-': '''DSMath.sub(«(left)», «(right)»)'''
@@ -620,14 +663,14 @@ class CmlGenerator extends AbstractGenerator2 {
 			MultiplicativeExpression: {
 				val left = exp.left.compile
 				val right = exp.right.compile
-				if (SAFE_MATH && !FIXED_POINT_ARITHMETIC)
+				if (safeMath && !fixedPointArithmetic)
 					switch (exp.op) {
 						case '*': '''SafeMath.mul(«(left)», «(right)»)'''
 						case '/': '''SafeMath.div(«(left)», «(right)»)'''
 						case '%': '''SafeMath.mod(«(left)», «(right)»)'''
 						case '**': '''«(left)» ** «(right)»'''
 					}
-				else if (SAFE_MATH && FIXED_POINT_ARITHMETIC)
+				else if (safeMath && fixedPointArithmetic)
 					switch (exp.op) {
 						case '*': '''DSMath.wmul(«(left)», «(right)»)'''
 						case '/': '''DSMath.wdiv(«(left)», «(right)»)'''
@@ -659,12 +702,12 @@ class CmlGenerator extends AbstractGenerator2 {
 			CastedExpression: '''«exp.target.compile»'''
 			NestedExpression: '''(«exp.child.compile»)'''
 			RealLiteral:
-				if (FIXED_POINT_ARITHMETIC)
+				if (fixedPointArithmetic)
 					'''«fixedPointRepresentation(exp.value)»'''
 				else
 					'''«exp.value»'''
 			IntegerLiteral:
-				if (FIXED_POINT_ARITHMETIC)
+				if (fixedPointArithmetic)
 					'''«fixedPointRepresentation(BigDecimal.valueOf(exp.value))»'''
 				else
 					'''«exp.value»'''
@@ -681,7 +724,7 @@ class CmlGenerator extends AbstractGenerator2 {
 	}
 
 	def fixedPointRepresentation(BigDecimal b) {
-		b.scaleByPowerOfTen(FIXED_POINT_DECIMALS).toString().replace("E+", "E")
+		b.scaleByPowerOfTen(fixedPointDecimals).toString().replace("E+", "E")
 	}
  	
 	def compile(FeatureSelection fs) {
@@ -755,15 +798,18 @@ class CmlGenerator extends AbstractGenerator2 {
 				}
 			} else if (containingClass.conformsToParty) {
 				switch (o.name) {
-					case "deposit": "require(msg.value == " + args.get(0).compile + ")"
-					case "transfer": "_asyncTransfer(" + reference.compile + ", " + args.get(0).compile + ")"
+					case "deposit":
+						"require(msg.value == " + args.get(0).compile + ")"
+					case "transfer":
+						if(pullPayment) "_asyncTransfer(" + reference.compile + ", " + args.get(0).compile + ")" 
+						else reference.compile + ".transfer" + "(" + args.get(0).compile + ")"
 				}
 			} else if (containingClass.conformsToInteger) {
 				switch (o.name) {
 					case "average": "Math.average(" + reference.compile + ", " + args.get(0).compile + ")"
 					case "max": "Math.max(" + reference.compile + ", " + args.get(0).compile + ")"
 					case "min": "Math.min(" + reference.compile + ", " + args.get(0).compile + ")"
-					case "toReal": if (FIXED_POINT_ARITHMETIC) reference.compile else "???(" + reference.compile + ")"
+					case "toReal": if (fixedPointArithmetic) reference.compile else "???(" + reference.compile + ")"
 				}
 			} else if (containingClass.conformsToReal) {
 				switch (o.name) {
@@ -771,7 +817,7 @@ class CmlGenerator extends AbstractGenerator2 {
 					case "exp": "???(" + reference.compile + ", " + args.get(0).compile + ")"
 					case "ceil": "???(" + reference.compile + ", " + args.get(0).compile + ")"
 					case "floor": "???(" + reference.compile + ", " + args.get(0).compile + ")"
-					case "toInteger": if (FIXED_POINT_ARITHMETIC) reference.compile else "???(" + reference.compile + ")"
+					case "toInteger": if (fixedPointArithmetic) reference.compile else "???(" + reference.compile + ")"
 				}
 			} else if (containingClass.conformsToDateTime) {
 				switch (o.name) {

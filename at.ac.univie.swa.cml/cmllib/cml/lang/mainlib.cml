@@ -11,8 +11,8 @@ concept Contract extends Any
 	DateTime contractEnd
 concept Party extends Any
 	String id
-	Boolean deposit(Integer amount)
-	Boolean transfer(Integer amount)
+	Boolean deposit(Number amount)
+	Boolean transfer(Number amount)
 concept Asset extends Any
 	String id
 concept Transaction extends Any
@@ -63,6 +63,9 @@ enum TimeUnit
 	^seconds ^minutes ^hours ^days ^weeks
 concept Error extends Any
 	String message
+require(Boolean val, String msg)
+	if(!val)
+		throw Error(msg)
 //concept Optional<T> extends Any
 //	Boolean hasValue()
 //	T getValueOrDefault() 
