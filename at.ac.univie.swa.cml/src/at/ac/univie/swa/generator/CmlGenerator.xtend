@@ -23,7 +23,6 @@ import at.ac.univie.swa.cml.CompoundAction
 import at.ac.univie.swa.cml.DateTimeLiteral
 import at.ac.univie.swa.cml.DoWhileStatement
 import at.ac.univie.swa.cml.DurationLiteral
-import at.ac.univie.swa.cml.EnsureStatement
 import at.ac.univie.swa.cml.EqualityExpression
 import at.ac.univie.swa.cml.Expression
 import at.ac.univie.swa.cml.FeatureSelection
@@ -96,7 +95,8 @@ class CmlGenerator extends AbstractGenerator2 {
 		copyResource("resources/openzeppelin/Math.sol", fsa)
 		copyResource("resources/openzeppelin/SafeMath.sol", fsa)
 		copyResource("resources/openzeppelin/Secondary.sol", fsa)
-		copyResource("resources/other/DSMAth.sol", fsa)
+		copyResource("resources/other/DSMath.sol", fsa)
+		copyResource("resources/other/DateTime.sol", fsa)
 
 		for (p : resource.allContents.toIterable.filter(CmlProgram)) {
 			if (!p.contracts.empty)
@@ -164,6 +164,7 @@ class CmlGenerator extends AbstractGenerator2 {
 			import "./lib/Math.sol";
 			«IF safeMath»import "./lib/SafeMath.sol";«ENDIF»
 			«IF fixedPointArithmetic»import "./lib/DSMath.sol";«ENDIF»
+			import "./lib/DateTime.sol";
 			
 			contract «contract.name»«FOR a : contract.deriveInheritance BEFORE " is " SEPARATOR ", "»«a»«ENDFOR» {
 			
@@ -300,13 +301,14 @@ class CmlGenerator extends AbstractGenerator2 {
 		set.addAll(o.referencedSymbols)
 		set.addAll(o.variableDeclarations)
 		for(op : o.referencedOperations) {
-			set.addAll(traverseForTypes(op))
+			if(op !== o)
+				set.addAll(traverseForTypes(op))
 		}
 		set
 	}
 	
 	def Set<Operation> staticOperations(Class c) {
-		c.referencedNamedElements.filter(Operation).filter[static].toSet
+		c.referencedNamedElements.filter(Operation).filter[static && !containedInMainLib].toSet
 	}
 	
 	def Set<Attribute> staticAttributes(Class c) {
@@ -314,7 +316,7 @@ class CmlGenerator extends AbstractGenerator2 {
 	}
 	
 	def mapsToStruct(Class c) {
-		!c.conformsToLibraryType && !c.conformsToEnum && !c.subclassOfEnum && !c.conformsToParty
+		!c.conformsToLibraryType && !c.conformsToParty && !c.mapsToEnum && !c.mapsToEvent 
 	}
 	
 	def mapsToEnum(Class c) {
@@ -322,7 +324,7 @@ class CmlGenerator extends AbstractGenerator2 {
 	}
 	
 	def mapsToEvent(Class c) {
-		c.conformsToEvent
+		c.conformsToEvent || c.subclassOfEvent
 	}
 	
 	def compileAttributes(Class c) '''
@@ -466,8 +468,8 @@ class CmlGenerator extends AbstractGenerator2 {
 			list.add("payable")
 		else if (o.static) 
 			list.add("pure")
-		else if (!o.modifiesStateAttributes)
-			list.add("view") // TODO
+		//else if (!o.modifiesStateAttributes)
+		//	list.add("view")
 		list
 	}
 
@@ -541,10 +543,11 @@ class CmlGenerator extends AbstractGenerator2 {
 				for («s.declaration.compileStatement» «s.condition.compile»; «s.progression.compile»)
 				«s.block.compileBlock»
 			'''
-			EnsureStatement: '''require(«s.condition.compile»«IF s.throwExpression !== null», «s.throwExpression.compile»«ENDIF»);'''
 			ThrowStatement: '''revert(«s.expression?.compile»);'''
-			default:
-				(s as Expression).compile + ";"
+			default: {
+				val statement = (s as Expression).compile
+				if(!statement.nullOrEmpty) (statement + ";") else ""
+			}
 		}
 	}
 
@@ -789,44 +792,63 @@ class CmlGenerator extends AbstractGenerator2 {
 	}
 
 	def interceptOperation(Operation o, List<Expression> args, Expression reference) {
-		val containingClass = o.containingClass
-		if (containingClass !== null) {
-			if (containingClass.conformsToDateTime) {
+		if (!o.static) {
+			val containingClass = o.containingClass
+			if (containingClass.conformsToParty) {
 				switch (o.name) {
-					case "addDuration": reference.compile + " + " + args.get(0).compile
-					case "subtractDuration": reference.compile + " - " + args.get(0).compile
-				}
-			} else if (containingClass.conformsToParty) {
-				switch (o.name) {
-					case "deposit":
-						"require(msg.value == " + args.get(0).compile + ")"
+					case "deposit":	"" // NOOP
 					case "transfer":
-						if(pullPayment) "_asyncTransfer(" + reference.compile + ", " + args.get(0).compile + ")" 
-						else reference.compile + ".transfer" + "(" + args.get(0).compile + ")"
+						if(pullPayment) "_asyncTransfer(" + reference.compile + ", " + args.get(0).compile +
+							")" else reference.compile + ".transfer" + "(" + args.get(0).compile + ")"
 				}
 			} else if (containingClass.conformsToInteger) {
 				switch (o.name) {
 					case "average": "Math.average(" + reference.compile + ", " + args.get(0).compile + ")"
 					case "max": "Math.max(" + reference.compile + ", " + args.get(0).compile + ")"
 					case "min": "Math.min(" + reference.compile + ", " + args.get(0).compile + ")"
-					case "toReal": if (fixedPointArithmetic) reference.compile else "???(" + reference.compile + ")"
+					case "toReal": if(fixedPointArithmetic) reference.compile else "ufixed(" + reference.compile + ")"
 				}
 			} else if (containingClass.conformsToReal) {
 				switch (o.name) {
 					case "sqrt": "???(" + reference.compile + ", " + args.get(0).compile + ")"
-					case "exp": "???(" + reference.compile + ", " + args.get(0).compile + ")"
 					case "ceil": "???(" + reference.compile + ", " + args.get(0).compile + ")"
 					case "floor": "???(" + reference.compile + ", " + args.get(0).compile + ")"
-					case "toInteger": if (fixedPointArithmetic) reference.compile else "???(" + reference.compile + ")"
+					case "toInteger": if(fixedPointArithmetic) reference.compile else "uint(" + reference.compile + ")"
 				}
 			} else if (containingClass.conformsToDateTime) {
 				switch (o.name) {
-					// TODO
+					case "isBefore": "DateTime.isBefore(" + reference.compile + ", " + args.get(0).compile + ")"
+					case "isAfter": "DateTime.isAfter(" + reference.compile + ", " + args.get(0).compile + ")"
+					case "second": "DateTime.getSecond(" + reference.compile + ")"
+					case "minute": "DateTime.getMinute(" + reference.compile + ")"
+					case "hour": "DateTime.getHour(" + reference.compile + ")"
+					case "day": "DateTime.getDay(" + reference.compile + ")"
+					case "week": "DateTime.getWeek(" + reference.compile + ")"
+					case "equals": "DateTime.equals(" + reference.compile + ", " + args.get(0).compile + ")"
+					case "addDuration": "DateTime.addDuration(" + reference.compile + ", " + args.get(0).compile + ")"
+					case "subtractDuration": "DateTime.subtractDuration(" + reference.compile + ", " +
+						args.get(0).compile + ")"
+					case "durationBetween": "DateTime.durationBetween(" + reference.compile + ", " +
+						args.get(0).compile + ")"
 				}
 			} else if (containingClass.conformsToDuration) {
 				switch (o.name) {
-					// TODO
+					case "toSeconds": reference.compile
+					case "toMinutes": "DateTime.toMinutes(" + reference.compile + ")"
+					case "toHours": "DateTime.toHours(" + reference.compile + ")"
+					case "toDays": "DateTime.toDays(" + reference.compile + ")"
+					case "toWeeks": "DateTime.toWeeks(" + reference.compile + ")"
+					case "addDuration": "DateTime.addDuration(" + reference.compile + ", " + args.get(0).compile + ")"
+					case "subtractDuration": "DateTime.subtractDuration(" + reference.compile + ", " +
+						args.get(0).compile + ")"
 				}
+			}
+		} else {
+			if (o.containedInMainLib) {
+				switch (o.name) {
+					case "ensure": "require(" + args.get(0).compile + ", " + args.get(1).compile + ")"
+				}
+
 			}
 		}
 	}

@@ -196,8 +196,8 @@ class CmlValidator extends AbstractCmlValidator {
 			return; // nothing to check
 		if (!actualType.isConformant(expectedType)) {
 			error(
-				"Incompatible types. Expected '" + (expectedType as Class).name + "' but was '" +
-					(actualType as Class).name + "'", null, INCOMPATIBLE_TYPES);
+				"Incompatible types. Expected '" + (expectedType as Class).fullyQualifiedName + "' but was '" +
+					(actualType as Class).fullyQualifiedName + "'", null, INCOMPATIBLE_TYPES);
 		}
 	}
 	
@@ -347,21 +347,4 @@ class CmlValidator extends AbstractCmlValidator {
 		}
 	}
 	
-	def signature(NamedElement ne) {
-		val sb = new StringBuilder();
-		if (ne instanceof Operation) {
-			sb.append(ne.name)
-			if (!ne.params.empty)
-				sb.append("(")
-			for (param : ne.params) {
-				sb.append(param.type.fullyQualifiedName)
-				sb.append(";")
-			}
-			if (!ne.params.empty)
-				sb.append(")")
-			sb.append(ne.inferType.fullyQualifiedName)
-		}
-		sb.toString
-	}
-
 }

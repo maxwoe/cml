@@ -97,7 +97,7 @@ fragment TypedDeclaration *:
 	type=[Class|QualifiedName] name=ID;
 
 Attribute:
-	constant?='constant'? TypedDeclaration ('=' expression=Expression)?;
+	(constant?='constant')? TypedDeclaration ('=' expression=Expression)?;
 
 Operation:
 	(type=[Class|QualifiedName])? name=ID
@@ -178,7 +178,6 @@ Block:
 Statement:
 	VariableDeclaration |
 	IfStatement |
-	EnsureStatement |
 	ThrowStatement |
 	ReturnStatement |
 	SwitchStatement |
@@ -203,9 +202,6 @@ ConditionalBlock returns Block:
 
 ThrowStatement:
 	'throw' expression=Expression;
-
-EnsureStatement:
-	'ensure' condition=Expression (=> 'else' 'throw' throwExpression=Expression)?;
 
 SwitchStatement:
 	'match' ('(' declaration=Expression ')' | => declaration=Expression)

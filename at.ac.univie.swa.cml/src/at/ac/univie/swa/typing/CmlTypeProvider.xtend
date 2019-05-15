@@ -6,17 +6,18 @@ import at.ac.univie.swa.cml.Actor
 import at.ac.univie.swa.cml.AdditiveExpression
 import at.ac.univie.swa.cml.AndExpression
 import at.ac.univie.swa.cml.AssignmentExpression
+import at.ac.univie.swa.cml.Attribute
 import at.ac.univie.swa.cml.BooleanLiteral
 import at.ac.univie.swa.cml.CallerExpression
 import at.ac.univie.swa.cml.CasePart
 import at.ac.univie.swa.cml.CastedExpression
 import at.ac.univie.swa.cml.Class
+import at.ac.univie.swa.cml.Closure
 import at.ac.univie.swa.cml.CmlFactory
 import at.ac.univie.swa.cml.CmlPackage
 import at.ac.univie.swa.cml.Constraint
 import at.ac.univie.swa.cml.DateTimeLiteral
 import at.ac.univie.swa.cml.DurationLiteral
-import at.ac.univie.swa.cml.EnsureStatement
 import at.ac.univie.swa.cml.EqualityExpression
 import at.ac.univie.swa.cml.Expression
 import at.ac.univie.swa.cml.FeatureSelection
@@ -26,6 +27,7 @@ import at.ac.univie.swa.cml.NestedExpression
 import at.ac.univie.swa.cml.NullLiteral
 import at.ac.univie.swa.cml.Operation
 import at.ac.univie.swa.cml.OrExpression
+import at.ac.univie.swa.cml.OtherOperatorExpression
 import at.ac.univie.swa.cml.PeriodicTime
 import at.ac.univie.swa.cml.RealLiteral
 import at.ac.univie.swa.cml.RelationalExpression
@@ -40,9 +42,6 @@ import at.ac.univie.swa.cml.Type
 import at.ac.univie.swa.cml.UnaryExpression
 import at.ac.univie.swa.cml.VariableDeclaration
 import com.google.inject.Inject
-import at.ac.univie.swa.cml.OtherOperatorExpression
-import at.ac.univie.swa.cml.Closure
-import at.ac.univie.swa.cml.Attribute
 
 class CmlTypeProvider {
 	@Inject extension CmlLib
@@ -168,8 +167,6 @@ class CmlTypeProvider {
 					}
 				}
 			}
-			EnsureStatement case f == ep.ensureStatement_ThrowExpression:
-				ERROR_TYPE
 			ThrowStatement case f == ep.throwStatement_Expression:
 				ERROR_TYPE
 			AssignmentExpression case f == ep.assignmentExpression_Right:
@@ -178,7 +175,6 @@ class CmlTypeProvider {
 			case f == ep.forStatement_Condition,
 			case f == ep.doWhileStatement_Condition,
 			case f == ep.whileStatement_Condition,
-			case f == ep.ensureStatement_Condition,
 			case f == ep.ifStatement_Condition:
 				BOOLEAN_TYPE
 			AdditiveExpression case f == ep.additiveExpression_Right:

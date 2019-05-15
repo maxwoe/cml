@@ -4,6 +4,7 @@
 package at.ac.univie.swa.scoping
 
 import at.ac.univie.swa.CmlModelUtil
+import at.ac.univie.swa.cml.Attribute
 import at.ac.univie.swa.cml.Block
 import at.ac.univie.swa.cml.Class
 import at.ac.univie.swa.cml.Closure
@@ -13,6 +14,7 @@ import at.ac.univie.swa.cml.FeatureSelection
 import at.ac.univie.swa.cml.ForStatement
 import at.ac.univie.swa.cml.Operation
 import at.ac.univie.swa.cml.OtherOperatorExpression
+import at.ac.univie.swa.cml.SymbolReference
 import at.ac.univie.swa.cml.VariableDeclaration
 import at.ac.univie.swa.typing.CmlTypeConformance
 import at.ac.univie.swa.typing.CmlTypeProvider
@@ -25,8 +27,6 @@ import org.eclipse.xtext.scoping.IScope
 import org.eclipse.xtext.scoping.Scopes
 import org.eclipse.xtext.scoping.impl.FilteringScope
 import org.eclipse.xtext.scoping.impl.SimpleScope
-import at.ac.univie.swa.cml.SymbolReference
-import at.ac.univie.swa.cml.Attribute
 
 /**
  * This class contains custom scoping description.
@@ -45,15 +45,12 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 			return scopeForSymbolRef(context, reference)
 		} else if (context instanceof FeatureSelection) {
 			return scopeForFeatureSelection(context)
-		} else if (reference == CmlPackage.Literals.ACTOR__PARTY) {
-			return scopeForPartyRef(context)
-		} else if (reference == CmlPackage.Literals.ACTION_QUERY__PARTY) {
-			return scopeForPartyRef(context)
+		} else if (reference == CmlPackage.Literals.ACTOR__PARTY || reference == CmlPackage.Literals.ACTION_QUERY__PARTY) {
+			return scopeForAttributeRef(context, [Attribute a | !a.type.eIsProxy && (a.type.conformsToParty || a.type.subclassOfParty)])
 		} else if (reference == CmlPackage.Literals.EVENT_QUERY__EVENT) {
-			return scopeForEventRef(context)
+			return scopeForAttributeRef(context, [Attribute a | !a.type.eIsProxy && (a.type.conformsToEvent || a.type.subclassOfEvent)])
 		}
-
-		return super.getScope(context, reference)
+		super.getScope(context, reference)
 	}
 
 	def protected IScope scopeForSymbolRef(EObject context, EReference reference) {
@@ -69,7 +66,7 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 						if (left instanceof SymbolReference)
 							if (left.symbol instanceof Class) {
 								for (c : (left.symbol as Class).classHierarchyWithObject.toList.reverseView) {
-									scope = Scopes::scopeFor((c as Class).attributes, scope)
+									scope = Scopes::scopeFor(c.attributes, scope)
 								}
 								scope = Scopes.scopeFor((left.symbol as Class).attributes, scope)
 							}
@@ -84,8 +81,8 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 					scopeForSymbolRef(container, reference))
 			Class: {
 				var parentScope = IScope::NULLSCOPE
-				for (c : container.classHierarchyWithObject.toArray().reverseView) {
-					parentScope = Scopes::scopeFor((c as Class).attributes + (c as Class).operations, parentScope)
+				for (c : container.classHierarchyWithObject.toList.reverseView) {
+					parentScope = Scopes::scopeFor(c.attributes + c.operations, parentScope)
 				}
 				parentScope = Scopes::scopeFor(container.attributes + container.operations, parentScope)
 				new SimpleScope(scopeForSymbolRef(container, reference), parentScope.allElements)
@@ -111,7 +108,7 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 
 			var parentScope = IScope::NULLSCOPE
 			for (c : type.classHierarchyWithObject.toList.reverseView) {
-				parentScope = Scopes::scopeFor((c as Class).selectedFeatures(fs), parentScope)
+				parentScope = Scopes::scopeFor(c.selectedFeatures(fs), parentScope)
 			}
 			return Scopes::scopeFor(type.selectedFeatures(fs), parentScope)
 		}
@@ -124,24 +121,12 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 			type.attributes + type.operations
 	}
 
-	def IScope scopeForPartyRef(EObject context) {
+	def IScope scopeForAttributeRef(EObject context, (Attribute)=>Boolean calledFunction) {
 		var parentScope = IScope::NULLSCOPE
 		for (c : context.containingClass.classHierarchyWithObject.toList.reverseView) {
-			parentScope = Scopes::scopeFor((c as Class).attributes.filter[type !== null].filter[type.conformsToParty || type.subclassOfParty],
-				parentScope)
+			parentScope = Scopes::scopeFor(c.attributes.filter[calledFunction.apply(it)], parentScope)
 		}
-		return Scopes::scopeFor(context.containingClass.attributes.filter[type !== null].filter[type.conformsToParty || type.subclassOfParty],
-			parentScope)
-	}
-
-	def IScope scopeForEventRef(EObject context) {
-		var parentScope = IScope::NULLSCOPE
-		for (c : context.containingClass.classHierarchyWithObject.toList.reverseView) {
-			parentScope = Scopes::scopeFor((c as Class).attributes.filter[type !== null].filter[type.conformsToEvent || type.subclassOfEvent],
-				parentScope)
-		}
-		return Scopes::scopeFor(context.containingClass.attributes.filter[type !== null].filter[type.conformsToEvent || type.subclassOfEvent],
-			parentScope)
+		return Scopes::scopeFor(context.containingClass.attributes.filter[calledFunction.apply(it)], parentScope)
 	}
 
 	def allClasses(EObject context, EReference reference) {
@@ -154,7 +139,6 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 				else
 					false
 			}
-
 		}
 		new FilteringScope(delegateScope, filter)
 	}

@@ -15,13 +15,16 @@ import org.eclipse.jface.viewers.StyledString
  * on how to customize the content assistant.
  */
 class CmlProposalProvider extends AbstractCmlProposalProvider {
-	
+
 	@Inject extension CmlModelUtil
-	
+
 	override getStyledDisplayString(EObject element, String qualifiedNameAsString, String shortName) {
-		if (element instanceof Feature) {
-			new StyledString(element.featureAsStringWithType).append(
-				new StyledString(" - " + (element.eContainer as NamedElement).name, StyledString.QUALIFIER_STYLER))
+		// TODO resolve proxy
+		if (!element.eIsProxy) {
+			if (element instanceof Feature) {
+				new StyledString(element.featureAsStringWithType).append(
+					new StyledString(" - " + (element.eContainer as NamedElement).name, StyledString.QUALIFIER_STYLER))
+			}
 		} else
 			super.getStyledDisplayString(element, qualifiedNameAsString, shortName)
 	}

@@ -38,9 +38,7 @@ class CmlLib {
 
 	def loadLib() {
 		val stream = getClass().getClassLoader().getResourceAsStream(MAIN_LIB)
-
 		resourceSetProvider.get() => [ resourceSet |
-
 			val resource = resourceSet.createResource(URI::createURI(MAIN_LIB))
 			resource.load(stream, resourceSet.getLoadOptions())
 		]

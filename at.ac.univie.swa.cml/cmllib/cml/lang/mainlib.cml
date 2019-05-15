@@ -6,6 +6,7 @@ concept Contract extends Any
 	String id
 	Integer balance
 	Party anyone
+	Party caller
 	DateTime now
 	DateTime contractStart
 	DateTime contractEnd
@@ -46,26 +47,19 @@ concept DateTime extends Any
 	DateTime subtractDuration(Duration d)
 	Duration durationBetween(DateTime d)
 concept Duration extends Any
-	Duration to(TimeUnit t)
 	Duration toSeconds()
-		return to(TimeUnit::^seconds)
 	Duration toMinutes()
-		return to(TimeUnit::^minutes)
 	Duration toHours()
-		return to(TimeUnit::^hours)
 	Duration toDays()
-		return to(TimeUnit::^days)
 	Duration toWeeks()
-		return to(TimeUnit::^weeks)
 	Duration addDuration(Duration d)
 	Duration subtractDuration(Duration d)
-enum TimeUnit
-	^seconds ^minutes ^hours ^days ^weeks
 concept Error extends Any
-	String message
-require(Boolean val, String msg)
-	if(!val)
-		throw Error(msg)
+	String message	
+ensure(Boolean c, String m)
+	if(!c)
+		throw Error(m)
+
 //concept Optional<T> extends Any
 //	Boolean hasValue()
 //	T getValueOrDefault() 

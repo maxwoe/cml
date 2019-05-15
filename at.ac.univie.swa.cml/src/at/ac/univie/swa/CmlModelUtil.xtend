@@ -11,17 +11,19 @@ import at.ac.univie.swa.cml.NamedElement
 import at.ac.univie.swa.cml.Operation
 import at.ac.univie.swa.cml.ReturnStatement
 import at.ac.univie.swa.cml.SwitchStatement
+import at.ac.univie.swa.cml.SymbolReference
 import at.ac.univie.swa.cml.VariableDeclaration
 import at.ac.univie.swa.typing.CmlTypeProvider
 import com.google.inject.Inject
 import org.eclipse.emf.ecore.EObject
+import org.eclipse.xtext.naming.IQualifiedNameProvider
 
 import static extension org.eclipse.xtext.EcoreUtil2.*
-import at.ac.univie.swa.cml.SymbolReference
 
 class CmlModelUtil {
 
 	@Inject extension CmlLib
+	@Inject extension IQualifiedNameProvider
 
 	def returnStatement(Operation o) {
 		o.body.returnStatement
@@ -166,6 +168,10 @@ class CmlModelUtil {
 	def isStatic(Operation o) {
 		o.eContainer instanceof CmlProgram
 	}
+	
+	def containedInMainLib(Operation o) {
+		o.eContainer.fullyQualifiedName.toString == CmlLib::LIB_PACKAGE
+	}
 
 	def featureAsString(Feature f) {
 		f.name + if (f instanceof Operation)
@@ -234,4 +240,20 @@ class CmlModelUtil {
 		hierarchy.toList.reverseView.map[attributes].flatten.toMap[name]
 	}
 	
+	def signature(NamedElement ne) {
+		val sb = new StringBuilder();
+		if (ne instanceof Operation) {
+			sb.append(ne.name)
+			if (!ne.params.empty)
+				sb.append("(")
+			for (param : ne.params) {
+				sb.append(param.type.fullyQualifiedName)
+				sb.append(";")
+			}
+			if (!ne.params.empty)
+				sb.append(")")
+			sb.append(ne.inferType.fullyQualifiedName)
+		}
+		sb.toString
+	}
 }
