@@ -1,0 +1,308 @@
+grammar at.ac.univie.swa.Cml with org.eclipse.xtext.common.Terminals
+
+import "http://www.eclipse.org/emf/2002/Ecore" as ecore
+generate cml 'http://swa.univie.ac.at/Cml'
+
+CmlProgram:
+	('namespace' name=QualifiedName)?
+	imports+=Import*
+	declarations+=Declaration*;
+
+Import:
+	'import' importedNamespace=QualifiedNameWithWildcard;
+
+Declaration:
+	CmlClass | Party | Asset | Transaction | Event | Contract | Enumeration | Attribute | Operation;
+
+CmlClass:
+	(abstract?='abstract')? kind='concept' name=ID ('extends' superclass=[CmlClass|QualifiedName])?
+	(BEGIN
+	features+=FeatureAttributeAndOperation*
+	END)?;
+
+Contract returns CmlClass:
+	annotations+=AnnotationDeclaration*
+	(abstract?='abstract')? kind='contract' name=ID ('extends' superclass=[CmlClass|QualifiedName])?
+	(BEGIN
+	features+=FeatureAttributeAndOperationAndClause*
+	END)?;
+
+Party returns CmlClass:
+	(abstract?='abstract')? kind='party' name=ID ('extends' superclass=[CmlClass|QualifiedName])?
+	(BEGIN
+	features+=FeatureAttribute+
+	END)?;
+
+Asset returns CmlClass:
+	(abstract?='abstract')? kind='asset' name=ID ('extends' superclass=[CmlClass|QualifiedName])?
+	(BEGIN
+	features+=FeatureAttribute+
+	END)?;
+
+Transaction returns CmlClass:
+	(abstract?='abstract')? kind='transaction' name=ID ('extends' superclass=[CmlClass|QualifiedName])?
+	(BEGIN
+	features+=FeatureAttribute+
+	END)?;
+
+Event returns CmlClass:
+	kind='event' name=ID
+	(BEGIN
+	features+=FeatureAttribute+
+	END)?;
+
+Enumeration returns CmlClass:
+	kind='enum' name=ID
+	BEGIN
+	features+=FeatureEnumeration+
+	END;
+
+EnumerationElement:
+	name=ID;
+	
+AnnotationDeclaration:
+    '@' name=Annotation ('(' (params+=AnnotationParameter (',' params+=AnnotationParameter)*)? ')')?;
+
+AnnotationParameter:
+	(name=ID '=')? => value=Expression;
+
+enum Annotation:
+	OWNABLE='Ownable' |
+	PULL_PAYMENT='PullPayment' |
+	SAFE_MATH='SafeMath' |
+	FIXED_POINT_ARITMHMETIC='FixedPointArithmetic';
+	
+Type:
+	CmlClass;
+
+NamedElement:
+	CmlProgram | CmlClass | Feature | VariableDeclaration;
+
+Feature:
+	Attribute | Operation | Clause | EnumerationElement;
+
+FeatureAttribute returns Feature:
+	Attribute;
+
+FeatureAttributeAndOperation returns Feature:
+	Attribute | Operation;
+
+FeatureAttributeAndOperationAndClause returns Feature:
+	FeatureAttributeAndOperation | Clause;
+
+FeatureEnumeration returns Feature:
+	EnumerationElement;
+
+fragment TypedDeclaration *:
+	type=[CmlClass|QualifiedName] name=ID;
+
+Attribute:
+	(constant?='constant')? TypedDeclaration ('=' expression=Expression)?;
+
+Operation:
+	(type=[CmlClass|QualifiedName])? name=ID
+	'(' (params+=Attribute (',' params+=Attribute)*)? ')'
+	(body=Block)?;
+
+Clause:
+	'clause' name=ID
+	BEGIN
+	antecedent=Antecedent
+	actor=Actor
+	action=DeonticAction
+	END;
+
+Antecedent:
+	{Antecedent} temporal=TimeConstraint? general=Constraint?;
+
+TimeConstraint:
+	'due' closed?='within'? timeframe=Expression? period=PeriodicTime? precedence=TemporalPrecedence reference=(TimeQuery
+	| Expression);
+
+Constraint:
+	'given' expression=Expression;
+
+Actor:
+	'party' party=[Attribute];
+
+enum Deontic:
+	MUST='must' | MAY='may' | MUST_NOT='must_not';
+
+DeonticAction:
+	deontic=Deontic compoundAction=CompoundAction;
+
+CompoundAction:
+	XorCompoundAction;
+
+XorCompoundAction returns CompoundAction:
+	OrCompoundAction (=> ({XorCompoundAction.left=current} op='xor') right=OrCompoundAction)*;
+
+OrCompoundAction returns CompoundAction:
+	SeqCompoundAction ({OrCompoundAction.left=current} op=('or') right=SeqCompoundAction)*;
+
+SeqCompoundAction returns CompoundAction:
+	AndCompoundAction ({SeqCompoundAction.left=current} op=('then') right=AndCompoundAction)*;
+
+AndCompoundAction returns CompoundAction:
+	PrimaryCompoundAction ({AndCompoundAction.left=current} op=('and') right=PrimaryCompoundAction)*;
+
+PrimaryCompoundAction returns CompoundAction:
+	{AtomicAction} operation=[Operation] |
+	{NestedCompoundAction} '(' child=CompoundAction ')';
+
+PeriodicTime:
+	'every' period=Expression 'from' start=(TimeQuery | Expression) ('until' end=(TimeQuery | Expression))?;
+
+enum TemporalPrecedence:
+	BEFORE='before' |
+	BEFORE_OR_EQUALS='beforeOrEquals' |
+	EQUALS='equals' |
+	AFTER_OR_EQUALS='afterOrEquals' |
+	AFTER='after';
+
+ClauseQuery:
+	'clause' clause=[Clause] ('fulfilled' | 'failed');
+
+EventQuery:
+	'event' event=[Attribute];
+
+ActionQuery:
+	party=[Attribute] query='did' action=[Operation];
+
+TimeQuery:
+	ClauseQuery | EventQuery | ActionQuery;
+
+Block:
+	{Block} BEGIN statements+=Statement* END;
+
+Statement:
+	VariableDeclaration |
+	IfStatement |
+	ThrowStatement |
+	ReturnStatement |
+	SwitchStatement |
+	WhileStatement |
+	DoWhileStatement |
+	ForStatement |
+	Expression;
+
+VariableDeclaration:
+	'var' TypedDeclaration '=' expression=Expression;
+
+ReturnStatement:
+	{ReturnStatement} 'return' (=> expression=Expression)?;
+
+IfStatement:
+	'if' ('(' condition=Expression ')' | => condition=Expression) thenBlock=ConditionalBlock
+	(=> 'else' elseBlock=ConditionalBlock)?;
+
+ConditionalBlock returns Block:
+	statements+=Statement |
+	Block;
+
+ThrowStatement:
+	'throw' expression=Expression;
+
+SwitchStatement:
+	'match' ('(' declaration=Expression ')' | => declaration=Expression)
+	BEGIN
+	(cases+=CasePart)*
+	(default?='default' ':' defaultBlock=ConditionalBlock)?
+	END;
+
+CasePart:
+	'case' case=Expression (':' thenBlock=ConditionalBlock /* | fallThrough?=','*/);
+
+WhileStatement:
+	'while' ('(' condition=Expression ')' | => condition=Expression) block=ConditionalBlock;
+
+DoWhileStatement:
+	'do' block=ConditionalBlock 'while' ('(' condition=Expression ')' | => condition=Expression);
+
+ForStatement:
+	'for' '(' declaration=VariableDeclaration ';' condition=Expression ';' progression=Expression ')' block=Block;
+
+Expression:
+	AssignmentExpression;
+
+AssignmentExpression returns Expression:
+	OrExpression ({AssignmentExpression.left=current} '=' right=Expression)?;
+
+OrExpression returns Expression:
+	AndExpression (=> ({OrExpression.left=current} op='or') right=AndExpression)*;
+
+AndExpression returns Expression:
+	EqualityExpression (=> ({AndExpression.left=current} op='and') right=EqualityExpression)*;
+
+EqualityExpression returns Expression:
+	RelationalExpression (=> ({EqualityExpression.left=current} op=('==' | '!=')) right=RelationalExpression)*;
+
+RelationalExpression returns Expression:
+	OtherOperatorExpression
+	(=> ({InstanceOfExpression.expression=current} 'is') type=[CmlClass|QualifiedName] |
+	=> ({RelationalExpression.left=current} op=('>' | '<' | '>=' | '<=')) right=OtherOperatorExpression)*;
+
+OtherOperatorExpression returns Expression:
+	AdditiveExpression (=> ({OtherOperatorExpression.left=current} op='=>') right=AdditiveExpression)*;
+
+AdditiveExpression returns Expression:
+	MultiplicativeExpression (=> ({AdditiveExpression.left=current} op=('+' | '-')) right=MultiplicativeExpression)*;
+
+MultiplicativeExpression returns Expression:
+	UnaryExpression (=> ({MultiplicativeExpression.left=current} op=('*' | '/' | '**' | '%')) right=UnaryExpression)*;
+
+UnaryExpression returns Expression:
+	{UnaryExpression} op=('not' | '!' | '-' | '+') operand=UnaryExpression | CastedExpression;
+
+CastedExpression returns Expression:
+	PostfixExpression (=> ({CastedExpression.target=current} 'as') type=[CmlClass|QualifiedName])*;
+
+PostfixExpression returns Expression:
+	SelectionExpression
+	(=> ({PostfixExpression.operand=current} op=("++" | "--" | "@pre")) |
+	=> ({ArrayAccessExpression.array=current}
+	'[' indexes+=Expression ']' (=> '[' indexes+=Expression ']')*))?;
+
+SelectionExpression returns Expression:
+	PrimaryExpression
+	(=> ({FeatureSelection.receiver=current} ("." | explicitStatic?="::")) feature=[Feature]
+	(=> opCall?='(' (args+=Expression (',' args+=Expression)*)? ')')?)*;
+
+PrimaryExpression returns Expression:
+	LiteralExpression |
+	{ThisExpression} 'this' |
+	{SuperExpression} 'super' |
+	{CallerExpression} 'caller' |
+	{SymbolReference} symbol=[NamedElement] (=> opCall?='(' (args+=Expression (',' args+=Expression)*)? ')')? |
+	{NestedExpression} '(' child=Expression ')';
+
+LiteralExpression returns Expression:
+	{IntegerLiteral} value=INT |
+	{BooleanLiteral} value=('false' | 'true') |
+	{StringLiteral} value=STRING |
+	{RealLiteral} value=REAL |
+	{DurationLiteral} value=INT unit=TimeUnit |
+	{DateTimeLiteral} value=DATE |
+	{NullLiteral} 'null' |
+	{Closure} '[' expression=ExpressionInClosure ']';
+
+ExpressionInClosure returns Expression:
+	{Block} (expressions+=Expression ';'?)*;
+
+enum TimeUnit:
+	SECOND='seconds' |
+	MINUTE='minutes' |
+	HOUR='hours' |
+	DAY='days' |
+	WEEK='weeks';
+
+QualifiedName:
+	ID ('.' ID)*;
+
+QualifiedNameWithWildcard:
+	QualifiedName '.*'?;
+
+terminal DATE: '0'..'9' '0'..'9' '0'..'9' '0'..'9' '-' '0'..'9' '0'..'9' '-' '0'..'9' '0'..'9';
+terminal REAL returns ecore::EBigDecimal: INT '.' INT;
+terminal BEGIN: 'synthetic:BEGIN';
+terminal END: 'synthetic:END';

@@ -1,0 +1,94 @@
+namespace cml.lang
+
+concept Any
+	String toString()
+concept Contract extends Any
+	String id
+	Integer balance
+	Party anyone
+	Party caller
+	DateTime now
+	DateTime contractStart
+	DateTime contractEnd
+concept Party extends Any
+	String id
+	Boolean deposit(Number amount)
+	Boolean transfer(Number amount)
+concept Asset extends Any
+	String id
+concept Transaction extends Any
+concept Event extends Any
+concept Enum extends Any
+concept String extends Any
+concept Boolean extends Any
+abstract concept Number extends Any
+concept Integer extends Number
+	Integer average(Integer i)
+	Integer max(Integer i)
+	Integer min(Integer i)
+	Real toReal()
+concept Real extends Number
+	Real max(Real i)
+	Real min(Real i)
+	Real sqrt()
+	Real ceil()
+	Real floor()
+	Integer toInteger()
+concept DateTime extends Any
+	Boolean isBefore(DateTime d)
+	Boolean isAfter(DateTime d)
+	Integer second()
+	Integer minute()
+	Integer hour()
+	Integer day()
+	Integer week()
+	Boolean ^equals(DateTime d)
+	DateTime addDuration(Duration d)
+	DateTime subtractDuration(Duration d)
+	Duration durationBetween(DateTime d)
+concept Duration extends Any
+	Duration toSeconds()
+	Duration toMinutes()
+	Duration toHours()
+	Duration toDays()
+	Duration toWeeks()
+	Duration addDuration(Duration d)
+	Duration subtractDuration(Duration d)
+concept Error extends Any
+	String message	
+ensure(Boolean c, String m)
+	if(!c)
+		throw Error(m)
+
+//concept Optional<T> extends Any
+//	Boolean hasValue()
+//	T getValueOrDefault() 
+//	T getValueOrDefault(T)
+//concept None extends Any
+//concept Request extends Transaction
+//concept Response extends Transaction
+//concept Array extends Any
+//	Integer size()
+//concept Collection<T> extends Object
+//	Boolean add(T t) 
+//	Boolean addAll(Collection<T> c)
+//	Boolean contains(T t) 
+//	Boolean containsAll(Collection<T> c)
+//	Boolean isEmpty()
+//	Boolean remove(T t)
+//	Boolean removeAll(Collection<T> c)
+//	Void retainAll(Collection<T> c)
+//	Integer size() 
+//	Array<T> toArray() 
+//concept Set<T> extends Collection
+//concept Bag<T> extends Collection
+//concept Map<K,V> extends Object
+//	Integer size()
+//	Boolean isEmpty()
+//	Boolean notEmpty()
+//	Boolean containsKey(K key)
+//	Boolean containsValue(V value)
+//	clear()
+//	V add(K key, V value)
+//	V rmv(K key)
+//	V get(K key) 
