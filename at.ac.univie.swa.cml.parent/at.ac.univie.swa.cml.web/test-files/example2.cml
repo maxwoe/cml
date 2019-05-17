@@ -1,0 +1,4 @@
+namespace two
+
+contract C
+	Integer b
