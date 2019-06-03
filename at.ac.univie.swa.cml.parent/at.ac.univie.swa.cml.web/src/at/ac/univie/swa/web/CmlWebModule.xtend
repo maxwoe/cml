@@ -16,21 +16,21 @@ import org.eclipse.xtext.web.server.persistence.IServerResourceHandler
  */
 @FinalFieldsConstructor
 class CmlWebModule extends AbstractCmlWebModule {
-	
+
 	val IResourceBaseProvider resourceBaseProvider
-	
+
 	def Class<? extends IWebResourceSetProvider> bindIWebResourceSetProvider() {
 		return CmlResourceSetProvider
 	}
-	
+
 	def void configureResourceBaseProvider(Binder binder) {
-		if (resourceBaseProvider !== null) binder.bind(IResourceBaseProvider).toInstance(resourceBaseProvider)
+		if(resourceBaseProvider !== null) binder.bind(IResourceBaseProvider).toInstance(resourceBaseProvider)
 	}
 
 	def Class<? extends IServerResourceHandler> bindIServerResourceHandler() {
 		return FileResourceHandler
 	}
-	
+
 	def Class<? extends XtextServiceDispatcher> bindXtextServiceDispatcher() {
 		return CmlXtextServiceDispatcher
 	}

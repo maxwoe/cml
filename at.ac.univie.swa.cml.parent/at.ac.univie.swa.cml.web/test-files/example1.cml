@@ -1,4 +1,0 @@
-namespace one
-
-contract C
-	Integer a

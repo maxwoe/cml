@@ -17,12 +17,12 @@ import org.eclipse.xtext.web.server.persistence.IResourceBaseProvider
  */
 @FinalFieldsConstructor
 class CmlWebSetup extends CmlStandaloneSetup {
-	
+
 	val IResourceBaseProvider resourceBaseProvider
-	
+
 	override Injector createInjector() {
 		val webModule = new CmlWebModule(resourceBaseProvider)
 		return Guice.createInjector(Modules2.mixin(new CmlRuntimeModule, new CmlIdeModule, webModule))
 	}
-	
+
 }

@@ -1,0 +1,14 @@
+namespace cml.lang.solidity
+	
+contract SolidityContract
+	SolidityMessage msg
+
+concept SolidityMessage
+	SolidityParty sender
+	Integer value
+		
+transaction SolidityTransaction
+	SolidityParty sender
+	Integer value
+	
+party SolidityParty

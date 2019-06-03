@@ -34,15 +34,25 @@ class CmlLib {
 	public val static LIB_ERROR = LIB_PACKAGE + ".Error"
 	public val static LIB_TIME_UNIT = LIB_PACKAGE + ".TimeUnit"
 	public val static MAIN_LIB = "cml/lang/mainlib.cml"
+	public val static SOLIDITY_LIB_PACKAGE = "cml.lang.solidity"
+	public val static SOLIDITY_LIB = "cml/lang/soliditylib.cml"
 
 	static final Logger LOG = Logger.getLogger(CmlLib);
 	
-	def loadLib(ResourceSet resourceSet) {
-		val url = getClass().getClassLoader().getResource(MAIN_LIB)
+	def loadMainLib(ResourceSet resourceSet) {
+		resourceSet.loadLib(MAIN_LIB)
+	}
+	
+	def loadSolidityLib(ResourceSet resourceSet) {
+		resourceSet.loadLib(SOLIDITY_LIB)
+	}
+	
+	def loadLib(ResourceSet resourceSet, String library) {
+		val url = getClass().getClassLoader().getResource(library)
 		val stream = url.openStream
 		val urlPath = url.path
 		val resource = resourceSet.createResource(URI.createFileURI(urlPath))
-		LOG.info("loading library " + urlPath)
+		LOG.debug("loading library " + urlPath)
 		resource.load(stream, resourceSet.getLoadOptions())
 	}
 

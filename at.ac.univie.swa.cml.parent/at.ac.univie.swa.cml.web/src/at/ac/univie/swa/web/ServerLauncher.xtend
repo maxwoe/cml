@@ -11,6 +11,7 @@ import org.eclipse.jetty.webapp.MetaInfConfiguration
 import org.eclipse.jetty.webapp.WebAppContext
 import org.eclipse.jetty.webapp.WebInfConfiguration
 import org.eclipse.jetty.webapp.WebXmlConfiguration
+import org.apache.log4j.PropertyConfigurator
 
 /**
  * This program starts an HTTP server for testing the web integration of your DSL.
@@ -18,6 +19,7 @@ import org.eclipse.jetty.webapp.WebXmlConfiguration
  */
 class ServerLauncher {
 	def static void main(String[] args) {
+		PropertyConfigurator.configure(ServerLauncher.getResource("/log4j.properties"));
 		val server = new Server(new InetSocketAddress('localhost', 8080))
 		server.handler = new WebAppContext => [
 			resourceBase = 'WebRoot'
@@ -36,13 +38,15 @@ class ServerLauncher {
 		try {
 			server.start
 			log.info('Server started ' + server.getURI + '...')
-			new Thread[
+
+			new Thread [
 				log.info('Press enter to stop the server...')
 				val key = System.in.read
 				if (key != -1) {
 					server.stop
 				} else {
-					log.warn('Console input is not available. In order to stop the server, you need to cancel process manually.')
+					log.warn(
+						'Console input is not available. In order to stop the server, you need to cancel process manually.')
 				}
 			].start
 			server.join

@@ -105,8 +105,9 @@ class CmlGenerator extends AbstractGenerator2 {
 		copyResource("other/DateTime.sol", fsa)
 		
 		for (p : resource.allContents.toIterable.filter(CmlProgram)) {
-			if (!p.contracts.empty)
-				fsa.generateFile(resource.URI.trimFileExtension.segmentsList.join("/") + ".sol", p.compile)
+			if (!p.contracts.empty) {
+				fsa.generateFile("/" + resource.URI.trimFileExtension.segmentsList.last + ".sol", p.compile)
+			}
 		}
 	}
 
@@ -327,7 +328,7 @@ class CmlGenerator extends AbstractGenerator2 {
 	}
 	
 	def mapsToStruct(CmlClass c) {
-		!c.conformsToLibraryType && !c.conformsToParty && !c.mapsToEnum && !c.mapsToEvent 
+		!c.conformsToLibraryType && !c.conformsToParty && !c.mapsToEnum && !c.mapsToEvent && !c.conformsToSolidityLibraryType
 	}
 	
 	def mapsToEnum(CmlClass c) {
@@ -658,7 +659,7 @@ class CmlGenerator extends AbstractGenerator2 {
 			AdditiveExpression: {
 				val left = exp.left.compile
 				val right = exp.right.compile
-				if (safeMath && !fixedPointArithmetic)
+				if (safeMath && (!fixedPointArithmetic || (fixedPointArithmetic && fixedPointDecimals != 18 && fixedPointDecimals != 27)))
 					switch (exp.op) {
 						case '+': '''SafeMath.add(«(left)», «(right)»)'''
 						case '-': '''SafeMath.sub(«(left)», «(right)»)'''
@@ -677,19 +678,26 @@ class CmlGenerator extends AbstractGenerator2 {
 			MultiplicativeExpression: {
 				val left = exp.left.compile
 				val right = exp.right.compile
-				if (safeMath && !fixedPointArithmetic)
+				if (safeMath && (!fixedPointArithmetic || (fixedPointArithmetic && fixedPointDecimals != 18 && fixedPointDecimals != 27)))
 					switch (exp.op) {
 						case '*': '''SafeMath.mul(«(left)», «(right)»)'''
 						case '/': '''SafeMath.div(«(left)», «(right)»)'''
 						case '%': '''SafeMath.mod(«(left)», «(right)»)'''
 						case '**': '''«(left)» ** «(right)»'''
 					}
-				else if (safeMath && fixedPointArithmetic)
+				else if (safeMath && fixedPointArithmetic && fixedPointDecimals == 18)
 					switch (exp.op) {
 						case '*': '''DSMath.wmul(«(left)», «(right)»)'''
 						case '/': '''DSMath.wdiv(«(left)», «(right)»)'''
 						case '%': '''SafeMath.mod(«(left)», «(right)»)'''
 						case '**': '''«(left)» ** «(right)»'''
+					}
+				else if (safeMath && fixedPointArithmetic && fixedPointDecimals == 27)
+					switch (exp.op) {
+						case '*': '''DSMath.rmul(«(left)», «(right)»)'''
+						case '/': '''DSMath.rdiv(«(left)», «(right)»)'''
+						case '%': '''SafeMath.mod(«(left)», «(right)»)'''
+						case '**': '''DSMath.rpow(«(left)», «(right)»)'''
 					}
 				else
 					switch (exp.op) {

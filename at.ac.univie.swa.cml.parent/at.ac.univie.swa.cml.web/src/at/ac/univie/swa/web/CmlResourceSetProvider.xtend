@@ -14,7 +14,8 @@ class CmlResourceSetProvider implements IWebResourceSetProvider {
 	
 	override get(String resourceId, IServiceContext serviceContext) {
 		val resourceSet = rsp.get
-		cmlLib.loadLib(resourceSet)
+		cmlLib.loadMainLib(resourceSet)
+		cmlLib.loadSolidityLib(resourceSet)
 		return resourceSet
 	}
 }

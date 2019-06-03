@@ -1,0 +1,12 @@
+namespace fixedPointArithmetic
+
+@SafeMath @FixedPointArithmetic(precision=2)
+contract C 
+
+	clause Clause
+		party anyone
+		may calc
+
+	Real calc(Real a, Real b)
+		return a + b
+		

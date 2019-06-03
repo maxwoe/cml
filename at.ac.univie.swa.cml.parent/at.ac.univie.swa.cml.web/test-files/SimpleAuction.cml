@@ -1,0 +1,40 @@
+namespace simpleauction
+
+import cml.lang.solidity.*
+
+transaction InitTransaction
+	Duration biddingTime
+	Party beneficiary
+
+@PullPayment
+contract SimpleAuction extends SolidityContract
+	Integer highestBid
+	Party highestBidder
+	Duration biddingTime
+	Party beneficiary
+
+	clause Bid
+		due within biddingTime after contractStart
+		party anyone
+		may bid
+
+	clause AuctionEnd
+		due after contractStart.addDuration(biddingTime)
+		//due after clause Bid fulfilled
+		party beneficiary
+		must receivePayment
+
+	init(InitTransaction init)
+		biddingTime = init.biddingTime
+		beneficiary = init.beneficiary
+
+	bid()
+		ensure(msg.value > highestBid, "There already is a higher bid.")
+		caller.deposit(msg.value)
+		if (highestBid != 0)
+			highestBidder.transfer(highestBid)
+		highestBidder = caller
+		highestBid = msg.value
+
+	receivePayment()
+		beneficiary.transfer(highestBid)

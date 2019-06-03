@@ -1,0 +1,55 @@
+namespace purchase
+
+enum State
+	CREATED LOCKED INACTIVE
+	
+contract Purchase
+	Integer value
+	Party seller
+	Party buyer
+	State state
+
+	// Abort the purchase and reclaim the ether.
+    // Can only be called by the seller before
+    // the contract is locked.
+	clause Abort
+		given state == State::CREATED
+		party seller
+		may abort
+		
+	// Confirm the purchase as buyer.
+    // Transaction has to include `2 * value` ether.
+    // The ether will be locked until confirmReceived
+    // is called.
+	clause ConfirmPurchase
+		given state == State::CREATED
+		party buyer
+		may confirmPurchase
+		
+	// Confirm that you (the buyer) received the item.
+    // This will release the locked ether.
+	clause ConfirmReceived
+		given state == State::LOCKED
+		party buyer
+		may confirmReceived
+	
+	init(Integer amount)
+		caller.deposit(amount)
+		seller = caller
+		value = amount / 2
+		ensure(2 * value == amount, "Value has to be even.")
+
+	abort()
+		state = State::INACTIVE
+		seller.transfer(balance)
+		
+	confirmPurchase(Integer amount)
+		ensure(amount == 2 * value, "Value has to be even.")
+		caller.deposit(amount)
+		buyer = caller
+		state = State::LOCKED
+
+	confirmReceived()
+		state = State::INACTIVE
+		buyer.transfer(value)
+		seller.transfer(balance)
