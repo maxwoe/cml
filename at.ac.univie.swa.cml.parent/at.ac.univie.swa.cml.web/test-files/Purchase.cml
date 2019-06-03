@@ -1,9 +1,12 @@
 namespace purchase
 
+import cml.lang.solidity.*
+
 enum State
 	CREATED LOCKED INACTIVE
-	
-contract Purchase
+
+@PullPayment
+contract Purchase extends SolidityContract
 	Integer value
 	Party seller
 	Party buyer
@@ -23,7 +26,7 @@ contract Purchase
     // is called.
 	clause ConfirmPurchase
 		given state == State::CREATED
-		party buyer
+		party anyone
 		may confirmPurchase
 		
 	// Confirm that you (the buyer) received the item.
@@ -33,19 +36,19 @@ contract Purchase
 		party buyer
 		may confirmReceived
 	
-	init(Integer amount)
-		caller.deposit(amount)
+	init()
+		caller.deposit(msg.value)
 		seller = caller
-		value = amount / 2
-		ensure(2 * value == amount, "Value has to be even.")
+		value = msg.value / 2
+		ensure(2 * value == msg.value, "Value has to be even.")
 
 	abort()
 		state = State::INACTIVE
 		seller.transfer(balance)
 		
-	confirmPurchase(Integer amount)
-		ensure(amount == 2 * value, "Value has to be even.")
-		caller.deposit(amount)
+	confirmPurchase()
+		ensure(msg.value == 2 * value, "Value has to be even.")
+		caller.deposit(msg.value)
 		buyer = caller
 		state = State::LOCKED
 

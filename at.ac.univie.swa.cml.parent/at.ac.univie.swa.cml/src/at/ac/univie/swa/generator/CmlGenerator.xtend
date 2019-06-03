@@ -137,10 +137,10 @@ class CmlGenerator extends AbstractGenerator2 {
 	
 	def initGeneratorSettings() {
 		fixedPointDecimals = 18
-		fixedPointArithmetic = false;
-		safeMath = false; 
-		pullPayment = false;
-		ownable = false;
+		fixedPointArithmetic = false
+		safeMath = false
+		pullPayment = false
+		ownable = false
 	}
 	
 	def deriveGeneratorSettings(CmlClass c) {
