@@ -30,5 +30,7 @@ Export-Package: at.ac.univie.swa,
  at.ac.univie.swa.services,
  at.ac.univie.swa.typing,
  at.ac.univie.swa.validation,
- cml.lang
+ cml.lang,
+ openzeppelin,
+ other
 Import-Package: org.apache.log4j

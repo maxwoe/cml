@@ -59,7 +59,7 @@
                     generateSolidity()
                 });
 
-                ace.config.set('modePath', '/');
+                ace.config.set('modePath', baseUrl);
                 solidityEditor = ace.edit("solidity-editor");
                 //solidityEditor.setTheme("ace/theme/monokai");
                 solidityEditor.getSession().setMode("ace/mode/solidity");

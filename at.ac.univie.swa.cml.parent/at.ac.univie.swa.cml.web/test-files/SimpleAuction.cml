@@ -6,7 +6,7 @@ transaction InitTransaction
 	Duration biddingTime
 	Party beneficiary
 
-@PullPayment
+@Ownable @PullPayment
 contract SimpleAuction extends SolidityContract
 	Integer highestBid
 	Party highestBidder
