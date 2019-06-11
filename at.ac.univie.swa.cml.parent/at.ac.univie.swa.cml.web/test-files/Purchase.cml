@@ -1,0 +1,58 @@
+namespace purchase
+
+import cml.lang.solidity.*
+
+enum State
+	CREATED LOCKED INACTIVE
+
+@PullPayment
+contract Purchase extends SolidityContract
+	Integer value
+	Party seller
+	Party buyer
+	State state
+
+	// Abort the purchase and reclaim the ether.
+    // Can only be called by the seller before
+    // the contract is locked.
+	clause Abort
+		given state == State::CREATED
+		party seller
+		may abort
+		
+	// Confirm the purchase as buyer.
+    // Transaction has to include `2 * value` ether.
+    // The ether will be locked until confirmReceived
+    // is called.
+	clause ConfirmPurchase
+		given state == State::CREATED
+		party anyone
+		may confirmPurchase
+		
+	// Confirm that you (the buyer) received the item.
+    // This will release the locked ether.
+	clause ConfirmReceived
+		given state == State::LOCKED
+		party buyer
+		may confirmReceived
+	
+	init()
+		caller.deposit(msg.value)
+		seller = caller
+		value = msg.value / 2
+		ensure(2 * value == msg.value, "Value has to be even.")
+
+	abort()
+		state = State::INACTIVE
+		seller.transfer(balance)
+		
+	confirmPurchase()
+		ensure(msg.value == 2 * value, "Value has to be even.")
+		caller.deposit(msg.value)
+		buyer = caller
+		state = State::LOCKED
+
+	confirmReceived()
+		state = State::INACTIVE
+		buyer.transfer(value)
+		seller.transfer(balance)

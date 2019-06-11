@@ -3,26 +3,35 @@
  */
 package at.ac.univie.swa.web
 
+import at.ac.univie.swa.CmlLib
+import java.net.URLClassLoader
+import java.nio.file.Paths
 import javax.servlet.annotation.WebServlet
+import org.apache.log4j.Logger
 import org.eclipse.xtext.util.DisposableRegistry
-import org.eclipse.xtext.web.servlet.XtextServlet
 import org.eclipse.xtext.web.server.persistence.ResourceBaseProviderImpl
+import org.eclipse.xtext.web.servlet.XtextServlet
 
 /**
  * Deploy this class into a servlet container to enable DSL-specific services.
  */
-@WebServlet(name = 'XtextServices', urlPatterns = '/xtext-service/*')
+@WebServlet(name='XtextServices', urlPatterns='/xtext-service/*')
 class CmlServlet extends XtextServlet {
-	
+
+	static final Logger LOG = Logger.getLogger(CmlLib);
 	DisposableRegistry disposableRegistry
-	
+
 	override init() {
 		super.init()
-		val resourceBaseProvider = new ResourceBaseProviderImpl('./test-files')
+		val classloader = getClass().getClassLoader()
+		val base = (classloader as URLClassLoader).getURLs().get(0);
+		val path = Paths.get(base.toURI()).toFile()
+		LOG.info("resource base: " + path.toString)
+		val resourceBaseProvider = new ResourceBaseProviderImpl(path.toString)
 		val injector = new CmlWebSetup(resourceBaseProvider).createInjectorAndDoEMFRegistration()
 		disposableRegistry = injector.getInstance(DisposableRegistry)
 	}
-	
+
 	override destroy() {
 		if (disposableRegistry !== null) {
 			disposableRegistry.dispose()
@@ -30,5 +39,5 @@ class CmlServlet extends XtextServlet {
 		}
 		super.destroy()
 	}
-	
+
 }
