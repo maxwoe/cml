@@ -8,7 +8,7 @@ library DateTime {
     uint constant YEAR_IN_SECONDS = 31536000;
     uint constant LEAP_YEAR_IN_SECONDS = 31622400;
     uint constant ORIGIN_YEAR = 1970;
-    
+
     struct _DateTime {
         uint year;
         uint month;
@@ -213,7 +213,7 @@ library DateTime {
 		if(timestamp1 == timestamp2) {
 		    return true;
 		} else {
-			return false;	
+			return false;
 		}
 	}
 
@@ -224,41 +224,41 @@ library DateTime {
             return false;
         }
     }
-    
+
     function isAfter(uint timestamp1, uint timestamp2) public pure returns (bool) {
         return !isBefore(timestamp1, timestamp2);
     }
-    
+
     function addDuration(uint timestamp1, uint timestamp2) public pure returns(uint) {
 		return timestamp1 + timestamp2;
 	}
-		
+
 	function substractDuration(uint timestamp1, uint timestamp2) public pure returns(uint) {
 		return timestamp1 - timestamp2;
 	}
-	
+
 	function durationBetween(uint timestamp1, uint timestamp2) public pure returns(uint) {
 		if (timestamp1 > timestamp2) {
-			return timestamp1 - timestamp2;	
+			return timestamp1 - timestamp2;
 		} else if (timestamp2 > timestamp1) {
 			return timestamp2 - timestamp1;
 		} else {
 			return 0;
 		}
 	}
-	
+
 	function toMinutes(uint timestamp) public pure returns (uint) {
         return (timestamp / 60);
     }
-    
+
     function toHours(uint timestamp) public pure returns (uint) {
         return (timestamp / 60 / 60);
     }
-    
+
     function toDays(uint timestamp) public pure returns (uint) {
         return (timestamp / 60 / 60 / 24);
     }
-    
+
     function toWeeks(uint timestamp) public pure returns (uint) {
         return (timestamp / 60 / 60 / 24 / 7);
     }

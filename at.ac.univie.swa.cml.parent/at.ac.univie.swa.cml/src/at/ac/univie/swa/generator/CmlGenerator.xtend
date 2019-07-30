@@ -5,6 +5,7 @@ package at.ac.univie.swa.generator
 
 import at.ac.univie.swa.CmlLib
 import at.ac.univie.swa.CmlModelUtil
+import at.ac.univie.swa.cml.ActionQuery
 import at.ac.univie.swa.cml.AdditiveExpression
 import at.ac.univie.swa.cml.AndCompoundAction
 import at.ac.univie.swa.cml.AndExpression
@@ -17,6 +18,7 @@ import at.ac.univie.swa.cml.BooleanLiteral
 import at.ac.univie.swa.cml.CallerExpression
 import at.ac.univie.swa.cml.CastedExpression
 import at.ac.univie.swa.cml.Clause
+import at.ac.univie.swa.cml.ClauseQuery
 import at.ac.univie.swa.cml.CmlClass
 import at.ac.univie.swa.cml.CmlProgram
 import at.ac.univie.swa.cml.CompoundAction
@@ -24,6 +26,7 @@ import at.ac.univie.swa.cml.DateTimeLiteral
 import at.ac.univie.swa.cml.DoWhileStatement
 import at.ac.univie.swa.cml.DurationLiteral
 import at.ac.univie.swa.cml.EqualityExpression
+import at.ac.univie.swa.cml.EventQuery
 import at.ac.univie.swa.cml.Expression
 import at.ac.univie.swa.cml.FeatureSelection
 import at.ac.univie.swa.cml.ForStatement
@@ -80,7 +83,7 @@ import static extension org.eclipse.xtext.EcoreUtil2.*
  */
 class CmlGenerator extends AbstractGenerator2 {
 
-	static final Logger LOG = Logger.getLogger(CmlGenerator);
+	static final Logger LOG = Logger.getLogger(CmlGenerator)
 	int fixedPointDecimals
 	boolean fixedPointArithmetic
 	boolean safeMath
@@ -88,7 +91,7 @@ class CmlGenerator extends AbstractGenerator2 {
 	boolean ownable
 	@Inject extension CmlModelUtil
 	@Inject extension CmlTypeConformance
-	Iterable<CmlProgram> allResources;
+	Iterable<CmlProgram> allResources
 	
 	override doGenerate(Resource resource, ResourceSet input, IFileSystemAccess2 fsa, IGeneratorContext context) {
 		LOG.info("resource: " + resource)
@@ -98,11 +101,14 @@ class CmlGenerator extends AbstractGenerator2 {
 		copyResource("openzeppelin/Escrow.sol", fsa)
 		copyResource("openzeppelin/Ownable.sol", fsa)
 		copyResource("openzeppelin/PullPayment.sol", fsa)
-		copyResource("openzeppelin/Math.sol", fsa)
+		//copyResource("openzeppelin/Math.sol", fsa)
 		copyResource("openzeppelin/SafeMath.sol", fsa)
 		copyResource("openzeppelin/Secondary.sol", fsa)
 		copyResource("other/DSMath.sol", fsa)
 		copyResource("other/DateTime.sol", fsa)
+		copyResource("other/IntLib.sol", fsa)
+		copyResource("other/RealLib.sol", fsa)
+		copyResource("other/ConditionalContract.sol", fsa)
 		
 		for (p : resource.allContents.toIterable.filter(CmlProgram)) {
 			if (!p.contracts.empty) {
@@ -117,21 +123,22 @@ class CmlGenerator extends AbstractGenerator2 {
 		try {
 			fsa.generateFile("/lib/" + resourceName, inputStream.convertToString)
 		} finally {
-			inputStream.close();
+			inputStream.close()
 		}
 	}
 	
 	def static convertToString(InputStream is) {
 		val Scanner s = new Scanner(is).useDelimiter("\\A")
-		if(s.hasNext()) s.next() else ""
+		if (s.hasNext()) s.next() else ""
 	}
 
 	def deriveInheritance(CmlClass c) {
 		var list = newLinkedList
-			if(ownable)
-				list.add("Ownable")
-			if(pullPayment)
-				list.add("PullPayment")
+		list.add("ConditionalContract")
+		if (ownable)
+			list.add("Ownable")
+		if (pullPayment)
+			list.add("PullPayment")
 		list
 	}
 	
@@ -173,25 +180,27 @@ class CmlGenerator extends AbstractGenerator2 {
 			«contract.deriveGeneratorSettings»
 			«IF ownable»import "./lib/openzeppelin/Ownable.sol";«ENDIF»
 			«IF pullPayment»import "./lib/openzeppelin/PullPayment.sol";«ENDIF»
-			import "./lib/openzeppelin/Math.sol";
+«««			import "./lib/openzeppelin/Math.sol";
 			«IF safeMath»import "./lib/openzeppelin/SafeMath.sol";«ENDIF»
-			«IF fixedPointArithmetic»import "./lib/other/DSMath.sol";«ENDIF»
+			«IF safeMath && fixedPointArithmetic»import "./lib/other/DSMath.sol";«ENDIF»
+			import "./lib/other/ConditionalContract.sol";
 			import "./lib/other/DateTime.sol";
+			import "./lib/other/IntLib.sol";
+			import "./lib/other/RealLib.sol";
 			
 			contract «contract.name»«FOR a : contract.deriveInheritance BEFORE " is " SEPARATOR ", "»«a»«ENDFOR» {
 			
-«««				«contract.compileStates»
 				«contract.compileEnums»
 				«contract.compileStructs»
 				«contract.compileEvents»
 				«"/*\n * State variables\n */\n"»
 				«contract.compileAttributes»
 				uint _contractStart;
-«««				mapping(bytes4 => bool) _callSuccessMonitor;
 				
 				«"/*\n * Constructor\n */\n"»
 				«contract.compileConstructor»
-«««				«contract.compileSetupStates»
+				
+				«contract.compileSetupStates»
 
 				«"/*\n * Functions\n */\n"»
 				«contract.compileFunctions»
@@ -200,34 +209,120 @@ class CmlGenerator extends AbstractGenerator2 {
 				// Fallback function
 				function() external payable {}
 				
-				«"/*\n * Modifiers\n */\n"»
-				modifier onlyBy(address _account) { 
-					require(msg.sender == _account, "Sender not authorized."); _;
-				}
-				
-				modifier when(bool _condition) {
-				    require(_condition); _;
-				}
-				
-				modifier onlyAfter(uint _time, uint _duration, bool _within) {
-					if(!_within)
-						require(now > _time + _duration, "Function called too early.");
-					else require(_time + _duration > now && now > _time, "Function not called within expected timeframe."); _;
-				}
-				
-				modifier onlyBefore(uint _time, uint _duration, bool _within) {
-					if(!_within)
-						require(now < _time - _duration, "Function called too late.");
-					else require(_time - _duration < now && now < _time, "Function not called within expected timeframe."); _;
-				}
-				
-«««				modifier postCall() {
-«««				    _; _callSuccessMonitor[msg.sig] = true;
-«««				}
-«««				   
+				«contract.compileClauseConstraints»
+				«contract.compileGetHighestTimestamp»
 			}
 		«ENDFOR»
 	'''
+
+	def compileClauseConstraints(CmlClass contract)'''
+	function clauseAllowed(bytes32 _clauseId) internal returns (bool) {
+		«FOR clause : contract.clauses»
+			if (_clauseId == "«clause.name»") {
+				«clause.getConstraints»
+				return true;
+			}
+   		«ENDFOR»		      
+		return false;
+	}
+
+	'''
+
+	def compileGetHighestTimestamp(CmlClass contract)'''
+	function getHighestTimestamp(bytes32 _clauseId) internal returns (uint) {
+		«FOR clause : contract.clauses»
+			«IF clause.antecedent.temporal !== null && clause.antecedent.temporal.reference instanceof ClauseQuery»
+				if (_clauseId == "«(clause.antecedent.temporal.reference as ClauseQuery).clause.name»") {
+					uint highestTime = 0;
+					«clause.getTimestamps»
+					return highestTime;
+				}
+			«ENDIF»
+   		«ENDFOR»		      
+		return 0;
+	}
+	
+	'''
+	
+	def getTimestamps(Clause c)'''
+		«var actions = c.gatherActions»
+		«FOR a : actions»
+			if (highestTime < _callMonitor[this.«a».selector].time) {
+				highestTime =  _callMonitor[this.«a».selector].time;
+			}
+		«ENDFOR»
+	'''
+	
+	def gatherActions(Clause c) {
+		val tc = c.antecedent.temporal
+		if (tc !== null) {
+			return (tc.reference as ClauseQuery).clause.action.compoundAction.eAllOfType(AtomicAction).map[operation.name]
+		} else return emptyList
+	}
+	
+	def compile(ActionQuery aq)'''
+		«aq.party.name», this.«aq.action.name».selector'''
+		
+	def getConstraints(Clause c)'''
+		«var constraints = c.deriveConstraints»
+		«FOR m : constraints»
+			«m»
+		«ENDFOR»
+	'''
+	
+	def deriveConstraints(Clause c) {
+		var constraints = newArrayList
+		var party = c.actor.party
+		var tc = c.antecedent.temporal
+		var gc = c.antecedent.general
+		if (party.name != "anyone")
+			constraints.add("require(onlyBy("+party.name+"));")
+		if (tc !== null) {
+			if (tc.reference instanceof Expression) {
+				if (tc.timeframe === null)
+					constraints.add("require(only" + tc.precedence.literal.toFirstUpper + "(" + (tc.reference as Expression).compile +", 0, false"+"));")
+				if (tc.closed == false && tc.timeframe !== null)
+					constraints.add("require(only" + tc.precedence.literal.toFirstUpper + "(" + (tc.reference as Expression).compile +", "+ tc.timeframe.compile+ ", false"+"));")
+				if (tc.closed == true && tc.timeframe !== null)
+					constraints.add("require(only" + tc.precedence.literal.toFirstUpper + "(" + (tc.reference as Expression).compile +", "+ tc.timeframe.compile+ ", true"+"));")
+			}
+			if (tc.reference instanceof ClauseQuery) {
+				if ((tc.reference as ClauseQuery).status == "failed" || tc.precedence.literal == "before")
+					constraints.add("require(!("+(tc.reference as ClauseQuery).clause.action.compoundAction.compile+"));")
+				else
+					constraints.add("require("+(tc.reference as ClauseQuery).clause.action.compoundAction.compile+");")	
+				
+				if (tc.timeframe === null)
+					constraints.add("require(only" + tc.precedence.literal.toFirstUpper + "(getHighestTimestamp(\"" + (tc.reference as ClauseQuery).clause.name + "\"), 0, false"+"));")
+				if (tc.closed == false && tc.timeframe !== null)
+					constraints.add("require(only" + tc.precedence.literal.toFirstUpper + "(getHighestTimestamp(\"" + (tc.reference as ClauseQuery).clause.name +"\"), " + tc.timeframe.compile+ ", false"+"));")
+				if (tc.closed == true && tc.timeframe !== null)
+					constraints.add("require(only" + tc.precedence.literal.toFirstUpper + "(getHighestTimestamp(\"" + (tc.reference as ClauseQuery).clause.name +"\"), " + tc.timeframe.compile+ ", true"+"));")
+			}
+			if (tc.reference instanceof EventQuery) {
+				if (tc.precedence.literal == "after")
+					constraints.add("require("+(tc.reference as EventQuery).event.name+");")
+				if (tc.precedence.literal == "before")
+					constraints.add("require(!"+(tc.reference as EventQuery).event.name+");")
+				//missed out for now since there is no monitoring of Events
+			}
+			if (tc.reference instanceof ActionQuery) {
+				if (tc.precedence.literal == "after")
+					constraints.add("require(actionDone(" + (tc.reference as ActionQuery).compile + ", false));")
+				if (tc.precedence.literal == "before")
+					constraints.add("require(!actionDone(" + (tc.reference as ActionQuery).compile + ", true));")
+				if (tc.timeframe === null)
+					constraints.add("require(only" + tc.precedence.literal.toFirstUpper + "(_callMonitor[this." + (tc.reference as ActionQuery).action.name + ".selector].time, 0, false" + "));")
+				if (tc.closed == false && tc.timeframe !== null)
+					constraints.add("require(only" + tc.precedence.literal.toFirstUpper + "(_callMonitor[this." + (tc.reference as ActionQuery).action.name + ".selector].time, " + tc.timeframe.compile + ", false" + "));")
+				if (tc.closed == true && tc.timeframe !== null)
+					constraints.add("require(only" + tc.precedence.literal.toFirstUpper + "(_callMonitor[this." + (tc.reference as ActionQuery).action.name + ".selector].time, " + tc.timeframe.compile + ", true" + "));")
+			}	
+		}
+		if (gc !== null)
+			constraints.add("require(when("+gc.expression.compile+"));")
+		constraints
+	}
 
 	def compileEventFunctions(CmlClass c) '''
 		«FOR e : c.attributes.filter[type.mapsToEvent] SEPARATOR "\n" AFTER "\n"»
@@ -273,7 +368,7 @@ class CmlGenerator extends AbstractGenerator2 {
 	def Set<CmlClass> traverseForEnums(CmlClass c) {
 		var set = newLinkedHashSet
 		for(class : c.attributes.map[type]) {
-			if(class.mapsToEnum)
+			if (class.mapsToEnum)
 				set.add(class)
 			set.addAll(traverseForEnums(class))
 		}
@@ -313,7 +408,7 @@ class CmlGenerator extends AbstractGenerator2 {
 		set.addAll(o.referencedSymbols)
 		set.addAll(o.variableDeclarations)
 		for(op : o.referencedOperations) {
-			if(op !== o)
+			if (op !== o)
 				set.addAll(traverseForTypes(op))
 		}
 		set
@@ -363,20 +458,19 @@ class CmlGenerator extends AbstractGenerator2 {
 	}
 
 	def compileInitConstructor(Operation o) '''	
-		constructor(«o.params.compile») «FOR a : o.deriveAnnotations SEPARATOR ' '»«a»«ENDFOR»
-		{
+		constructor(«o.params.compile») «FOR a : o.deriveAnnotations SEPARATOR ' '»«a»«ENDFOR» {
 			«FOR s : o.body?.statements ?: emptyList»
 				«compileStatement(s)»
 			«ENDFOR»
 			_contractStart = now;
-«««			setupStates();
+			setupClauses();
 		}
 	'''
 
 	def compileStandardConstructor(CmlClass c) '''
 		constructor() public {
 			_contractStart = now;
-«««			setpStates();
+			setupClauses();
 		}
     '''
 
@@ -389,15 +483,17 @@ class CmlGenerator extends AbstractGenerator2 {
 	'''
 
 	def compileSetupStates(CmlClass c) '''
-		function setupStates() internal {
-		    setStates(states);
-		    
+		function setupClauses() internal {
 			«FOR i : c.clauses.indexed»
 				«FOR j : i.value.action.compoundAction.eAllOfType(AtomicAction)»
-					allowFunction(STATE«i.key», this.«j.operation.name».selector);
-					«ENDFOR»
+					«IF i.value.action.deontic.literal == "may"»
+					// automatically set to true due to may deontic
+					_callMonitor[this.«j.operation.name».selector].success = true;
+					_callMonitor[this.«j.operation.name».selector].time = now;
+					«ENDIF»
 				«ENDFOR»
-			}
+			«ENDFOR»
+		}
 	'''
 
 	def String compile(CompoundAction ca) {
@@ -405,7 +501,7 @@ class CmlGenerator extends AbstractGenerator2 {
 			XorCompoundAction: {
 				val left = ca.left.compile
 				val right = ca.right.compile
-				left + " || " + right
+				left + " != " + right
 			}
 			OrCompoundAction: {
 				val left = ca.left.compile
@@ -415,7 +511,7 @@ class CmlGenerator extends AbstractGenerator2 {
 			SeqCompoundAction: {
 				val left = ca.left.compile
 				val right = ca.right.compile
-				left + " then " + right
+				left + " && " + right
 			}
 			AndCompoundAction: {
 				val left = ca.left.compile
@@ -426,7 +522,7 @@ class CmlGenerator extends AbstractGenerator2 {
 				"(" + ca.child.compile + ")"
 			}
 			AtomicAction:
-				ca.operation.name
+				"_callMonitor[this."+ca.operation.name+".selector].success"
 		}
 	}
 	
@@ -465,7 +561,7 @@ class CmlGenerator extends AbstractGenerator2 {
 	'''
 	
 	def containsDepositOperation(Operation o) {
-		o.body?.statements?.filter(FeatureSelection)?.filter[opCall && feature instanceof Operation]?.map[feature]?.
+		o.eAllOfType(Statement).filter(FeatureSelection)?.filter[opCall && feature instanceof Operation]?.map[feature]?.
 			findFirst[containingClass.conformsToParty && name == "deposit"] !== null
 	}
 	
@@ -486,31 +582,13 @@ class CmlGenerator extends AbstractGenerator2 {
 	}
 
 	def deriveModifiers(Clause c) {
-		var modifiers = new LinkedHashMap<String, List<String>>();
-		var party = c.actor.party
-		var tc = c.antecedent.temporal
-		var gc = c.antecedent.general
-		if (party.name != "anyone")
-			modifiers.put("onlyBy", #[party.name])
-		if (tc !== null) {
-			if (tc.reference instanceof Expression) {
-				if (tc.timeframe === null)
-					modifiers.put("only" + tc.precedence.literal.toFirstUpper,
-						#[(tc.reference as Expression).compile, "0", "false"])
-				if (tc.closed == false && tc.timeframe !== null)
-					modifiers.put("only" + tc.precedence.literal.toFirstUpper,
-						#[(tc.reference as Expression).compile, tc.timeframe.compile, "false"])
-				if (tc.closed == true && tc.timeframe !== null)
-					modifiers.put("only" + tc.precedence.literal.toFirstUpper,
-						#[(tc.reference as Expression).compile, tc.timeframe.compile, "true"])
-			}
-		}
-		if (gc !== null)
-			modifiers.put("when", #[gc.expression.compile])
-		//modifiers.put("postCall", emptyList)
+		var modifiers = new LinkedHashMap<String, List<String>>()
+		var list = newArrayList
+		list.add("\""+c.name+"\"")
+		modifiers.put("checkAllowed", list)
 		modifiers
 	}
-
+	
 	def compileBlock(Block block) '''
 		{	
 			«FOR s : block.statements»
@@ -558,7 +636,7 @@ class CmlGenerator extends AbstractGenerator2 {
 			ThrowStatement: '''revert(«s.expression?.compile»);'''
 			default: {
 				val statement = (s as Expression).compile
-				if(!statement.nullOrEmpty) (statement + ";") else ""
+				if (!statement.nullOrEmpty) (statement + ";") else ""
 			}
 		}
 	}
@@ -611,7 +689,7 @@ class CmlGenerator extends AbstractGenerator2 {
 	'''
 
 	def compile(TimeConstraint tc) {
-		var modifiers = new LinkedHashMap<String, List<String>>();
+		var modifiers = new LinkedHashMap<String, List<String>>()
 		if (tc.closed == false && tc.timeframe === null) {
 			if (tc.precedence == "after" && tc.reference instanceof Expression)
 				modifiers.put("onlyAfter", #[(tc.reference as Expression).compile, "0"])
@@ -817,22 +895,24 @@ class CmlGenerator extends AbstractGenerator2 {
 				switch (o.name) {
 					case "deposit":	"" // NOOP
 					case "transfer":
-						if(pullPayment) "_asyncTransfer(" + reference.compile + ", " + args.get(0).compile +
+						if (pullPayment) "_asyncTransfer(" + reference.compile + ", " + args.get(0).compile +
 							")" else reference.compile + ".transfer" + "(" + args.get(0).compile + ")"
 				}
 			} else if (containingClass.conformsToInteger) {
 				switch (o.name) {
-					case "average": "Math.average(" + reference.compile + ", " + args.get(0).compile + ")"
-					case "max": "Math.max(" + reference.compile + ", " + args.get(0).compile + ")"
-					case "min": "Math.min(" + reference.compile + ", " + args.get(0).compile + ")"
-					case "toReal": if(fixedPointArithmetic) reference.compile else "ufixed(" + reference.compile + ")"
+					case "average": "IntLib.average(" + reference.compile + ", " + args.get(0).compile + ")"
+					case "max": "IntLib.max(" + reference.compile + ", " + args.get(0).compile + ")"
+					case "min": "IntLib.min(" + reference.compile + ", " + args.get(0).compile + ")"
+					case "toReal": if (fixedPointArithmetic) "IntLib.toReal(" + reference.compile + ", " + fixedPointDecimals+ ")" else "??? Not yet implemented"
 				}
 			} else if (containingClass.conformsToReal) {
 				switch (o.name) {
-					case "sqrt": "???(" + reference.compile + ", " + args.get(0).compile + ")"
-					case "ceil": "???(" + reference.compile + ", " + args.get(0).compile + ")"
-					case "floor": "???(" + reference.compile + ", " + args.get(0).compile + ")"
-					case "toInteger": if(fixedPointArithmetic) reference.compile else "uint(" + reference.compile + ")"
+					case "max": "RealLib.max(" + reference.compile + ", " + args.get(0).compile + ")"
+					case "min": "RealLib.min(" + reference.compile + ", " + args.get(0).compile + ")"
+					case "sqrt": "RealLib.sqrt(" + reference.compile + ")"
+					case "ceil": if (fixedPointArithmetic) "RealLib.ceil(" + reference.compile + ", " + fixedPointDecimals+ ")" else "??? Not yet implemented"
+					case "floor": if (fixedPointArithmetic) "RealLib.floor(" + reference.compile + ", " + fixedPointDecimals+ ")" else "??? Not yet implemented"
+					case "toInteger": if (fixedPointArithmetic) "RealLib.toInteger(" + reference.compile + ", " + fixedPointDecimals+ ")" else "??? Not yet implemented"
 				}
 			} else if (containingClass.conformsToDateTime) {
 				switch (o.name) {

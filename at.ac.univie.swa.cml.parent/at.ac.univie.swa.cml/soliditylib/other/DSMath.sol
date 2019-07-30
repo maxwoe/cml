@@ -41,7 +41,7 @@ library DSMath {
 
     uint constant WAD = 10 ** 18;
     uint constant RAY = 10 ** 27;
-    
+
     function wmul(uint x, uint y) internal pure returns (uint z) {
         z = add(mul(x, y), WAD / 2) / WAD;
     }

@@ -161,7 +161,7 @@ enum TemporalPrecedence:
 	AFTER='after';
 
 ClauseQuery:
-	'clause' clause=[Clause] ('fulfilled' | 'failed');
+	'clause' clause=[Clause] status=('fulfilled' | 'failed');
 
 EventQuery:
 	'event' event=[Attribute];
