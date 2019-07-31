@@ -200,7 +200,7 @@ class CmlGenerator extends AbstractGenerator2 {
 				«"/*\n * Constructor\n */\n"»
 				«contract.compileConstructor»
 				
-				«contract.compileSetupStates»
+«««				«contract.compileSetupStates»
 
 				«"/*\n * Functions\n */\n"»
 				«contract.compileFunctions»
@@ -463,14 +463,14 @@ class CmlGenerator extends AbstractGenerator2 {
 				«compileStatement(s)»
 			«ENDFOR»
 			_contractStart = now;
-			setupClauses();
+«««			setupClauses();
 		}
 	'''
 
 	def compileStandardConstructor(CmlClass c) '''
 		constructor() public {
 			_contractStart = now;
-			setupClauses();
+«««			setupClauses();
 		}
     '''
 
@@ -482,19 +482,19 @@ class CmlGenerator extends AbstractGenerator2 {
 		
 	'''
 
-	def compileSetupStates(CmlClass c) '''
-		function setupClauses() internal {
-			«FOR i : c.clauses.indexed»
-				«FOR j : i.value.action.compoundAction.eAllOfType(AtomicAction)»
-					«IF i.value.action.deontic.literal == "may"»
-					// automatically set to true due to may deontic
-					_callMonitor[this.«j.operation.name».selector].success = true;
-					_callMonitor[this.«j.operation.name».selector].time = now;
-					«ENDIF»
-				«ENDFOR»
-			«ENDFOR»
-		}
-	'''
+//	def compileSetupStates(CmlClass c) '''
+//		function setupClauses() internal {
+//			«FOR i : c.clauses.indexed»
+//				«FOR j : i.value.action.compoundAction.eAllOfType(AtomicAction)»
+//					«IF i.value.action.deontic.literal == "may"»
+//					// automatically set to true due to may deontic
+//					_callMonitor[this.«j.operation.name».selector].success = true;
+//					_callMonitor[this.«j.operation.name».selector].time = now;
+//					«ENDIF»
+//				«ENDFOR»
+//			«ENDFOR»
+//		}
+//	'''
 
 	def String compile(CompoundAction ca) {
 		switch (ca) {
