@@ -4,10 +4,11 @@
 package at.ac.univie.swa.scoping
 
 import at.ac.univie.swa.CmlModelUtil
+import at.ac.univie.swa.cml.Annotation
 import at.ac.univie.swa.cml.Attribute
 import at.ac.univie.swa.cml.Block
-import at.ac.univie.swa.cml.CmlClass
 import at.ac.univie.swa.cml.Closure
+import at.ac.univie.swa.cml.CmlClass
 import at.ac.univie.swa.cml.CmlPackage
 import at.ac.univie.swa.cml.CmlProgram
 import at.ac.univie.swa.cml.FeatureSelection
@@ -49,6 +50,8 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 			return scopeForAttributeRef(context, [Attribute a | !a.type.eIsProxy && (a.type.conformsToParty || a.type.subclassOfParty)])
 		} else if (reference == CmlPackage.Literals.EVENT_QUERY__EVENT) {
 			return scopeForAttributeRef(context, [Attribute a | !a.type.eIsProxy && (a.type.conformsToEvent || a.type.subclassOfEvent)])
+		} else if (reference == CmlPackage.Literals.ANNOTATION_ELEMENT__PARAM) {
+			return scopeForAnnotationParamRef(context, reference)
 		}
 		super.getScope(context, reference)
 	}
@@ -65,7 +68,7 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 						var left = eContainer.left
 						if (left instanceof SymbolReference)
 							if (left.symbol instanceof CmlClass) {
-								for (c : (left.symbol as CmlClass).classHierarchyWithObject.toList.reverseView) {
+								for (c : (left.symbol as CmlClass).classHierarchyWithRoot.toList.reverseView) {
 									scope = Scopes::scopeFor(c.attributes, scope)
 								}
 								scope = Scopes.scopeFor((left.symbol as CmlClass).attributes, scope)
@@ -81,7 +84,7 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 					scopeForSymbolRef(container, reference))
 			CmlClass: {
 				var parentScope = IScope::NULLSCOPE
-				for (c : container.classHierarchyWithObject.toList.reverseView) {
+				for (c : container.classHierarchyWithRoot.toList.reverseView) {
 					parentScope = Scopes::scopeFor(c.attributes + c.operations, parentScope)
 				}
 				parentScope = Scopes::scopeFor(container.attributes + container.operations, parentScope)
@@ -107,7 +110,7 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 				return Scopes::scopeFor(type.enumElements)
 
 			var parentScope = IScope::NULLSCOPE
-			for (c : type.classHierarchyWithObject.toList.reverseView) {
+			for (c : type.classHierarchyWithRoot.toList.reverseView) {
 				parentScope = Scopes::scopeFor(c.selectedFeatures(fs), parentScope)
 			}
 			return Scopes::scopeFor(type.selectedFeatures(fs), parentScope)
@@ -120,10 +123,14 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 		else
 			type.attributes + type.operations
 	}
-
+	
+	def IScope scopeForAnnotationParamRef(EObject context, EReference reference) {
+		return Scopes.scopeFor((context.eContainer as Annotation).declaration.features)
+	}
+	
 	def IScope scopeForAttributeRef(EObject context, (Attribute)=>Boolean calledFunction) {
 		var parentScope = IScope::NULLSCOPE
-		for (c : context.containingClass.classHierarchyWithObject.toList.reverseView) {
+		for (c : context.containingClass.classHierarchyWithRoot.toList.reverseView) {
 			parentScope = Scopes::scopeFor(c.attributes.filter[calledFunction.apply(it)], parentScope)
 		}
 		return Scopes::scopeFor(context.containingClass.attributes.filter[calledFunction.apply(it)], parentScope)

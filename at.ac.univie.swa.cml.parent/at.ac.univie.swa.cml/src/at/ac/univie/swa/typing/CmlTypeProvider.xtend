@@ -5,14 +5,16 @@ import at.ac.univie.swa.CmlModelUtil
 import at.ac.univie.swa.cml.Actor
 import at.ac.univie.swa.cml.AdditiveExpression
 import at.ac.univie.swa.cml.AndExpression
+import at.ac.univie.swa.cml.Annotation
+import at.ac.univie.swa.cml.AnnotationElement
 import at.ac.univie.swa.cml.AssignmentExpression
 import at.ac.univie.swa.cml.Attribute
 import at.ac.univie.swa.cml.BooleanLiteral
 import at.ac.univie.swa.cml.CallerExpression
 import at.ac.univie.swa.cml.CasePart
 import at.ac.univie.swa.cml.CastedExpression
-import at.ac.univie.swa.cml.CmlClass
 import at.ac.univie.swa.cml.Closure
+import at.ac.univie.swa.cml.CmlClass
 import at.ac.univie.swa.cml.CmlFactory
 import at.ac.univie.swa.cml.CmlPackage
 import at.ac.univie.swa.cml.Constraint
@@ -152,7 +154,7 @@ class CmlTypeProvider {
 			Actor case f == ep.actor_Party:
 				c.getCmlPartyClass
 			SymbolReference case f == ep.symbolReference_Args: {
-				var symbol = c.symbol
+				val symbol = c.symbol
 				if (symbol instanceof Operation) {
 					try {
 						symbol.params.get(c.args.indexOf(e)).type
@@ -206,6 +208,14 @@ class CmlTypeProvider {
 				try {
 					(c.feature as Operation).params.get(c.args.indexOf(e)).type
 				} catch (Throwable t) {
+					null // otherwise there is no specific expected type
+				}
+			}
+			AnnotationElement case f == ep.annotationElement_Value: {
+				try {
+					(c.eContainer as Annotation).declaration.features.findFirst[it.name == c.param.name].type
+				} catch (Throwable t) {
+					println(t)
 					null // otherwise there is no specific expected type
 				}
 			}

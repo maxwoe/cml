@@ -30,6 +30,8 @@ import org.eclipse.xtext.validation.Check
 import org.eclipse.xtext.validation.CheckType
 
 import static extension org.eclipse.xtext.EcoreUtil2.*
+import at.ac.univie.swa.cml.AnnotationDeclaration
+import at.ac.univie.swa.cml.Annotation
 
 /**
  * This class contains custom validation rules. 
@@ -275,7 +277,9 @@ class CmlValidator extends AbstractCmlValidator {
 
 	@Check
 	def void checkAttributeDeclaration(Attribute a) {
-		if (a.containingClass === null && !a.constant && !(a.eContainer instanceof Operation) || !a.containingClass.contract && a.expression !== null) {
+		if (a.containingClass === null && !a.constant &&
+			!(a.eContainer instanceof Operation || a.eContainer instanceof AnnotationDeclaration) ||
+			!a.containingClass.contract && a.expression !== null) {
 			error("Invalid attribute declaration", null, INVALID_ATTRIBUTE_DECLARATION)
 		}
 	}
@@ -294,6 +298,17 @@ class CmlValidator extends AbstractCmlValidator {
 			if (operation.params.size != fs.args.size) {
 				error("Invalid number of arguments: expected " + operation.params.size + " but was " + fs.args.size,
 					CmlPackage.eINSTANCE.featureSelection_Feature, INVALID_ARGS)
+			}
+		}
+	}
+	
+	@Check
+	def void checkAnnotationArguments(Annotation a) {
+		val declaration = a.declaration
+		if (declaration instanceof AnnotationDeclaration) {
+			if (a.args.size != declaration.features.size) {
+				error("Invalid number of arguments: expected " + a.args.size + " but was " + declaration.features.size,
+					CmlPackage.eINSTANCE.annotation_Args, INVALID_ARGS)
 			}
 		}
 	}

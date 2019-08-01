@@ -153,21 +153,21 @@ class CmlGenerator extends AbstractGenerator2 {
 	def deriveGeneratorSettings(CmlClass c) {
 		initGeneratorSettings
 		for (a : c.annotations) {
-			val annotation = a.name
-			switch (annotation) {
-				case SAFE_MATH:
+			val declaration = a.declaration
+			switch (declaration.name) {
+				case "SafeMath":
 					safeMath = true
-				case FIXED_POINT_ARITMHMETIC: {
+				case "FixedPointArithmetic": {
 					fixedPointArithmetic = true
-					if (!a.params.empty) {
-						val integerLiteral = a.params.get(0).value
+					if (!a.args.empty) {
+						val integerLiteral = a.args.get(0).value
 						if (integerLiteral instanceof IntegerLiteral)
 							fixedPointDecimals = integerLiteral.value
 					}
 				}
-				case OWNABLE:
+				case "Ownable":
 					ownable = true
-				case PULL_PAYMENT:
+				case "PullPayment":
 					pullPayment = true
 			}
 		}
@@ -891,12 +891,14 @@ class CmlGenerator extends AbstractGenerator2 {
 	def interceptOperation(Operation o, List<Expression> args, Expression reference) {
 		if (!o.static) {
 			val containingClass = o.containingClass
-			if (containingClass.conformsToParty) {
+			if (containingClass.conformsToAsset) {
 				switch (o.name) {
-					case "deposit":	"" // NOOP
 					case "transfer":
-						if (pullPayment) "_asyncTransfer(" + reference.compile + ", " + args.get(0).compile +
-							")" else reference.compile + ".transfer" + "(" + args.get(0).compile + ")"
+						if (pullPayment) {
+							"_asyncTransfer(" + reference.compile + ", " + args.get(1).compile + ")"
+						} else {
+							reference.compile + ".transfer" + "(" + args.get(1).compile + ")"
+						}
 				}
 			} else if (containingClass.conformsToInteger) {
 				switch (o.name) {

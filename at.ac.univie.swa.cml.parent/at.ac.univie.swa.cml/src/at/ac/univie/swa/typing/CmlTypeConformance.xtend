@@ -32,7 +32,8 @@ class CmlTypeConformance {
 	def conformToLibraryTypes(CmlClass c1, CmlClass c2) {
 		(c1.conformsToBoolean && c2.conformsToBoolean) ||
 		(c1.conformsToString && c2.conformsToString) || 
-		//(c1.conformsToNumber && c2.conformsToNumber) ||
+		(c1.conformsToInteger && c2.conformsToNumber) ||
+		(c1.conformsToReal && c2.conformsToNumber) ||
 		(c1.conformsToInteger && c2.conformsToInteger) ||
 		(c1.conformsToReal && c2.conformsToReal) ||
 		(c1.conformsToDateTime && c2.conformsToDateTime) ||

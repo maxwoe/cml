@@ -12,7 +12,7 @@ Import:
 	'import' importedNamespace=QualifiedNameWithWildcard;
 
 Declaration:
-	CmlClass | Party | Asset | Transaction | Event | Contract | Enumeration | Attribute | Operation;
+	CmlClass | Party | Asset | Transaction | Event | Contract | Enumeration | Attribute | Operation | AnnotationDeclaration;
 
 CmlClass:
 	(abstract?='abstract')? kind='concept' name=ID ('extends' superclass=[CmlClass|QualifiedName])?
@@ -21,7 +21,7 @@ CmlClass:
 	END)?;
 
 Contract returns CmlClass:
-	annotations+=AnnotationDeclaration*
+	annotations+=Annotation*
 	(abstract?='abstract')? kind='contract' name=ID ('extends' superclass=[CmlClass|QualifiedName])?
 	(BEGIN
 	features+=FeatureAttributeAndOperationAndClause*
@@ -61,22 +61,22 @@ EnumerationElement:
 	name=ID;
 	
 AnnotationDeclaration:
-    '@' name=Annotation ('(' (params+=AnnotationParameter (',' params+=AnnotationParameter)*)? ')')?;
-
-AnnotationParameter:
-	(name=ID '=')? => value=Expression;
-
-enum Annotation:
-	OWNABLE='Ownable' |
-	PULL_PAYMENT='PullPayment' |
-	SAFE_MATH='SafeMath' |
-	FIXED_POINT_ARITMHMETIC='FixedPointArithmetic';
+	'@' 'interface' name=ID 
+	(BEGIN 
+	features+=Attribute+
+	END)?;
 	
+Annotation:
+    '@' declaration=[AnnotationDeclaration|QualifiedName] ('(' (args+=AnnotationElement (',' args+=AnnotationElement)*)? ')')?;
+
+AnnotationElement:
+	param=[Attribute] '=' value=Expression;
+
 Type:
 	CmlClass;
 
 NamedElement:
-	CmlProgram | CmlClass | Feature | VariableDeclaration;
+	CmlProgram | CmlClass | Feature | VariableDeclaration | AnnotationDeclaration;
 
 Feature:
 	Attribute | Operation | Clause | EnumerationElement;

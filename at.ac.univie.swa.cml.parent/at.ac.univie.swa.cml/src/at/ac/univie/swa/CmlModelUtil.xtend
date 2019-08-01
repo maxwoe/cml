@@ -19,6 +19,8 @@ import org.eclipse.emf.ecore.EObject
 import org.eclipse.xtext.naming.IQualifiedNameProvider
 
 import static extension org.eclipse.xtext.EcoreUtil2.*
+import at.ac.univie.swa.cml.Annotation
+import at.ac.univie.swa.cml.AnnotationDeclaration
 
 class CmlModelUtil {
 
@@ -137,6 +139,14 @@ class CmlModelUtil {
 		e.getContainerOfType(Attribute)
 	}
 	
+	def containingAnnotationDeclaration(EObject e) {
+		e.getContainerOfType(AnnotationDeclaration)
+	}
+	
+	def containingAnnotation(EObject e) {
+		e.getContainerOfType(Annotation)
+	}
+	
 	def containingClause(EObject e) {
 		e.getContainerOfType(Clause)
 	}
@@ -205,23 +215,28 @@ class CmlModelUtil {
 		}
 		
 		switch (c.kind) {
-			case "party": visited.add(c.cmlPartyClass)
-			case "asset": visited.add(c.cmlAssetClass)
-			case "event": visited.add(c.cmlEventClass)
-			case "transaction": visited.add(c.cmlTransactionClass)
-			case "enum": visited.add(c.cmlEnumClass)
-			case "contract": visited.add(c.cmlContractClass)
+			case "party": current = c.cmlPartyClass
+			case "asset": current = c.cmlAssetClass
+			case "event": current = c.cmlEventClass
+			case "transaction": current = c.cmlTransactionClass
+			case "enum": current = c.cmlEnumClass
+			case "contract": current = c.cmlContractClass
 		}
-
+		
+		while (current !== null && !visited.contains(current)) {
+			visited.add(current)
+			current = current.superclass
+		}
+		
 		visited
 	}
 
-	def classHierarchyWithObject(CmlClass c) {
+	def classHierarchyWithRoot(CmlClass c) {
 		val visited = classHierarchy(c)
 
-		val object = c.getCmlAnyClass
-		if (object !== null)
-			visited.add(object)
+		val any = c.getCmlAnyClass
+		if (any !== null)
+			visited.add(any)
 
 		visited
 	}
@@ -229,14 +244,14 @@ class CmlModelUtil {
 	def classHierarchyOperations(CmlClass c) {
 		var hierarchy = newLinkedHashSet()
 		hierarchy.add(c)
-		hierarchy.addAll(c.classHierarchyWithObject)
+		hierarchy.addAll(c.classHierarchyWithRoot)
 		hierarchy.toList.reverseView.map[operations].flatten.toMap[name]
 	}
 	
 	def classHierarchyAttributes(CmlClass c) {
 		var hierarchy = newLinkedHashSet()
 		hierarchy.add(c)
-		hierarchy.addAll(c.classHierarchyWithObject)
+		hierarchy.addAll(c.classHierarchyWithRoot)
 		hierarchy.toList.reverseView.map[attributes].flatten.toMap[name]
 	}
 	
