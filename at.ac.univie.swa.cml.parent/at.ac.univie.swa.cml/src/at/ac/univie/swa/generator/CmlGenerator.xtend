@@ -104,7 +104,7 @@ class CmlGenerator extends AbstractGenerator2 {
 		copyResource("openzeppelin/PullPayment.sol", fsa)
 		copyResource("openzeppelin/SafeMath.sol", fsa)
 		copyResource("openzeppelin/Secondary.sol", fsa)
-		copyResource("other/DSMath.sol", fsa)
+		copyResource("other/FPMath.sol", fsa)
 		copyResource("other/DateTime.sol", fsa)
 		copyResource("other/IntLib.sol", fsa)
 		copyResource("other/RealLib.sol", fsa)
@@ -181,7 +181,7 @@ class CmlGenerator extends AbstractGenerator2 {
 			«IF ownable»import "./lib/openzeppelin/Ownable.sol";«ENDIF»
 			«IF pullPayment»import "./lib/openzeppelin/PullPayment.sol";«ENDIF»
 			«IF safeMath»import "./lib/openzeppelin/SafeMath.sol";«ENDIF»
-			«IF safeMath && fixedPointArithmetic»import "./lib/other/DSMath.sol";«ENDIF»
+			«IF fixedPointArithmetic»import "./lib/other/FPMath.sol";«ENDIF»
 			import "./lib/other/ConditionalContract.sol";
 			import "./lib/other/DateTime.sol";
 			import "./lib/other/IntLib.sol";
