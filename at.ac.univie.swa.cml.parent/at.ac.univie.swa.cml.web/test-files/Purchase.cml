@@ -1,4 +1,4 @@
-namespace purchase
+namespace cml.examples
 
 import cml.lang.solidity.*
 
@@ -6,7 +6,7 @@ enum State
 	CREATED LOCKED INACTIVE
 
 @PullPayment
-contract Purchase extends SolidityContract
+contract Purchase
 	Integer value
 	Party seller
 	Party buyer
@@ -28,7 +28,7 @@ contract Purchase extends SolidityContract
 		given state == State::CREATED
 		party anyone
 		may confirmPurchase
-		
+
 	// Confirm that you (the buyer) received the item.
     // This will release the locked ether.
 	clause ConfirmReceived
@@ -36,23 +36,23 @@ contract Purchase extends SolidityContract
 		party buyer
 		may confirmReceived
 	
-	init()
-		caller.deposit(msg.value)
+	init(Integer amount)
+		caller.token.transfer(this, amount)
 		seller = caller
-		value = msg.value / 2
-		ensure(2 * value == msg.value, "Value has to be even.")
+		value = amount / 2
+		ensure(2 * value == amount, "Value has to be even.")
 
 	abort()
 		state = State::INACTIVE
-		seller.transfer(balance)
+		token.transfer(seller, token.quota)
 		
-	confirmPurchase()
-		ensure(msg.value == 2 * value, "Value has to be even.")
-		caller.deposit(msg.value)
+	confirmPurchase(Integer amount)
+		ensure(amount == 2 * value, "Value has to be even.")
+		caller.token.transfer(this, amount)
 		buyer = caller
 		state = State::LOCKED
 
 	confirmReceived()
 		state = State::INACTIVE
-		buyer.transfer(value)
-		seller.transfer(balance)
+		token.transfer(buyer, value)
+		token.transfer(seller, token.quota)

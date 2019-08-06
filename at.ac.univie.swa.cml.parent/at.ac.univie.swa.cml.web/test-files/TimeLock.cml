@@ -1,0 +1,36 @@
+namespace cml.examples
+
+import cml.lang.solidity.*
+
+@PullPayment
+contract TimeLock
+	DateTime unlockDate
+	Party vaultUser
+	Integer value
+	
+	clause Deposit
+		party anyone
+		may deposit
+		
+	clause IncreaseLockTime
+		due after vaultUser did deposit
+		party vaultUser
+		may increaseLockTime
+	
+	clause Withdraw
+		due after vaultUser did deposit
+		given now.isAfter(unlockDate)
+		party vaultUser
+		may withdraw
+
+	deposit(Integer amount)
+		value = amount
+		vaultUser = caller
+		vaultUser.token.transfer(this, value)
+		unlockDate = now.addDuration(2 minutes)
+		
+	increaseLockTime(Duration d)
+		unlockDate = unlockDate.addDuration(d)
+		
+	withdraw()
+		token.transfer(vaultUser, value)

@@ -207,7 +207,7 @@ class CmlGenerator extends AbstractGenerator2 {
 				function() external payable {}
 				
 				«contract.compileClauseConstraints»
-				«contract.compileGetHighestTimestamp»
+				«contract.compileMostRecentActionTimestamp»
 			}
 		«ENDFOR»
 	'''
@@ -225,14 +225,14 @@ class CmlGenerator extends AbstractGenerator2 {
 
 	'''
 
-	def compileGetHighestTimestamp(CmlClass contract)'''
-	function getHighestTimestamp(bytes32 _clauseId) internal returns (uint) {
+	def compileMostRecentActionTimestamp(CmlClass contract)'''
+	function mostRecentActionTimestamp(bytes32 _clauseId) internal returns (uint) {
 		«FOR clause : contract.clauses»
 			«IF clause.antecedent.temporal !== null && clause.antecedent.temporal.reference instanceof ClauseQuery»
 				if (_clauseId == "«(clause.antecedent.temporal.reference as ClauseQuery).clause.name»") {
-					uint highestTime = 0;
+					uint max = 0;
 					«clause.getTimestamps»
-					return highestTime;
+					return max;
 				}
 			«ENDIF»
    		«ENDFOR»		      
@@ -244,8 +244,8 @@ class CmlGenerator extends AbstractGenerator2 {
 	def getTimestamps(Clause c)'''
 		«var actions = c.gatherActions»
 		«FOR a : actions»
-			if (highestTime < _callMonitor[this.«a».selector].time) {
-				highestTime =  _callMonitor[this.«a».selector].time;
+			if (max < _callMonitor[this.«a».selector].time) {
+				max =  _callMonitor[this.«a».selector].time;
 			}
 		«ENDFOR»
 	'''
@@ -290,11 +290,11 @@ class CmlGenerator extends AbstractGenerator2 {
 					constraints.add("require("+(tc.reference as ClauseQuery).clause.action.compoundAction.compile+");")	
 				
 				if (tc.timeframe === null)
-					constraints.add("require(only" + tc.precedence.literal.toFirstUpper + "(getHighestTimestamp(\"" + (tc.reference as ClauseQuery).clause.name + "\"), 0, false"+"));")
+					constraints.add("require(only" + tc.precedence.literal.toFirstUpper + "(mostRecentActionTimestamp(\"" + (tc.reference as ClauseQuery).clause.name + "\"), 0, false"+"));")
 				if (tc.closed == false && tc.timeframe !== null)
-					constraints.add("require(only" + tc.precedence.literal.toFirstUpper + "(getHighestTimestamp(\"" + (tc.reference as ClauseQuery).clause.name +"\"), " + tc.timeframe.compile+ ", false"+"));")
+					constraints.add("require(only" + tc.precedence.literal.toFirstUpper + "(mostRecentActionTimestamp(\"" + (tc.reference as ClauseQuery).clause.name +"\"), " + tc.timeframe.compile+ ", false"+"));")
 				if (tc.closed == true && tc.timeframe !== null)
-					constraints.add("require(only" + tc.precedence.literal.toFirstUpper + "(getHighestTimestamp(\"" + (tc.reference as ClauseQuery).clause.name +"\"), " + tc.timeframe.compile+ ", true"+"));")
+					constraints.add("require(only" + tc.precedence.literal.toFirstUpper + "(mostRecentActionTimestamp(\"" + (tc.reference as ClauseQuery).clause.name +"\"), " + tc.timeframe.compile+ ", true"+"));")
 			}
 			if (tc.reference instanceof EventQuery) {
 				if (tc.precedence.literal == "after")

@@ -1,10 +1,16 @@
-namespace fixedPointArithmetic
+namespace cml.examples
 
-@SafeMath @FixedPointArithmetic(precision=2)
-contract C
+import cml.lang.solidity.*
+
+Integer equation()
+	return 8 / 2 * (2 + 2)
+    
+@FixedPointArithmetic(decimals=2)
+contract FixedPointArithmetic
 	clause Clause
 		party anyone
 		may calc
 	
-	Real calc(Real a, Real b)
-		return a + b
+	Real calc(Real value)
+		return equation().toReal() * value
+		

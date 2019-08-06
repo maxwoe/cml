@@ -42,7 +42,7 @@ concept DateTime extends Any
 	Integer hour()
 	Integer day()
 	Integer week()
-	Boolean ^equals(DateTime d)
+	Boolean equals(DateTime d)
 	DateTime addDuration(Duration d)
 	DateTime subtractDuration(Duration d)
 	Duration durationBetween(DateTime d)

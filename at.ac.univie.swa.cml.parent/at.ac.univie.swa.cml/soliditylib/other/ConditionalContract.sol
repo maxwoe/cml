@@ -66,6 +66,6 @@ contract ConditionalContract {
 	}
 
 	function clauseAllowed(bytes32 _clauseId) internal returns(bool);
-	function getHighestTimestamp(bytes32 _clauseId) internal returns(uint);
+	function mostRecentActionTimestamp(bytes32 _clauseId) internal returns(uint);
 
 }
