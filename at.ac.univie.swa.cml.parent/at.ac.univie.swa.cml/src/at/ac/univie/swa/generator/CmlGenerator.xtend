@@ -9,7 +9,6 @@ import at.ac.univie.swa.cml.ActionQuery
 import at.ac.univie.swa.cml.AdditiveExpression
 import at.ac.univie.swa.cml.AndCompoundAction
 import at.ac.univie.swa.cml.AndExpression
-import at.ac.univie.swa.cml.Antecedent
 import at.ac.univie.swa.cml.AssignmentExpression
 import at.ac.univie.swa.cml.AtomicAction
 import at.ac.univie.swa.cml.Attribute
@@ -21,6 +20,7 @@ import at.ac.univie.swa.cml.ClauseQuery
 import at.ac.univie.swa.cml.CmlClass
 import at.ac.univie.swa.cml.CmlProgram
 import at.ac.univie.swa.cml.CompoundAction
+import at.ac.univie.swa.cml.Constraint
 import at.ac.univie.swa.cml.DateTimeLiteral
 import at.ac.univie.swa.cml.DoWhileStatement
 import at.ac.univie.swa.cml.DurationLiteral
@@ -49,9 +49,9 @@ import at.ac.univie.swa.cml.StringLiteral
 import at.ac.univie.swa.cml.SuperExpression
 import at.ac.univie.swa.cml.SwitchStatement
 import at.ac.univie.swa.cml.SymbolReference
+import at.ac.univie.swa.cml.TemporalConstraint
 import at.ac.univie.swa.cml.ThisExpression
 import at.ac.univie.swa.cml.ThrowStatement
-import at.ac.univie.swa.cml.TimeConstraint
 import at.ac.univie.swa.cml.Type
 import at.ac.univie.swa.cml.UnaryExpression
 import at.ac.univie.swa.cml.VariableDeclaration
@@ -228,8 +228,8 @@ class CmlGenerator extends AbstractGenerator2 {
 	def compileMostRecentActionTimestamp(CmlClass contract)'''
 	function mostRecentActionTimestamp(bytes32 _clauseId) internal returns (uint) {
 		«FOR clause : contract.clauses»
-			«IF clause.antecedent.temporal !== null && clause.antecedent.temporal.reference instanceof ClauseQuery»
-				if (_clauseId == "«(clause.antecedent.temporal.reference as ClauseQuery).clause.name»") {
+			«IF clause.constraint.temporal !== null && clause.constraint.temporal.reference instanceof ClauseQuery»
+				if (_clauseId == "«(clause.constraint.temporal.reference as ClauseQuery).clause.name»") {
 					uint max = 0;
 					«clause.getTimestamps»
 					return max;
@@ -251,7 +251,7 @@ class CmlGenerator extends AbstractGenerator2 {
 	'''
 	
 	def gatherActions(Clause c) {
-		val tc = c.antecedent.temporal
+		val tc = c.constraint.temporal
 		if (tc !== null) {
 			return (tc.reference as ClauseQuery).clause.action.compoundAction.eAllOfType(AtomicAction).map[operation.name]
 		} else return emptyList
@@ -270,8 +270,8 @@ class CmlGenerator extends AbstractGenerator2 {
 	def deriveConstraints(Clause c) {
 		var constraints = newArrayList
 		var party = c.actor.party
-		var tc = c.antecedent.temporal
-		var gc = c.antecedent.general
+		var tc = c.constraint.temporal
+		var gc = c.constraint.general
 		if (party.name != "anyone")
 			constraints.add("require(onlyBy("+party.name+"));")
 		if (tc !== null) {
@@ -702,7 +702,7 @@ class CmlGenerator extends AbstractGenerator2 {
 		}
 	}
 
-	def compile(Antecedent a, Clause c) '''
+	def compile(Constraint a, Clause c) '''
 		// @notice modifier for clause «c.name»
 		modifier guard() {
 			«IF a.temporal !== null»require(«a.temporal.compile»)«ENDIF»;
@@ -717,7 +717,7 @@ class CmlGenerator extends AbstractGenerator2 {
 		}
 	'''
 
-	def compile(TimeConstraint tc) {
+	def compile(TemporalConstraint tc) {
 		var modifiers = new LinkedHashMap<String, List<String>>()
 		if (tc.closed == false && tc.timeframe === null) {
 			if (tc.precedence == "after" && tc.reference instanceof Expression)

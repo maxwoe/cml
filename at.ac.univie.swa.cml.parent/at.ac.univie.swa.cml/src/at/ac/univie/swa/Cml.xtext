@@ -12,7 +12,8 @@ Import:
 	'import' importedNamespace=QualifiedNameWithWildcard;
 
 Declaration:
-	CmlClass | Party | Asset | Transaction | Event | Contract | Enumeration | Attribute | Operation | AnnotationDeclaration;
+	CmlClass | Party | Asset | Transaction | Event | Contract | Enumeration | Attribute | Operation |
+	AnnotationDeclaration;
 
 CmlClass:
 	(abstract?='abstract')? kind='concept' name=ID ('extends' superclass=[CmlClass|QualifiedName])?
@@ -59,15 +60,16 @@ Enumeration returns CmlClass:
 
 EnumerationElement:
 	name=ID;
-	
+
 AnnotationDeclaration:
-	'@' 'interface' name=ID 
-	(BEGIN 
+	'@' 'interface' name=ID
+	(BEGIN
 	features+=Attribute+
 	END)?;
-	
+
 Annotation:
-    '@' declaration=[AnnotationDeclaration|QualifiedName] ('(' (args+=(AnnotationElement) (',' args+=AnnotationElement)*)? ')')?;
+	'@' declaration=[AnnotationDeclaration|QualifiedName] ('(' (args+=(AnnotationElement) (',' args+=AnnotationElement)*)?
+	')')?;
 
 AnnotationElement:
 	param=[Attribute] '=' value=Expression;
@@ -107,19 +109,19 @@ Operation:
 Clause:
 	'clause' name=ID
 	BEGIN
-	antecedent=Antecedent
+	constraint=Constraint
 	actor=Actor
 	action=DeonticAction
 	END;
 
-Antecedent:
-	{Antecedent} temporal=TimeConstraint? general=Constraint?;
+Constraint:
+	{Constraint} temporal=TemporalConstraint? general=GeneralConstraint?;
 
-TimeConstraint:
+TemporalConstraint:
 	'due' closed?='within'? timeframe=Expression? period=PeriodicTime? precedence=TemporalPrecedence reference=(TimeQuery
 	| Expression);
 
-Constraint:
+GeneralConstraint:
 	'given' expression=Expression;
 
 Actor:
@@ -301,8 +303,15 @@ QualifiedName:
 QualifiedNameWithWildcard:
 	QualifiedName '.*'?;
 
-terminal DATE: '0'..'9' '0'..'9' '0'..'9' '0'..'9' '-' '0'..'9' '0'..'9' '-' '0'..'9' '0'..'9';
-terminal REAL returns ecore::EBigDecimal: INT '.' INT;
-terminal BEGIN: 'synthetic:BEGIN';
-terminal END: 'synthetic:END';
+terminal DATE:
+	'0'..'9' '0'..'9' '0'..'9' '0'..'9' '-' '0'..'9' '0'..'9' '-' '0'..'9' '0'..'9';
+
+terminal REAL returns ecore::EBigDecimal:
+	INT '.' INT;
+
+terminal BEGIN:
+	'synthetic:BEGIN';
+
+terminal END:
+	'synthetic:END';
 //@Override terminal SL_COMMENT: (' '|'\t'|'\r'|'\n')* '//' !('\n'|'\r')*;

@@ -16,12 +16,12 @@ import at.ac.univie.swa.cml.Closure
 import at.ac.univie.swa.cml.CmlClass
 import at.ac.univie.swa.cml.CmlFactory
 import at.ac.univie.swa.cml.CmlPackage
-import at.ac.univie.swa.cml.Constraint
 import at.ac.univie.swa.cml.DateTimeLiteral
 import at.ac.univie.swa.cml.DurationLiteral
 import at.ac.univie.swa.cml.EqualityExpression
 import at.ac.univie.swa.cml.Expression
 import at.ac.univie.swa.cml.FeatureSelection
+import at.ac.univie.swa.cml.GeneralConstraint
 import at.ac.univie.swa.cml.IntegerLiteral
 import at.ac.univie.swa.cml.MultiplicativeExpression
 import at.ac.univie.swa.cml.NestedExpression
@@ -36,9 +36,9 @@ import at.ac.univie.swa.cml.ReturnStatement
 import at.ac.univie.swa.cml.StringLiteral
 import at.ac.univie.swa.cml.SuperExpression
 import at.ac.univie.swa.cml.SymbolReference
+import at.ac.univie.swa.cml.TemporalConstraint
 import at.ac.univie.swa.cml.ThisExpression
 import at.ac.univie.swa.cml.ThrowStatement
-import at.ac.univie.swa.cml.TimeConstraint
 import at.ac.univie.swa.cml.Type
 import at.ac.univie.swa.cml.UnaryExpression
 import at.ac.univie.swa.cml.VariableDeclaration
@@ -170,7 +170,7 @@ class CmlTypeProvider {
 				ERROR_TYPE
 			AssignmentExpression case f == ep.assignmentExpression_Right:
 				c.left.typeFor
-			Constraint case f == ep.constraint_Expression,
+			GeneralConstraint case f == ep.generalConstraint_Expression,
 			case f == ep.forStatement_Condition,
 			case f == ep.doWhileStatement_Condition,
 			case f == ep.whileStatement_Condition,
@@ -186,10 +186,10 @@ class CmlTypeProvider {
 				c.containingOperation.type
 			PeriodicTime case f == ep.periodicTime_Start,
 			PeriodicTime case f == ep.periodicTime_End,
-			TimeConstraint case f == ep.timeConstraint_Reference:
+			TemporalConstraint case f == ep.temporalConstraint_Reference:
 				DATETIME_TYPE
 			PeriodicTime case f == ep.periodicTime_Period,
-			TimeConstraint case f == ep.timeConstraint_Timeframe:
+			TemporalConstraint case f == ep.temporalConstraint_Timeframe:
 				DURATION_TYPE
 			Attribute case f == ep.attribute_Expression:
 				c.type.inferType
