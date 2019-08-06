@@ -67,7 +67,7 @@ AnnotationDeclaration:
 	END)?;
 	
 Annotation:
-    '@' declaration=[AnnotationDeclaration|QualifiedName] ('(' (args+=AnnotationElement (',' args+=AnnotationElement)*)? ')')?;
+    '@' declaration=[AnnotationDeclaration|QualifiedName] ('(' (args+=(AnnotationElement) (',' args+=AnnotationElement)*)? ')')?;
 
 AnnotationElement:
 	param=[Attribute] '=' value=Expression;
@@ -272,7 +272,6 @@ PrimaryExpression returns Expression:
 	LiteralExpression |
 	{ThisExpression} 'this' |
 	{SuperExpression} 'super' |
-	{CallerExpression} 'caller' |
 	{SymbolReference} symbol=[NamedElement] (=> opCall?='(' (args+=Expression (',' args+=Expression)*)? ')')? |
 	{NestedExpression} '(' child=Expression ')';
 
@@ -306,3 +305,4 @@ terminal DATE: '0'..'9' '0'..'9' '0'..'9' '0'..'9' '-' '0'..'9' '0'..'9' '-' '0'
 terminal REAL returns ecore::EBigDecimal: INT '.' INT;
 terminal BEGIN: 'synthetic:BEGIN';
 terminal END: 'synthetic:END';
+//@Override terminal SL_COMMENT: (' '|'\t'|'\r'|'\n')* '//' !('\n'|'\r')*;

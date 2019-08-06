@@ -10,7 +10,6 @@ import at.ac.univie.swa.cml.AnnotationElement
 import at.ac.univie.swa.cml.AssignmentExpression
 import at.ac.univie.swa.cml.Attribute
 import at.ac.univie.swa.cml.BooleanLiteral
-import at.ac.univie.swa.cml.CallerExpression
 import at.ac.univie.swa.cml.CasePart
 import at.ac.univie.swa.cml.CastedExpression
 import at.ac.univie.swa.cml.Closure
@@ -66,8 +65,6 @@ class CmlTypeProvider {
 
 	def Type typeFor(Expression e) {
 		switch (e) {
-			CallerExpression:
-				e.getCmlPartyClass
 			ThisExpression:
 				e.containingClass
 			SuperExpression:
@@ -215,7 +212,6 @@ class CmlTypeProvider {
 				try {
 					(c.eContainer as Annotation).declaration.features.findFirst[it.name == c.param.name].type
 				} catch (Throwable t) {
-					println(t)
 					null // otherwise there is no specific expected type
 				}
 			}

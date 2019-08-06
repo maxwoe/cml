@@ -4,10 +4,12 @@ namespace cml.lang.solidity
 @interface PullPayment
 @interface SafeMath
 @interface FixedPointArithmetic
-	Integer decimals 
+	Integer decimals
 
 contract SolidityContract
 	SolidityMessage msg
+
+party SolidityParty
 
 concept SolidityMessage
 	SolidityParty sender
@@ -17,4 +19,3 @@ transaction SolidityTransaction
 	SolidityParty sender
 	Integer value
 	
-party SolidityParty

@@ -5,35 +5,35 @@ concept Any
 concept Identity
 	String id
 concept Party extends Identity
-	Asset token
+	Token token
 concept Contract extends Party
-	Party self
 	Party anyone
-	Party ^caller
+	Party caller
 	DateTime now
 	DateTime contractStart
 	DateTime contractEnd
 concept Asset extends Identity
-	Number quantity
+	Number quota
 	Boolean transfer(Party p, Number n)
-concept Transaction extends Any
+concept Token extends Asset
+concept Transaction extends Identity
 concept Event extends Any
 concept Enum extends Any
 concept String extends Any
 concept Boolean extends Any
 abstract concept Number extends Any
+	Real toReal()
+	Integer toInteger()
 concept Integer extends Number
 	Integer average(Integer i)
 	Integer max(Integer i)
 	Integer min(Integer i)
-	Real toReal()
 concept Real extends Number
 	Real max(Real i)
 	Real min(Real i)
 	Real sqrt()
 	Real ceil()
 	Real floor()
-	Integer toInteger()
 concept DateTime extends Any
 	Boolean isBefore(DateTime d)
 	Boolean isAfter(DateTime d)

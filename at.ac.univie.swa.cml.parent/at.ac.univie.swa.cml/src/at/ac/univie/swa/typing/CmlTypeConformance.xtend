@@ -43,7 +43,7 @@ class CmlTypeConformance {
 	
 	def conformsToLibraryType(CmlClass c) {
 		c.conformsToBoolean ||  c.conformsToString || c.conformsToInteger || c.conformsToReal || c.conformsToDateTime ||
-			c.conformsToDuration || c.conformsToError
+			c.conformsToDuration || c.conformsToError || c.conformsToNumber
 	}
 	
 	def conformsToSolidityLibraryType(CmlClass c) {
@@ -120,6 +120,10 @@ class CmlTypeConformance {
 	
 	def conformsToAny(CmlClass c) {
 		c.fullyQualifiedName.toString == CmlLib::LIB_ANY
+	}
+	
+	def conformsToToken(CmlClass c) {
+		c.fullyQualifiedName.toString == CmlLib::LIB_TOKEN
 	}
 	
 	def subclassOfParty(CmlClass c) {

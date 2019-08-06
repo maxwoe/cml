@@ -15,7 +15,6 @@ import at.ac.univie.swa.cml.AtomicAction
 import at.ac.univie.swa.cml.Attribute
 import at.ac.univie.swa.cml.Block
 import at.ac.univie.swa.cml.BooleanLiteral
-import at.ac.univie.swa.cml.CallerExpression
 import at.ac.univie.swa.cml.CastedExpression
 import at.ac.univie.swa.cml.Clause
 import at.ac.univie.swa.cml.ClauseQuery
@@ -59,6 +58,7 @@ import at.ac.univie.swa.cml.VariableDeclaration
 import at.ac.univie.swa.cml.WhileStatement
 import at.ac.univie.swa.cml.XorCompoundAction
 import at.ac.univie.swa.typing.CmlTypeConformance
+import at.ac.univie.swa.typing.CmlTypeProvider
 import com.google.inject.Inject
 import java.io.InputStream
 import java.math.BigDecimal
@@ -91,6 +91,7 @@ class CmlGenerator extends AbstractGenerator2 {
 	boolean ownable
 	@Inject extension CmlModelUtil
 	@Inject extension CmlTypeConformance
+	@Inject extension CmlTypeProvider
 	Iterable<CmlProgram> allResources
 	
 	override doGenerate(Resource resource, ResourceSet input, IFileSystemAccess2 fsa, IGeneratorContext context) {
@@ -101,7 +102,6 @@ class CmlGenerator extends AbstractGenerator2 {
 		copyResource("openzeppelin/Escrow.sol", fsa)
 		copyResource("openzeppelin/Ownable.sol", fsa)
 		copyResource("openzeppelin/PullPayment.sol", fsa)
-		//copyResource("openzeppelin/Math.sol", fsa)
 		copyResource("openzeppelin/SafeMath.sol", fsa)
 		copyResource("openzeppelin/Secondary.sol", fsa)
 		copyResource("other/DSMath.sol", fsa)
@@ -180,7 +180,6 @@ class CmlGenerator extends AbstractGenerator2 {
 			«contract.deriveGeneratorSettings»
 			«IF ownable»import "./lib/openzeppelin/Ownable.sol";«ENDIF»
 			«IF pullPayment»import "./lib/openzeppelin/PullPayment.sol";«ENDIF»
-«««			import "./lib/openzeppelin/Math.sol";
 			«IF safeMath»import "./lib/openzeppelin/SafeMath.sol";«ENDIF»
 			«IF safeMath && fixedPointArithmetic»import "./lib/other/DSMath.sol";«ENDIF»
 			import "./lib/other/ConditionalContract.sol";
@@ -200,8 +199,6 @@ class CmlGenerator extends AbstractGenerator2 {
 				«"/*\n * Constructor\n */\n"»
 				«contract.compileConstructor»
 				
-«««				«contract.compileSetupStates»
-
 				«"/*\n * Functions\n */\n"»
 				«contract.compileFunctions»
 				«contract.compileEventFunctions»
@@ -423,7 +420,7 @@ class CmlGenerator extends AbstractGenerator2 {
 	}
 	
 	def mapsToStruct(CmlClass c) {
-		!c.conformsToLibraryType && !c.conformsToParty && !c.mapsToEnum && !c.mapsToEvent && !c.conformsToSolidityLibraryType
+		!c.conformsToLibraryType && !c.conformsToParty && !c.conformsToToken && !c.mapsToEvent && !c.conformsToSolidityLibraryType && !c.mapsToEnum
 	}
 	
 	def mapsToEnum(CmlClass c) {
@@ -560,9 +557,40 @@ class CmlGenerator extends AbstractGenerator2 {
 		«ENDFOR»
 	'''
 	
-	def containsDepositOperation(Operation o) {
-		o.eAllOfType(Statement).filter(FeatureSelection)?.filter[opCall && feature instanceof Operation]?.map[feature]?.
-			findFirst[containingClass.conformsToParty && name == "deposit"] !== null
+	def resolvePath(FeatureSelection fs) {
+		val list = newLinkedList
+		list.add(fs.feature)
+		var current = fs.receiver
+		while (current !== null) {
+			if (current instanceof FeatureSelection) {
+				list.add(current.feature)
+				current = current.receiver
+			} else if (current instanceof SymbolReference) {
+				list.add(current.symbol)
+				current = null
+			} else {
+				current = null
+			}
+		}
+		list
+	}
+	
+	def resolvePath(Expression e) {
+		if (e instanceof FeatureSelection) {
+			e.resolvePath
+		} else if (e instanceof SymbolReference) {
+			#[e.symbol]
+		}
+	}
+	
+	def payable(Operation o) {
+		for (fs : o.eAllOfType(Statement).filter(FeatureSelection)?.filter[opCall && feature instanceof Operation]) {
+			if (fs.feature.containingClass.conformsToAsset && fs.feature.name == "transfer" && fs.resolvePath.exists [
+				inferType.conformsToToken
+			] && fs.resolvePath.last.inferType.conformsToParty)
+				return true
+		}
+		false
 	}
 	
 	def modifiesStateAttributes(Operation o) {
@@ -572,7 +600,7 @@ class CmlGenerator extends AbstractGenerator2 {
 	def List<String> deriveAnnotations(Operation o) {
 		var list = newArrayList
 		list.add("public")
-		if (o.containsDepositOperation)
+		if (o.payable)
 			list.add("payable")
 		else if (o.static) 
 			list.add("pure")
@@ -668,6 +696,7 @@ class CmlGenerator extends AbstractGenerator2 {
 					case t.conformsToAsset: t.name
 					case t.conformsToParty: "address payable"
 					case t.conformsToEvent: "bool"
+					case t.conformsToNumber: "uint"
 					default: t.name
 				}
 		}
@@ -817,7 +846,6 @@ class CmlGenerator extends AbstractGenerator2 {
 			ThisExpression: '''this''' // concept doesn't exist in the same manner in solidity
 			DateTimeLiteral: '''«exp.value»'''
 			DurationLiteral: '''«exp.value» «exp.unit»'''
-			CallerExpression: '''msg.sender'''
 			SymbolReference: '''«exp.compile»'''
 			FeatureSelection: '''«exp.compile»'''
 		}
@@ -878,34 +906,70 @@ class CmlGenerator extends AbstractGenerator2 {
 			if (containingClass.conformsToContract) {
 				switch (a.name) {
 					case "contractStart": "_contractStart"
-					case "balance": "address(this).balance"
+					case "caller": "msg.sender"
 				}
-			} else if (containingClass.conformsToParty && reference === null) {
+			} else if (containingClass.conformsToAsset && reference !== null) {
+				switch (a.name) {
+					case "quantity": "address(this).balance"
+				}
+			}
+			else if (containingClass.conformsToParty && reference === null) {
 				switch (a.name) {
 					case "id": "address payable " + a.name
 				}
 			} 
 		}
 	}
-
+	
 	def interceptOperation(Operation o, List<Expression> args, Expression reference) {
 		if (!o.static) {
 			val containingClass = o.containingClass
-			if (containingClass.conformsToAsset) {
+			val path = reference.resolvePath
+			if (containingClass.conformsToAsset && path.exists[inferType.conformsToToken]) {
 				switch (o.name) {
-					case "transfer":
-						if (pullPayment) {
-							"_asyncTransfer(" + reference.compile + ", " + args.get(1).compile + ")"
-						} else {
-							reference.compile + ".transfer" + "(" + args.get(1).compile + ")"
+					case "transfer": {
+						val source = path.last.inferType
+						val target = args.get(0).typeFor as CmlClass
+						var sb = new StringBuilder
+
+						if (target.subclassOfContract || ((source.conformsToParty || source.subclassOfParty) &&
+							(target.conformsToParty || target.subclassOfParty)))
+							sb.append("require(msg.value == " + args.get(1).compile + ")")
+
+						if (!target.subclassOfContract) {
+							if(sb.length != 0)
+								 sb.append(";\n")
+								
+							if (pullPayment) {
+								sb.append("_asyncTransfer(" + args.get(0).compile + ", " + args.get(1).compile + ")")
+							} else {
+								sb.append(args.get(0).compile + ".transfer" + "(" + args.get(1).compile + ")")
+							}
 						}
+						sb.toString
+					}
+				}
+			} else if (containingClass.conformsToNumber) {
+				switch (o.name) {
+					case "toInteger": {
+						if (path.get(0).inferType.conformsToInteger)
+							path.get(0).name
+						else if (path.get(0).inferType.conformsToReal)
+							if (fixedPointArithmetic) "RealLib.toInteger(" + reference.compile + ", " + fixedPointDecimals + ")" else "??? Not yet implemented"
+					}
+					case "toReal": {
+						if (path.get(0).inferType.conformsToInteger)
+							if (fixedPointArithmetic) "IntLib.toReal(" + reference.compile + ", " + fixedPointDecimals + ")" else "??? Not yet implemented"
+						else if (path.get(0).inferType.conformsToReal)
+							path.get(0).name
+					}
 				}
 			} else if (containingClass.conformsToInteger) {
 				switch (o.name) {
 					case "average": "IntLib.average(" + reference.compile + ", " + args.get(0).compile + ")"
 					case "max": "IntLib.max(" + reference.compile + ", " + args.get(0).compile + ")"
 					case "min": "IntLib.min(" + reference.compile + ", " + args.get(0).compile + ")"
-					case "toReal": if (fixedPointArithmetic) "IntLib.toReal(" + reference.compile + ", " + fixedPointDecimals+ ")" else "??? Not yet implemented"
+					// case "toReal": if (fixedPointArithmetic) "IntLib.toReal(" + reference.compile + ", " + fixedPointDecimals+ ")" else "??? Not yet implemented"
 				}
 			} else if (containingClass.conformsToReal) {
 				switch (o.name) {
@@ -914,7 +978,7 @@ class CmlGenerator extends AbstractGenerator2 {
 					case "sqrt": "RealLib.sqrt(" + reference.compile + ")"
 					case "ceil": if (fixedPointArithmetic) "RealLib.ceil(" + reference.compile + ", " + fixedPointDecimals+ ")" else "??? Not yet implemented"
 					case "floor": if (fixedPointArithmetic) "RealLib.floor(" + reference.compile + ", " + fixedPointDecimals+ ")" else "??? Not yet implemented"
-					case "toInteger": if (fixedPointArithmetic) "RealLib.toInteger(" + reference.compile + ", " + fixedPointDecimals+ ")" else "??? Not yet implemented"
+					//case "toInteger": if (fixedPointArithmetic) "RealLib.toInteger(" + reference.compile + ", " + fixedPointDecimals+ ")" else "??? Not yet implemented"
 				}
 			} else if (containingClass.conformsToDateTime) {
 				switch (o.name) {
