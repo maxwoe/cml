@@ -143,7 +143,7 @@ class CmlGenerator extends AbstractGenerator2 {
 	}
 	
 	def initGeneratorSettings() {
-		fixedPointDecimals = 18
+		fixedPointDecimals = 2
 		fixedPointArithmetic = false
 		safeMath = false
 		pullPayment = false
@@ -766,11 +766,16 @@ class CmlGenerator extends AbstractGenerator2 {
 			AdditiveExpression: {
 				val left = exp.left.compile
 				val right = exp.right.compile
-				if (safeMath)
+				if (safeMath && !fixedPointArithmetic)
 					switch (exp.op) {
 						case '+': '''SafeMath.add(«(left)», «(right)»)'''
 						case '-': '''SafeMath.sub(«(left)», «(right)»)'''
 					}
+				else if (fixedPointArithmetic) // fixedPointArithmetic uses safeMath ops per default 
+					switch (exp.op) {
+						case '+': '''FPMath.add(«(left)», «(right)»)'''
+						case '-': '''FPMath.sub(«(left)», «(right)»)'''
+					}	
 				else
 					switch (exp.op) {
 						case '+': '''«(left)» + «(right)»'''
@@ -785,13 +790,13 @@ class CmlGenerator extends AbstractGenerator2 {
 						case '*': '''SafeMath.mul(«(left)», «(right)»)'''
 						case '/': '''SafeMath.div(«(left)», «(right)»)'''
 						case '%': '''SafeMath.mod(«(left)», «(right)»)'''
-						case '**': '''«(left)» ** «(right)»'''
+						case '**': '''«(left)» ** «(right)»''' // TODO
 					}
-				else if (fixedPointArithmetic || (safeMath && fixedPointArithmetic))
+				else if (fixedPointArithmetic) // fixedPointArithmetic uses safeMath ops per default 
 					switch (exp.op) {
 						case '*': '''FPMath.fpmul(«(left)», «(right)», «(fixedPointDecimals)»)'''
 						case '/': '''FPMath.fpdiv(«(left)», «(right)», «(fixedPointDecimals)»)'''
-						case '%': '''«(left)» % «(right)»'''
+						case '%': '''SafeMath.mod(«(left)», «(right)»)'''
 						case '**': '''FPMath.fppow(«(left)», «(right)», «(fixedPointDecimals)»)'''
 					}
 				else
