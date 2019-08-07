@@ -315,6 +315,6 @@ terminal BEGIN:
 terminal END:
 	'synthetic:END';
 
-@Override
-terminal SL_COMMENT:
-	(' ' | '\t' | '\r' | '\n')* '//' !('\n' | '\r')*;
+//@Override
+//terminal SL_COMMENT:
+//	(' ' | '\t' | '\r' | '\n')* '//' !('\n' | '\r')*;
