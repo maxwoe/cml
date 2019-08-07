@@ -959,7 +959,7 @@ class CmlGenerator extends AbstractGenerator2 {
 					}
 					case "toReal": {
 						if (path.get(0).inferType.conformsToInteger)
-							if (fixedPointArithmetic) "IntLib.toReal(" + reference.compile + ", " + fixedPointDecimals + ")" else "??? Not yet implemented"
+							if (fixedPointArithmetic) "IntLib.toReal(" + reference.compile + ")" else "??? Not yet implemented"
 						else if (path.get(0).inferType.conformsToReal)
 							path.get(0).name
 					}
@@ -969,7 +969,6 @@ class CmlGenerator extends AbstractGenerator2 {
 					case "average": "IntLib.average(" + reference.compile + ", " + args.get(0).compile + ")"
 					case "max": "IntLib.max(" + reference.compile + ", " + args.get(0).compile + ")"
 					case "min": "IntLib.min(" + reference.compile + ", " + args.get(0).compile + ")"
-					// case "toReal": if (fixedPointArithmetic) "IntLib.toReal(" + reference.compile + ", " + fixedPointDecimals+ ")" else "??? Not yet implemented"
 				}
 			} else if (containingClass.conformsToReal) {
 				switch (o.name) {
@@ -978,7 +977,6 @@ class CmlGenerator extends AbstractGenerator2 {
 					case "sqrt": "RealLib.sqrt(" + reference.compile + ")"
 					case "ceil": if (fixedPointArithmetic) "RealLib.ceil(" + reference.compile + ", " + fixedPointDecimals+ ")" else "??? Not yet implemented"
 					case "floor": if (fixedPointArithmetic) "RealLib.floor(" + reference.compile + ", " + fixedPointDecimals+ ")" else "??? Not yet implemented"
-					//case "toInteger": if (fixedPointArithmetic) "RealLib.toInteger(" + reference.compile + ", " + fixedPointDecimals+ ")" else "??? Not yet implemented"
 				}
 			} else if (containingClass.conformsToDateTime) {
 				switch (o.name) {

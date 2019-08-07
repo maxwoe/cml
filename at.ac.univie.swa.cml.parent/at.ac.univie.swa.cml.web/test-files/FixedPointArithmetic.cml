@@ -10,7 +10,12 @@ contract FixedPointArithmetic
 	clause Clause
 		party anyone
 		may calc
-	
-	Real calc(Real value)
-		return equation().toReal() * value
 		
+	Real calc1()
+		return equation() + 2
+	
+	Real calc2()
+		return equation().toReal() + 2.0
+		
+	Real calc3(Integer a, Real b)
+		return a + b

@@ -19,7 +19,6 @@ contract SimpleAuction
 		may bid
 
 	clause AuctionEnd
-		//due after contractStart.addDuration(biddingTime)
 		due after clause Bid fulfilled
 		party beneficiary
 		must receivePayment
