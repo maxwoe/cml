@@ -104,7 +104,7 @@ class CmlGenerator extends AbstractGenerator2 {
 		copyResource("openzeppelin/PullPayment.sol", fsa)
 		copyResource("openzeppelin/SafeMath.sol", fsa)
 		copyResource("openzeppelin/Secondary.sol", fsa)
-		copyResource("other/DSMath.sol", fsa)
+		copyResource("other/FPMath.sol", fsa)
 		copyResource("other/DateTime.sol", fsa)
 		copyResource("other/IntLib.sol", fsa)
 		copyResource("other/RealLib.sol", fsa)
@@ -181,7 +181,7 @@ class CmlGenerator extends AbstractGenerator2 {
 			«IF ownable»import "./lib/openzeppelin/Ownable.sol";«ENDIF»
 			«IF pullPayment»import "./lib/openzeppelin/PullPayment.sol";«ENDIF»
 			«IF safeMath»import "./lib/openzeppelin/SafeMath.sol";«ENDIF»
-			«IF safeMath && fixedPointArithmetic»import "./lib/other/DSMath.sol";«ENDIF»
+			«IF fixedPointArithmetic»import "./lib/other/FPMath.sol";«ENDIF»
 			import "./lib/other/ConditionalContract.sol";
 			import "./lib/other/DateTime.sol";
 			import "./lib/other/IntLib.sol";
@@ -766,15 +766,10 @@ class CmlGenerator extends AbstractGenerator2 {
 			AdditiveExpression: {
 				val left = exp.left.compile
 				val right = exp.right.compile
-				if (safeMath && (!fixedPointArithmetic || (fixedPointArithmetic && fixedPointDecimals != 18 && fixedPointDecimals != 27)))
+				if (safeMath)
 					switch (exp.op) {
 						case '+': '''SafeMath.add(«(left)», «(right)»)'''
 						case '-': '''SafeMath.sub(«(left)», «(right)»)'''
-					}
-				else if (safeMath && fixedPointArithmetic)
-					switch (exp.op) {
-						case '+': '''DSMath.add(«(left)», «(right)»)'''
-						case '-': '''DSMath.sub(«(left)», «(right)»)'''
 					}
 				else
 					switch (exp.op) {
@@ -785,26 +780,19 @@ class CmlGenerator extends AbstractGenerator2 {
 			MultiplicativeExpression: {
 				val left = exp.left.compile
 				val right = exp.right.compile
-				if (safeMath && (!fixedPointArithmetic || (fixedPointArithmetic && fixedPointDecimals != 18 && fixedPointDecimals != 27)))
+				if (safeMath && !fixedPointArithmetic)
 					switch (exp.op) {
 						case '*': '''SafeMath.mul(«(left)», «(right)»)'''
 						case '/': '''SafeMath.div(«(left)», «(right)»)'''
 						case '%': '''SafeMath.mod(«(left)», «(right)»)'''
 						case '**': '''«(left)» ** «(right)»'''
 					}
-				else if (safeMath && fixedPointArithmetic && fixedPointDecimals == 18)
+				else if (fixedPointArithmetic || (safeMath && fixedPointArithmetic))
 					switch (exp.op) {
-						case '*': '''DSMath.wmul(«(left)», «(right)»)'''
-						case '/': '''DSMath.wdiv(«(left)», «(right)»)'''
-						case '%': '''SafeMath.mod(«(left)», «(right)»)'''
-						case '**': '''«(left)» ** «(right)»'''
-					}
-				else if (safeMath && fixedPointArithmetic && fixedPointDecimals == 27)
-					switch (exp.op) {
-						case '*': '''DSMath.rmul(«(left)», «(right)»)'''
-						case '/': '''DSMath.rdiv(«(left)», «(right)»)'''
-						case '%': '''SafeMath.mod(«(left)», «(right)»)'''
-						case '**': '''DSMath.rpow(«(left)», «(right)»)'''
+						case '*': '''FPMath.fpmul(«(left)», «(right)», «(fixedPointDecimals)»)'''
+						case '/': '''FPMath.fpdiv(«(left)», «(right)», «(fixedPointDecimals)»)'''
+						case '%': '''«(left)» % «(right)»'''
+						case '**': '''FPMath.fppow(«(left)», «(right)», «(fixedPointDecimals)»)'''
 					}
 				else
 					switch (exp.op) {
