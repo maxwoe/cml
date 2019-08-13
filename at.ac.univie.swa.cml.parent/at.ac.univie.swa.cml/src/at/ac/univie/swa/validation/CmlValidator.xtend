@@ -4,11 +4,13 @@
 package at.ac.univie.swa.validation
 
 import at.ac.univie.swa.CmlModelUtil
+import at.ac.univie.swa.cml.Annotation
+import at.ac.univie.swa.cml.AnnotationDeclaration
 import at.ac.univie.swa.cml.AssignmentExpression
 import at.ac.univie.swa.cml.Attribute
 import at.ac.univie.swa.cml.Block
-import at.ac.univie.swa.cml.CmlClass
 import at.ac.univie.swa.cml.Closure
+import at.ac.univie.swa.cml.CmlClass
 import at.ac.univie.swa.cml.CmlPackage
 import at.ac.univie.swa.cml.CmlProgram
 import at.ac.univie.swa.cml.Expression
@@ -30,8 +32,7 @@ import org.eclipse.xtext.validation.Check
 import org.eclipse.xtext.validation.CheckType
 
 import static extension org.eclipse.xtext.EcoreUtil2.*
-import at.ac.univie.swa.cml.AnnotationDeclaration
-import at.ac.univie.swa.cml.Annotation
+import at.ac.univie.swa.cml.DeonticAction
 
 /**
  * This class contains custom validation rules. 
@@ -63,6 +64,7 @@ class CmlValidator extends AbstractCmlValidator {
 	public static val INVALID_INSTANTIATION = ISSUE_CODE_PREFIX + "InvalidInstantiation"
 	public static val MISSING_INITZIALIZATION = ISSUE_CODE_PREFIX + "MissingInitialization"
 	public static val INVALID_ASSIGNMENT = ISSUE_CODE_PREFIX + "InvalidAssignment"
+	public static val WRONG_USAGE = ISSUE_CODE_PREFIX + "WrongUsage"
 	// public static val REDUCED_ACCESSIBILITY = ISSUE_CODE_PREFIX + "ReducedAccessibility"
 	// public static val MISSING_IDENTITY_DEFINITION = ISSUE_CODE_PREFIX + "MissingIdentityDefinition"
 	// public static val WRONG_METHOD_OVERRIDE = ISSUE_CODE_PREFIX + "WrongMethodOverride"
@@ -85,21 +87,16 @@ class CmlValidator extends AbstractCmlValidator {
 
 	@Check
 	def void checkSuperclass(CmlClass c) {
-		if (c.kind != c.superclass.kind) {
+		val expectedType = c.type
+		val actualType = c.superclass
+		if (expectedType === null || actualType === null)
+			return; // nothing to check
+		if (!actualType.isConformant(expectedType)) {
 			error("'" + c.name + "' must extend '" + c.kind + "'", CmlPackage::eINSTANCE.cmlClass_Superclass,
-				INCOMPATIBLE_TYPES, c.superclass.name)
+			INCOMPATIBLE_TYPES, c.superclass.name)
 		}
 	}
 
-//	@Check 
-//	def void checkIdentityDefinition(CmlClass c) {
-//		if ((c.kind.equals("party") || c.kind.equals("asset")) && c.id === null && !c.isAbstract && !c.classHierarchy.exists[id !== null]) {
-//			error("'" + c.name + "' is not abstract. It must define an identifying attribute.",
-//				null,
-//				MISSING_IDENTITY_DEFINITION,
-//				c.name)
-//		}
-//	}
 	@Check
 	def void checkNoDuplicateClasses(CmlProgram cmlp) {
 		checkNoDuplicateElements(cmlp.classes, "class")
@@ -158,6 +155,15 @@ class CmlValidator extends AbstractCmlValidator {
 				return
 			}
 		}
+	}
+	
+	@Check
+	def void checkDeonticRequirements(DeonticAction da) {
+		/*if ((da.deontic.ordinal.equals(0) && da.containingClause.constraint.temporal.precedence.ordinal > 1) ||
+			(da.deontic.ordinal.equals(0) && !da.containingClause.constraint.temporal.closed)) {
+			error("A closed timeframe 'due within' must be specified", CmlPackage.eINSTANCE.deonticAction_Deontic,
+				WRONG_USAGE)
+		}*/
 	}
 
 	@Check
@@ -289,6 +295,13 @@ class CmlValidator extends AbstractCmlValidator {
 		if (a.constant && a.expression === null)
 			error("The blank constant attribute '" + a.name + "' may not have been initialized", null,
 				MISSING_INITZIALIZATION)
+	}
+	
+	@Check
+	def void checkContractMethodArguments(Attribute a) {
+		if (a.eContainer instanceof Operation && a.eContainer.containingClass !== null && !a.inferType.subclassOfTransaction)
+			error("The attribute '" + a.name + "' is not a transaction", null,
+				INVALID_ARGS)
 	}
 
 	@Check

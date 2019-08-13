@@ -58,7 +58,6 @@ import at.ac.univie.swa.cml.VariableDeclaration
 import at.ac.univie.swa.cml.WhileStatement
 import at.ac.univie.swa.cml.XorCompoundAction
 import at.ac.univie.swa.typing.CmlTypeConformance
-import at.ac.univie.swa.typing.CmlTypeProvider
 import com.google.inject.Inject
 import java.io.InputStream
 import java.math.BigDecimal
@@ -91,7 +90,6 @@ class CmlGenerator extends AbstractGenerator2 {
 	boolean ownable
 	@Inject extension CmlModelUtil
 	@Inject extension CmlTypeConformance
-	@Inject extension CmlTypeProvider
 	Iterable<CmlProgram> allResources
 	
 	override doGenerate(Resource resource, ResourceSet input, IFileSystemAccess2 fsa, IGeneratorContext context) {
@@ -258,7 +256,7 @@ class CmlGenerator extends AbstractGenerator2 {
 	}
 	
 	def compile(ActionQuery aq)'''
-		«aq.party.name», this.«aq.action.name».selector'''
+		«aq.party.name».id, this.«aq.action.name».selector'''
 		
 	def getConstraints(Clause c)'''
 		«var constraints = c.deriveConstraints»
@@ -273,7 +271,7 @@ class CmlGenerator extends AbstractGenerator2 {
 		var tc = c.constraint.temporal
 		var gc = c.constraint.general
 		if (party.name != "anyone")
-			constraints.add("require(onlyBy("+party.name+"));")
+			constraints.add("require(onlyBy("+party.name+".id));")
 		if (tc !== null) {
 			if (tc.reference instanceof Expression) {
 				if (tc.timeframe === null)
@@ -298,16 +296,23 @@ class CmlGenerator extends AbstractGenerator2 {
 			}
 			if (tc.reference instanceof EventQuery) {
 				if (tc.precedence.literal == "after")
-					constraints.add("require("+(tc.reference as EventQuery).event.name+");")
+					constraints.add("require(_callMonitor[this."+ (tc.reference as EventQuery).event.name + "Event.selector].success);")
 				if (tc.precedence.literal == "before")
-					constraints.add("require(!"+(tc.reference as EventQuery).event.name+");")
-				//missed out for now since there is no monitoring of Events
+					constraints.add("require(!_callMonitor[this."+ (tc.reference as EventQuery).event.name + "Event.selector].success);")
+
+				if (tc.timeframe === null)
+					constraints.add("require(only" + tc.precedence.literal.toFirstUpper + "(_callMonitor[this." + (tc.reference as EventQuery).event.name + "Event.selector].time, 0, false" + "));")
+				if (tc.closed == false && tc.timeframe !== null)
+					constraints.add("require(only" + tc.precedence.literal.toFirstUpper + "(_callMonitor[this." + (tc.reference as EventQuery).event.name + "Event.selector].time, " + tc.timeframe.compile + ", false" + "));")
+				if (tc.closed == true && tc.timeframe !== null)
+					constraints.add("require(only" + tc.precedence.literal.toFirstUpper + "(_callMonitor[this." + (tc.reference as EventQuery).event.name + "Event.selector].time, " + tc.timeframe.compile + ", true" + "));")
 			}
 			if (tc.reference instanceof ActionQuery) {
 				if (tc.precedence.literal == "after")
 					constraints.add("require(actionDone(" + (tc.reference as ActionQuery).compile + ", false));")
 				if (tc.precedence.literal == "before")
 					constraints.add("require(!actionDone(" + (tc.reference as ActionQuery).compile + ", true));")
+				
 				if (tc.timeframe === null)
 					constraints.add("require(only" + tc.precedence.literal.toFirstUpper + "(_callMonitor[this." + (tc.reference as ActionQuery).action.name + ".selector].time, 0, false" + "));")
 				if (tc.closed == false && tc.timeframe !== null)
@@ -420,7 +425,7 @@ class CmlGenerator extends AbstractGenerator2 {
 	}
 	
 	def mapsToStruct(CmlClass c) {
-		!c.conformsToLibraryType && !c.conformsToParty && !c.conformsToToken && !c.mapsToEvent && !c.conformsToSolidityLibraryType && !c.mapsToEnum
+		!c.conformsToLibraryType && !c.conformsToToken && !c.mapsToEnum && !c.conformsToTokenTransaction
 	}
 	
 	def mapsToEnum(CmlClass c) {
@@ -442,7 +447,7 @@ class CmlGenerator extends AbstractGenerator2 {
 
 	def compileEvents(CmlClass c) '''
 		«FOR e : c.attributes.filter[type.mapsToEvent] BEFORE "/*\n * Events\n */\n" AFTER "\n"»
-			event «e.type.name.toFirstUpper»();
+			event «e.name.toFirstUpper»Event(«e.type.name» «e.name»);
 		«ENDFOR»
 	'''
 
@@ -524,7 +529,7 @@ class CmlGenerator extends AbstractGenerator2 {
 	}
 	
 	def compile(List<Attribute> attributes) '''
-		«FOR a : attributes SEPARATOR ', '»«a.compile»«ENDFOR»'''
+		«FOR a : attributes SEPARATOR ', '»«IF !a.type.conformsToTokenTransaction»«a.compile»«ENDIF»«ENDFOR»'''
 
 	def compile(Attribute a) {
 		interceptAttribute(a, null) ?: '''«(a.type as Type).compile»«IF a.constant» constant«ENDIF»«IF a.type.mapsToStruct && a.containingOperation !== null» memory«ENDIF» «a.name»«IF a.expression !== null» = «a.expression.compile»«ENDIF»'''
@@ -533,11 +538,12 @@ class CmlGenerator extends AbstractGenerator2 {
 	def compile(CmlClass c) '''
 		struct «c.name.toFirstUpper» {
 			«FOR a : c.classHierarchyAttributes.values»
-				«a.compile»;
+				«val value = a.compile»
+				«IF (!value.nullOrEmpty)»«(value + ";")»«ENDIF»
 	   		«ENDFOR»
 		}
 	'''
-
+	
 	def compile(Operation o, List<String> annotations, LinkedHashMap<String, List<String>> modifiers) '''	
 		function «o.name»(«o.params.compile») «FOR a : annotations SEPARATOR ' '»«a»«ENDFOR»
 			«FOR m : modifiers.entrySet SEPARATOR ' '»
@@ -584,13 +590,8 @@ class CmlGenerator extends AbstractGenerator2 {
 	}
 	
 	def payable(Operation o) {
-		for (fs : o.eAllOfType(Statement).filter(FeatureSelection)?.filter[opCall && feature instanceof Operation]) {
-			if (fs.feature.containingClass.conformsToAsset && fs.feature.name == "transfer" && fs.resolvePath.exists [
-				inferType.conformsToToken
-			] && fs.resolvePath.last.inferType.conformsToParty)
-				return true
-		}
-		false
+		o.eAllOfType(Statement).filter(FeatureSelection)?.filter[opCall && feature instanceof Operation]?.map[feature]?.
+			findFirst[containingClass.conformsToParty && name == "deposit"] !== null
 	}
 	
 	def modifiesStateAttributes(Operation o) {
@@ -671,10 +672,10 @@ class CmlGenerator extends AbstractGenerator2 {
 
 	def compileEventAsFunction(Attribute a) '''
 		// @notice trigger event «a.type.name»
-		function «a.name.toFirstLower»Event() public
+		function «a.name.toFirstLower»Event(«a.type.name» memory _«a.name») public postCall
 		{
-			«a.name» = true;
-			emit «a.type.name.toFirstUpper»();
+			«a.name» = _«a.name»;
+			emit «a.name.toFirstUpper»Event(«a.name»);
 		}
 	'''
 
@@ -692,10 +693,6 @@ class CmlGenerator extends AbstractGenerator2 {
 					case t.conformsToReal: if (fixedPointArithmetic) "uint" else "ufixed" //"fixed"
 					case t.conformsToDateTime: "uint"
 					case t.conformsToDuration: "uint"
-					case t.conformsToEnum: t.name
-					case t.conformsToAsset: t.name
-					case t.conformsToParty: "address payable"
-					case t.conformsToEvent: "bool"
 					case t.conformsToNumber: "uint"
 					default: t.name
 				}
@@ -895,22 +892,35 @@ class CmlGenerator extends AbstractGenerator2 {
 
 	def interceptAttribute(Attribute a, Expression reference) {
 		val containingClass = a.containingClass
+		// println(a.name + ": " + reference.resolvePath?.map[name] + " " +
+		// reference.resolvePath?.last.containingClass.inferType?.name)
 		if (containingClass !== null) {
 			if (containingClass.conformsToContract) {
 				switch (a.name) {
 					case "contractStart": "_contractStart"
-					case "caller": "msg.sender"
+					case "caller": "Party(msg.sender)"
 				}
-			} else if (containingClass.conformsToAsset && reference !== null) {
+			} else if (containingClass.conformsToParticipant) {
 				switch (a.name) {
-					case "quantity": "address(this).balance"
+					case "id": if (reference === null) "address payable id"
+				}
+			} else if (containingClass.conformsToAsset) {
+				switch (a.name) {
+					case "quantity": if (reference !== null) "address(this).balance"
+				}
+			} else if (containingClass.conformsToTransaction) {
+				switch (a.name) {
+					case "sender": if (reference === null) "" else "Party(msg.sender)"
+				}
+			} else if (containingClass.conformsToTokenHolder) {
+				switch (a.name) {
+					case "token": ""
+				}
+			} else if (containingClass.conformsToTokenTransaction) {
+				switch (a.name) {
+					case "amount": "msg.value"
 				}
 			}
-			else if (containingClass.conformsToParty && reference === null) {
-				switch (a.name) {
-					case "id": "address payable " + a.name
-				}
-			} 
 		}
 	}
 	
@@ -918,43 +928,45 @@ class CmlGenerator extends AbstractGenerator2 {
 		if (!o.static) {
 			val containingClass = o.containingClass
 			val path = reference.resolvePath
-			if (containingClass.conformsToAsset && path.exists[inferType.conformsToToken]) {
+			
+			if (containingClass.conformsToParty) {
+				switch (o.name) {
+					case "deposit": {
+						""
+					}
+					case "withdraw": {
+						if (pullPayment) {
+							"_asyncTransfer(" + reference.compile + ".id , " + args.get(0).compile + ")"
+						} else {
+							reference.compile + ".id.transfer" + "(" + args.get(0).compile + ")"
+						}
+					}
+				}
+			} else if (containingClass.conformsToContract) {
 				switch (o.name) {
 					case "transfer": {
-						val source = path.last.inferType
-						val target = args.get(0).typeFor as CmlClass
-						var sb = new StringBuilder
-
-						if (target.subclassOfContract || ((source.conformsToParty || source.subclassOfParty) &&
-							(target.conformsToParty || target.subclassOfParty)))
-							sb.append("require(msg.value == " + args.get(1).compile + ")")
-
-						if (!target.subclassOfContract) {
-							if(sb.length != 0)
-								 sb.append(";\n")
-								
-							if (pullPayment) {
-								sb.append("_asyncTransfer(" + args.get(0).compile + ", " + args.get(1).compile + ")")
-							} else {
-								sb.append(args.get(0).compile + ".transfer" + "(" + args.get(1).compile + ")")
-							}
+						if (pullPayment) {
+							"_asyncTransfer(" + args.get(0).compile + ".id , " + args.get(1).compile + ")"
+						} else {
+							args.get(0).compile + ".id.transfer" + "(" + args.get(1).compile + ")"
 						}
-						sb.toString
 					}
 				}
 			} else if (containingClass.conformsToNumber) {
 				switch (o.name) {
 					case "toInteger": {
-						if (path.get(0).inferType.conformsToInteger)
-							path.get(0).name
+						if (path.get(0).inferType.conformsToInteger || path.get(0).inferType.conformsToNumber)
+							reference.compile
 						else if (path.get(0).inferType.conformsToReal)
-							if (fixedPointArithmetic) "RealLib.toInteger(" + reference.compile + ", " + fixedPointDecimals + ")" else "??? Not yet implemented"
+							if(fixedPointArithmetic) "RealLib.toInteger(" + reference.compile + ", " +
+								fixedPointDecimals + ")" else "??? Not yet implemented"
 					}
 					case "toReal": {
 						if (path.get(0).inferType.conformsToInteger)
-							if (fixedPointArithmetic) "IntLib.toReal(" + reference.compile + ")" else "??? Not yet implemented"
-						else if (path.get(0).inferType.conformsToReal)
-							path.get(0).name
+							if(fixedPointArithmetic) "IntLib.toReal(" + reference.compile +
+								")" else "??? Not yet implemented"
+						else if (path.get(0).inferType.conformsToReal || path.get(0).inferType.conformsToNumber)
+							reference.compile
 					}
 				}
 			} else if (containingClass.conformsToInteger) {

@@ -126,6 +126,22 @@ class CmlTypeConformance {
 		c.fullyQualifiedName.toString == CmlLib::LIB_TOKEN
 	}
 	
+	def conformsToTransaction(CmlClass c) {
+		c.fullyQualifiedName.toString == CmlLib::LIB_TRANSACTION
+	}
+	
+	def conformsToTokenTransaction(CmlClass c) {
+		c.fullyQualifiedName.toString == CmlLib::LIB_TOKEN_TRANSACTION
+	}
+	
+	def conformsToTokenHolder(CmlClass c) {
+		c.fullyQualifiedName.toString == CmlLib::LIB_TOKEN_HOLDER
+	}
+	
+	def conformsToParticipant(CmlClass c) {
+		c.fullyQualifiedName.toString == CmlLib::LIB_PARTICIPANT
+	}
+	
 	def subclassOfParty(CmlClass c) {
 		c.isSubclassOf(CmlLib::LIB_PARTY)
 	}
@@ -144,6 +160,10 @@ class CmlTypeConformance {
 	
 	def subclassOfEnum(CmlClass c) {
 		c.isSubclassOf(CmlLib::LIB_ENUM)
+	}
+	
+	def subclassOfTransaction(CmlClass c) {
+		c.isSubclassOf(CmlLib::LIB_TRANSACTION)
 	}
 	
 	def conformsTo(CmlClass c, String fqn) {

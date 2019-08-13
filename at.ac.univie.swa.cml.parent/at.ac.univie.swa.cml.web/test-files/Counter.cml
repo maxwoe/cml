@@ -1,0 +1,17 @@
+namespace cml.examples
+
+import cml.lang.solidity.*
+
+@SafeMath
+contract Counter
+	Integer counter = 0
+
+	clause ChangeCounter
+		party anyone
+		may increaseCounter or decreaseCounter 
+		
+	increaseCounter()
+		counter = counter + 1
+	
+	decreaseCounter()
+		counter = counter - 1

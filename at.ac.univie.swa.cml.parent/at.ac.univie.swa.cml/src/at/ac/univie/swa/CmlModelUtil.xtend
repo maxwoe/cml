@@ -204,6 +204,17 @@ class CmlModelUtil {
 		}
 	}
 	
+	def type(CmlClass c) {
+		switch (c) {
+			case c.isParty: c.cmlPartyClass
+			case c.isAsset: c.cmlAssetClass
+			case c.isEvent: c.cmlEventClass
+			case c.isTransaction: c.cmlTransactionClass
+			case c.isEnum: c.cmlEnumClass
+			case c.isContract: c.cmlContractClass
+		}
+	}
+	
 	def classHierarchy(CmlClass c) {
 		val visited = newLinkedHashSet()
 		
@@ -214,14 +225,7 @@ class CmlModelUtil {
 			current = current.superclass
 		}
 		
-		switch (c.kind) {
-			case "party": current = c.cmlPartyClass
-			case "asset": current = c.cmlAssetClass
-			case "event": current = c.cmlEventClass
-			case "transaction": current = c.cmlTransactionClass
-			case "enum": current = c.cmlEnumClass
-			case "contract": current = c.cmlContractClass
-		}
+		current = c.type
 		
 		while (current !== null && !visited.contains(current)) {
 			visited.add(current)

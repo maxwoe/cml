@@ -1,0 +1,41 @@
+namespace cml.examples
+
+import cml.lang.solidity.*
+
+transaction InitTransaction
+	Duration biddingTime
+	Party beneficiary
+
+@Ownable @PullPayment
+contract SimpleAuction
+	Number highestBid
+	Party highestBidder
+	Party beneficiary
+	Duration biddingTime
+
+	clause Bid
+		due within biddingTime after contractStart
+		party anyone
+		may bid
+
+	clause AuctionEnd
+		due after clause Bid fulfilled
+		given contractStart.addDuration(biddingTime) > now
+		party beneficiary
+		may withdrawPayment
+
+	init(InitTransaction tx)
+		biddingTime = tx.biddingTime
+		beneficiary = tx.beneficiary
+
+	bid(TokenTransaction tx)
+		ensure(tx.amount > highestBid, "There already is a higher bid.")
+		caller.deposit(tx.amount)
+		if (highestBid != 0)
+			transfer(highestBidder, highestBid)
+		highestBidder = caller
+		highestBid = tx.amount
+
+	withdrawPayment()
+		beneficiary.withdraw(highestBid)
+		transfer(beneficiary, highestBid)

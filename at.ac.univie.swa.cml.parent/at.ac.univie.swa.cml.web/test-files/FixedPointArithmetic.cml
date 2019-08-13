@@ -1,0 +1,18 @@
+namespace cml.examples
+
+import cml.lang.solidity.*
+
+Integer equation()
+	return 8 / 2 * (2 + 2)
+
+@FixedPointArithmetic(decimals=2)
+contract FixedPointArithmetic
+	clause Clause
+		party anyone
+		may calc1 or calc2
+	
+	Integer calc1()
+		return equation().toInteger() / 2
+		
+	Real calc2()
+		return equation().toReal() * 2.5

@@ -1,0 +1,28 @@
+namespace cml.examples
+
+party User
+	Integer age
+	
+asset Machine
+	Integer value
+	
+transaction Transaction
+	Integer parameter
+
+event Event
+	DateTime timestamp
+
+enum Status
+	A B C
+
+contract MappingExample
+	User user
+	Machine machine
+	Event onEvent
+	Status status
+
+	clause Clause
+		party anyone
+		may doAction
+
+	doAction(Transaction tx)

@@ -1,0 +1,21 @@
+namespace cml.examples
+
+import cml.lang.solidity.*
+
+@Ownable @PullPayment
+contract BecomeRichest
+	Party richest
+	Number mostSent
+
+	clause BecomeRichest
+		party anyone
+		may becomeRichest
+
+	Boolean becomeRichest(TokenTransaction tx)
+		if(tx.amount > mostSent)
+			caller.deposit(tx.amount)
+			transfer(richest, token.quantity)
+			richest = caller
+			mostSent = tx.amount
+			return true
+		return false

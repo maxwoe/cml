@@ -128,7 +128,7 @@ Actor:
 	'party' party=[Attribute];
 
 enum Deontic:
-	MUST='must' | MAY='may' | MUST_NOT='must_not';
+	MUST='must' | MAY='may' /* | MUST_NOT='must_not'*/;
 
 DeonticAction:
 	deontic=Deontic compoundAction=CompoundAction;

@@ -22,21 +22,21 @@ class CmlLib {
 	public val static LIB_DATETIME = LIB_PACKAGE + ".DateTime"
 	public val static LIB_PARTY = LIB_PACKAGE + ".Party"
 	public val static LIB_ASSET = LIB_PACKAGE + ".Asset"
-	public val static LIB_TOKEN = LIB_PACKAGE + ".Token"
 	public val static LIB_TRANSACTION = LIB_PACKAGE + ".Transaction"
 	public val static LIB_EVENT = LIB_PACKAGE + ".Event"
 	public val static LIB_ENUM = LIB_PACKAGE + ".Enum"
 	public val static LIB_CONTRACT = LIB_PACKAGE + ".Contract"
-	public val static LIB_COLLECTION = LIB_PACKAGE + ".Collection"
-	public val static LIB_SET = LIB_PACKAGE + ".Set"
-	public val static LIB_BAG = LIB_PACKAGE + ".Bag"
-	public val static LIB_ARRAY = LIB_PACKAGE + ".Array"
-	public val static LIB_MAP = LIB_PACKAGE + ".Map"
 	public val static LIB_ERROR = LIB_PACKAGE + ".Error"
-	public val static LIB_TIME_UNIT = LIB_PACKAGE + ".TimeUnit"
+
 	public val static MAIN_LIB = "cml/lang/mainlib.cml"
 	public val static SOLIDITY_LIB_PACKAGE = "cml.lang.solidity"
 	public val static SOLIDITY_LIB = "cml/lang/soliditylib.cml"
+	
+	public val static LIB_TOKEN = LIB_PACKAGE + ".Token"
+	public val static LIB_PARTICIPANT = LIB_PACKAGE + ".Participant"
+	public val static LIB_TOKEN_HOLDER = LIB_PACKAGE + ".TokenHolder"
+	public val static LIB_TOKEN_TRANSACTION = LIB_PACKAGE + ".TokenTransaction"
+	
 
 	static final Logger LOG = Logger.getLogger(CmlLib);
 	
@@ -89,32 +89,8 @@ class CmlLib {
 		getCmlClass(context, LIB_DURATION)
 	}
 	
-	def getCmlCollectionClass(EObject context) {
-		getCmlClass(context, LIB_COLLECTION)
-	}
-	
-	def getCmlSetClass(EObject context) {
-		getCmlClass(context, LIB_SET)
-	}
-	
-	def getCmlBagClass(EObject context) {
-		getCmlClass(context, LIB_BAG)
-	}
-	
-	def getCmlArrayClass(EObject context) {
-		getCmlClass(context, LIB_ARRAY)
-	}
-	
-	def getCmlMapClass(EObject context) {
-		getCmlClass(context, LIB_MAP)
-	}
-	
 	def getCmlEnumClass(EObject context) {
 		getCmlClass(context, LIB_ENUM)
-	}
-	
-	def getCmlTimeUnitClass(EObject context) {
-		getCmlClass(context, LIB_TIME_UNIT)
 	}
 	
 	def getCmlClass(EObject context, String qn) {

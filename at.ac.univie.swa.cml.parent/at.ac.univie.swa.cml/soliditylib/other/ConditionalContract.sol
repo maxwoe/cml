@@ -16,6 +16,11 @@ contract ConditionalContract {
         setCallContext();
 	}
 
+	modifier postCall() {
+		_;
+		setCallContext();
+	}
+	
 	function setCallContext() internal {
 		_callMonitor[msg.sig].success = true;
 		_callMonitor[msg.sig].time = now;
@@ -56,8 +61,8 @@ contract ConditionalContract {
 		return true;
 	}
 
-	function actionDone(address _party, bytes4 _action, bool before) view internal returns(bool) {
-		if (before) {
+	function actionDone(address _party, bytes4 _action, bool _before) view internal returns(bool) {
+		if (_before) {
 			require(!(_callMonitor[_action].caller == _party && _callMonitor[_action].success));
 		} else {
 			require(_callMonitor[_action].caller == _party && _callMonitor[_action].success);
