@@ -17,11 +17,13 @@ import at.ac.univie.swa.cml.BooleanLiteral
 import at.ac.univie.swa.cml.CastedExpression
 import at.ac.univie.swa.cml.Clause
 import at.ac.univie.swa.cml.ClauseQuery
+import at.ac.univie.swa.cml.ClauseStatus
 import at.ac.univie.swa.cml.CmlClass
 import at.ac.univie.swa.cml.CmlProgram
 import at.ac.univie.swa.cml.CompoundAction
 import at.ac.univie.swa.cml.Constraint
 import at.ac.univie.swa.cml.DateTimeLiteral
+import at.ac.univie.swa.cml.Deontic
 import at.ac.univie.swa.cml.DoWhileStatement
 import at.ac.univie.swa.cml.DurationLiteral
 import at.ac.univie.swa.cml.EqualityExpression
@@ -50,6 +52,7 @@ import at.ac.univie.swa.cml.SuperExpression
 import at.ac.univie.swa.cml.SwitchStatement
 import at.ac.univie.swa.cml.SymbolReference
 import at.ac.univie.swa.cml.TemporalConstraint
+import at.ac.univie.swa.cml.TemporalPrecedence
 import at.ac.univie.swa.cml.ThisExpression
 import at.ac.univie.swa.cml.ThrowStatement
 import at.ac.univie.swa.cml.Type
@@ -67,6 +70,7 @@ import java.util.List
 import java.util.Scanner
 import java.util.Set
 import org.apache.log4j.Logger
+import org.eclipse.emf.ecore.EObject
 import org.eclipse.emf.ecore.resource.Resource
 import org.eclipse.emf.ecore.resource.ResourceSet
 import org.eclipse.xtext.generator.IFileSystemAccess2
@@ -74,9 +78,6 @@ import org.eclipse.xtext.generator.IGeneratorContext
 
 import static extension org.eclipse.emf.ecore.util.EcoreUtil.*
 import static extension org.eclipse.xtext.EcoreUtil2.*
-import at.ac.univie.swa.cml.Deontic
-import at.ac.univie.swa.cml.TemporalPrecedence
-import org.eclipse.emf.ecore.EObject
 
 /**
  * Generates code from your model files on save.
@@ -219,7 +220,7 @@ class CmlGenerator extends AbstractGenerator2 {
 		«FOR clause : c.clauses»
 			if (_clauseId == "«clause.name»") {
 				«FOR constraint : clause.deriveConstraints»
-					«constraint»
+					require(«constraint.key»«IF !constraint.value.nullOrEmpty», "Referring to clause «clause.name»: «constraint.value»"«ENDIF»);
 				«ENDFOR»
 				return true;
 			}
@@ -250,7 +251,7 @@ class CmlGenerator extends AbstractGenerator2 {
 		«FOR clause : c.clauses.filter[action.deontic.equals(Deontic.MUST)]»
 			«val tc = clause.constraint.temporal»
 			if («IF !(tc.reference instanceof Expression)»«tc.reference.deriveCompletionTimestamp» != 0  && «ENDIF»now > «tc.completionTimestamp») {
-				require(«clause.action.compoundAction.compile», "Clause «clause.name» breached.");
+				require(«clause.action.compoundAction.compile», "CONTRACT BREACHED: Clause «clause.name» not fulfilled");
 			}
    		«ENDFOR»		      
 		return true;
@@ -291,6 +292,30 @@ class CmlGenerator extends AbstractGenerator2 {
 			return (tc.reference as ClauseQuery).clause.action.compoundAction.eAllOfType(AtomicAction).map[operation.name]
 		} else return emptyList
 	}
+	
+	def temporalCheck(TemporalConstraint tc, String time, String duration, boolean within) {
+		"only" + tc.precedence.literal.toFirstUpper + "(" + time + ", " + duration + ", " + within.booleanValue + ")"
+	}
+	
+	def conditionalCheck(String condition) {
+		"onlyWhen(" + condition + ")"
+	}
+	
+	def callerCheck(String account) {
+		"onlyBy(" + account + ")"
+	}
+	
+	def actionCheck(String party, String action, boolean before) {
+		"actionDone(" + party + ", " + action + ", " + before.booleanValue + ")"
+	}
+	
+	def temporalCheckReason(TemporalConstraint tc) {
+		if (tc.precedence.equals(TemporalPrecedence.AFTER) && !tc.closed)
+			"Function called too early"
+		else if (tc.precedence.equals(TemporalPrecedence.BEFORE) && !tc.closed)
+			"Function called too late"
+		else "Function not called within expected timeframe"
+	}
 			
 	def deriveConstraints(Clause c) {
 		var constraints = newArrayList
@@ -298,59 +323,51 @@ class CmlGenerator extends AbstractGenerator2 {
 		val tc = c.constraint.temporal
 		val gc = c.constraint.general
 		if (party.name != "anyone")
-			constraints.add("require(onlyBy("+party.name+".id));")
+			constraints.add(callerCheck(party.name + ".id") -> "Caller not authorized")
 		if (tc !== null) {
 			val reference = tc.reference
 			if (reference instanceof Expression) {
 				if (tc.timeframe === null)
-					constraints.add("require(only" + tc.precedence.literal.toFirstUpper + "(" + reference.compile +", 0, false"+"));")
-				if (tc.closed == false && tc.timeframe !== null)
-					constraints.add("require(only" + tc.precedence.literal.toFirstUpper + "(" + reference.compile +", "+ tc.timeframe.compile+ ", false"+"));")
-				if (tc.closed == true && tc.timeframe !== null)
-					constraints.add("require(only" + tc.precedence.literal.toFirstUpper + "(" + reference.compile +", "+ tc.timeframe.compile+ ", true"+"));")
+					constraints.add(temporalCheck(tc, reference.compile, "0", false) -> temporalCheckReason(tc))
+				if (tc.timeframe !== null)
+					constraints.add(temporalCheck(tc, reference.compile, tc.timeframe.compile, tc.closed) -> temporalCheckReason(tc))
 			}
-			if (reference instanceof ClauseQuery) {
-				if (reference.status == "failed" || tc.precedence.literal == "before")
-					constraints.add("require(!(" + reference.clause.action.compoundAction.compile+"));")
+			else if (reference instanceof ClauseQuery) {
+				if (reference.status.equals(ClauseStatus.FAILED) || tc.precedence.equals(TemporalPrecedence.BEFORE))
+					constraints.add("!(" + reference.clause.action.compoundAction.compile +")" -> "Clause " + reference.clause.name + " was fulfilled")
 				else
-					constraints.add("require("+ reference.clause.action.compoundAction.compile+");")	
+					constraints.add(reference.clause.action.compoundAction.compile -> "Clause " + reference.clause.name + " not fulfilled")	
 				
 				if (tc.timeframe === null)
-					constraints.add("require(only" + tc.precedence.literal.toFirstUpper + "(mostRecentActionTimestamp(\"" + reference.clause.name + "\"), 0, false"+"));")
-				if (tc.closed == false && tc.timeframe !== null)
-					constraints.add("require(only" + tc.precedence.literal.toFirstUpper + "(mostRecentActionTimestamp(\"" + reference.clause.name +"\"), " + tc.timeframe.compile+ ", false"+"));")
-				if (tc.closed == true && tc.timeframe !== null)
-					constraints.add("require(only" + tc.precedence.literal.toFirstUpper + "(mostRecentActionTimestamp(\"" + reference.clause.name +"\"), " + tc.timeframe.compile+ ", true"+"));")
+					constraints.add(temporalCheck(tc, "mostRecentActionTimestamp(\"" + reference.clause.name + "\")", "0", false) -> temporalCheckReason(tc))
+				if (tc.timeframe !== null)
+					constraints.add(temporalCheck(tc, "mostRecentActionTimestamp(\"" + reference.clause.name + "\")", tc.timeframe.compile, tc.closed) -> temporalCheckReason(tc))
 			}
-			if (reference instanceof EventQuery) {
-				if (tc.precedence.literal == "after")
-					constraints.add("require(_callMonitor[this."+ reference.event.name + "Event.selector].success);")
-				if (tc.precedence.literal == "before")
-					constraints.add("require(!_callMonitor[this."+ reference.event.name + "Event.selector].success);")
+			else if (reference instanceof EventQuery) {
+				if (tc.precedence.equals(TemporalPrecedence.AFTER))
+					constraints.add("_callMonitor[this."+ reference.event.name + "Event.selector].success" -> "Event " + reference.event.name + " did not occur")
+				if (tc.precedence.equals(TemporalPrecedence.BEFORE))
+					constraints.add("!_callMonitor[this."+ reference.event.name + "Event.selector].success" -> "Event " + reference.event.name + " already occurred")
 
 				if (tc.timeframe === null)
-					constraints.add("require(only" + tc.precedence.literal.toFirstUpper + "(_callMonitor[this." + reference.event.name + "Event.selector].time, 0, false" + "));")
-				if (tc.closed == false && tc.timeframe !== null)
-					constraints.add("require(only" + tc.precedence.literal.toFirstUpper + "(_callMonitor[this." + reference.event.name + "Event.selector].time, " + tc.timeframe.compile + ", false" + "));")
-				if (tc.closed == true && tc.timeframe !== null)
-					constraints.add("require(only" + tc.precedence.literal.toFirstUpper + "(_callMonitor[this." + reference.event.name + "Event.selector].time, " + tc.timeframe.compile + ", true" + "));")
+					constraints.add(temporalCheck(tc, "_callMonitor[this." + reference.event.name + "Event.selector].time", "0", false) -> temporalCheckReason(tc))
+				if (tc.timeframe !== null)
+					constraints.add(temporalCheck(tc, "_callMonitor[this." + reference.event.name + "Event.selector].time", tc.timeframe.compile, tc.closed) -> temporalCheckReason(tc))
 			}
-			if (reference instanceof ActionQuery) {
-				if (tc.precedence.literal == "after")
-					constraints.add("require(actionDone(" + reference.party.name + ".id, this." + reference.action.name + ".selector, false));")
-				if (tc.precedence.literal == "before")
-					constraints.add("require(!actionDone(" + reference.party.name + ".id, this." + reference.action.name + ".selector, true));")
+			else if (reference instanceof ActionQuery) {
+				if (tc.precedence.equals(TemporalPrecedence.AFTER))
+					constraints.add(actionCheck(reference.party.compile + ".id", "this." + reference.action.name + ".selector", false) -> reference.party.type.name + " " + reference.party.name + " did not fulfill " + reference.action.name)
+				if (tc.precedence.equals(TemporalPrecedence.BEFORE))
+					constraints.add("!" + actionCheck(reference.party.compile + ".id", "this." + reference.action.name + ".selector", true) -> reference.party.type.name + " " + reference.party.name + " already fulfilled " + reference.action.name)
 				
 				if (tc.timeframe === null)
-					constraints.add("require(only" + tc.precedence.literal.toFirstUpper + "(_callMonitor[this." + reference.action.name + ".selector].time, 0, false" + "));")
-				if (tc.closed == false && tc.timeframe !== null)
-					constraints.add("require(only" + tc.precedence.literal.toFirstUpper + "(_callMonitor[this." + reference.action.name + ".selector].time, " + tc.timeframe.compile + ", false" + "));")
-				if (tc.closed == true && tc.timeframe !== null)
-					constraints.add("require(only" + tc.precedence.literal.toFirstUpper + "(_callMonitor[this." + reference.action.name + ".selector].time, " + tc.timeframe.compile + ", true" + "));")
+					constraints.add(temporalCheck(tc, "_callMonitor[this." + reference.action.name + ".selector].time", "0", false) -> temporalCheckReason(tc))
+				if (tc.timeframe !== null)
+					constraints.add(temporalCheck(tc, "_callMonitor[this." + reference.action.name + ".selector].time", tc.timeframe.compile, tc.closed) -> temporalCheckReason(tc))
 			}	
 		}
 		if (gc !== null)
-			constraints.add("require(onlyWhen("+gc.expression.compile+"));")
+			constraints.add(conditionalCheck(gc.expression.compile) -> "Given condition(s) not met")
 		constraints
 	}
 

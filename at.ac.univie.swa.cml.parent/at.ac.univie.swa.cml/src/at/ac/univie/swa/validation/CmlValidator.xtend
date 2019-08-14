@@ -162,7 +162,7 @@ class CmlValidator extends AbstractCmlValidator {
 	@Check
 	def void checkDeonticMustTemporalConstraintRequirements(Clause c) {
 		if (c.action.deontic.equals(Deontic.MUST) && c.constraint.temporal.precedence.equals(TemporalPrecedence.AFTER) && !c.constraint.temporal.closed) {
-			error("Modality 'must' and precedence 'after' requires a closed timeframe 'within' to be specified", null,
+			error("Modality 'must' and temporal precedence 'after' requires a closed timeframe to be specified with 'within'", null,
 				WRONG_USAGE)
 		}
 	}
@@ -170,7 +170,7 @@ class CmlValidator extends AbstractCmlValidator {
 	@Check
 	def void checkDeonticMustDefinesTemporalConstraint(Clause c) {
 		if (c.action.deontic.equals(Deontic.MUST) && c.constraint.temporal === null) {
-			error("Modality 'must' requires a temporal constraint 'due' to be specified", null, WRONG_USAGE)
+			error("Modality 'must' requires a temporal constraint to be specified with 'due'", null, WRONG_USAGE)
 		}
 	}
 	

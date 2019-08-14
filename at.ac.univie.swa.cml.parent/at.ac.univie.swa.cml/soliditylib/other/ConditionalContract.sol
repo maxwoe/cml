@@ -29,46 +29,50 @@ contract ConditionalContract {
 	}
 
 	function onlyBy(address _account) view internal returns(bool) {
-		require(msg.sender == _account, "Sender not authorized.");
-		return true;
+		if (msg.sender == _account)
+		    return true;
+		return false;
 	}
 
 	function onlyWhen(bool _condition) pure internal returns(bool) {
-	    require(_condition);
-	    return true;
+	    if (_condition)
+	        return true;
+	    return false;
 	}
 
 	function onlyAfter(uint _time, uint _duration, bool _within) view internal returns(bool) {
-		if (_time == 0) {
-			return false;
-		}
+		assert(_time != 0);
 		if (!_within) {
-			require(now > _time + _duration, "Function called too early.");
+			if (now > _time + _duration) // else function called too early
+			    return true;
 		} else {
-			require(_time + _duration > now && now > _time, "Function not called within expected timeframe.");
+			if (_time + _duration > now && now > _time) // else function not called within expected timeframe
+			    return true;
 		}
-		return true;
+		return false;
 	}
 
 	function onlyBefore(uint _time, uint _duration, bool _within) view internal returns(bool) {
-		if (_time == 0) {
-			return true;
-		}
+		assert(_time != 0);
 		if (!_within) {
-			require(now < _time - _duration, "Function called too late.");
+			if (now < _time - _duration) // else function called too late
+			    return true;
 		} else {
-			require(_time - _duration < now && now < _time, "Function not called within expected timeframe.");
+			if (_time - _duration < now && now < _time) // else function not called within expected timeframe
+			    return true;
 		}
-		return true;
+		return false;
 	}
 
 	function actionDone(address _party, bytes4 _action, bool _before) view internal returns(bool) {
 		if (_before) {
-			require(!(_callMonitor[_action].caller == _party && _callMonitor[_action].success));
+			if (!(_callMonitor[_action].caller == _party && _callMonitor[_action].success))
+			    return true;
 		} else {
-			require(_callMonitor[_action].caller == _party && _callMonitor[_action].success);
+			if (_callMonitor[_action].caller == _party && _callMonitor[_action].success)
+			    return true;
 		}
-		return true;
+		return false;
 	}
 
 	function clauseAllowed(bytes32 _clauseId) internal returns(bool);
