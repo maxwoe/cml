@@ -9,10 +9,12 @@ import at.ac.univie.swa.cml.AnnotationDeclaration
 import at.ac.univie.swa.cml.AssignmentExpression
 import at.ac.univie.swa.cml.Attribute
 import at.ac.univie.swa.cml.Block
+import at.ac.univie.swa.cml.Clause
 import at.ac.univie.swa.cml.Closure
 import at.ac.univie.swa.cml.CmlClass
 import at.ac.univie.swa.cml.CmlPackage
 import at.ac.univie.swa.cml.CmlProgram
+import at.ac.univie.swa.cml.Deontic
 import at.ac.univie.swa.cml.Expression
 import at.ac.univie.swa.cml.FeatureSelection
 import at.ac.univie.swa.cml.NamedElement
@@ -21,6 +23,7 @@ import at.ac.univie.swa.cml.OtherOperatorExpression
 import at.ac.univie.swa.cml.ReturnStatement
 import at.ac.univie.swa.cml.SuperExpression
 import at.ac.univie.swa.cml.SymbolReference
+import at.ac.univie.swa.cml.TemporalPrecedence
 import at.ac.univie.swa.cml.VariableDeclaration
 import at.ac.univie.swa.scoping.CmlIndex
 import at.ac.univie.swa.typing.CmlTypeConformance
@@ -32,7 +35,6 @@ import org.eclipse.xtext.validation.Check
 import org.eclipse.xtext.validation.CheckType
 
 import static extension org.eclipse.xtext.EcoreUtil2.*
-import at.ac.univie.swa.cml.DeonticAction
 
 /**
  * This class contains custom validation rules. 
@@ -158,14 +160,20 @@ class CmlValidator extends AbstractCmlValidator {
 	}
 	
 	@Check
-	def void checkDeonticRequirements(DeonticAction da) {
-		/*if ((da.deontic.ordinal.equals(0) && da.containingClause.constraint.temporal.precedence.ordinal > 1) ||
-			(da.deontic.ordinal.equals(0) && !da.containingClause.constraint.temporal.closed)) {
-			error("A closed timeframe 'due within' must be specified", CmlPackage.eINSTANCE.deonticAction_Deontic,
+	def void checkDeonticMustTemporalConstraintRequirements(Clause c) {
+		if (c.action.deontic.equals(Deontic.MUST) && c.constraint.temporal.precedence.equals(TemporalPrecedence.AFTER) && !c.constraint.temporal.closed) {
+			error("Modality 'must' and precedence 'after' requires a closed timeframe 'within' to be specified", null,
 				WRONG_USAGE)
-		}*/
+		}
 	}
-
+	
+	@Check
+	def void checkDeonticMustDefinesTemporalConstraint(Clause c) {
+		if (c.action.deontic.equals(Deontic.MUST) && c.constraint.temporal === null) {
+			error("Modality 'must' requires a temporal constraint 'due' to be specified", null, WRONG_USAGE)
+		}
+	}
+	
 	@Check
 	def void checkMethodEndsWithReturn(Operation o) {
 		if (o.returnStatement === null && !o.inferType.conformsToVoid) {

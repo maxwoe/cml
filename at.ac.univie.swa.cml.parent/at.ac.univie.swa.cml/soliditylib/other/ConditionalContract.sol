@@ -11,6 +11,7 @@ contract ConditionalContract {
 	mapping(bytes4 => CallContext) _callMonitor;
 
 	modifier checkAllowed(bytes32 _clause) {
+	 	require(contractObeyed());
 	    require(clauseAllowed(_clause), "Clause not allowed to start.");
         _;
         setCallContext();
@@ -32,7 +33,7 @@ contract ConditionalContract {
 		return true;
 	}
 
-	function when(bool _condition) pure internal returns(bool) {
+	function onlyWhen(bool _condition) pure internal returns(bool) {
 	    require(_condition);
 	    return true;
 	}
@@ -72,5 +73,5 @@ contract ConditionalContract {
 
 	function clauseAllowed(bytes32 _clauseId) internal returns(bool);
 	function mostRecentActionTimestamp(bytes32 _clauseId) internal returns(uint);
-
+	function contractObeyed() internal returns(bool);
 }

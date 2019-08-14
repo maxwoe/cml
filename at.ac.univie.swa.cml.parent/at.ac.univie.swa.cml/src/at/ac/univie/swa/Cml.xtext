@@ -157,9 +157,9 @@ PeriodicTime:
 
 enum TemporalPrecedence:
 	BEFORE='before' |
-	BEFORE_OR_EQUALS='onOrBefore' |
+	/*BEFORE_OR_EQUALS='onOrBefore' |
 	EQUALS='on' |
-	AFTER_OR_EQUALS='onOrAfter' |
+	AFTER_OR_EQUALS='onOrAfter' |*/
 	AFTER='after';
 
 ClauseQuery:

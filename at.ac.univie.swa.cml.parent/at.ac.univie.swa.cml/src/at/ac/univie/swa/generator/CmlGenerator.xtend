@@ -74,6 +74,9 @@ import org.eclipse.xtext.generator.IGeneratorContext
 
 import static extension org.eclipse.emf.ecore.util.EcoreUtil.*
 import static extension org.eclipse.xtext.EcoreUtil2.*
+import at.ac.univie.swa.cml.Deontic
+import at.ac.univie.swa.cml.TemporalPrecedence
+import org.eclipse.emf.ecore.EObject
 
 /**
  * Generates code from your model files on save.
@@ -206,15 +209,18 @@ class CmlGenerator extends AbstractGenerator2 {
 				
 				«contract.compileClauseConstraints»
 				«contract.compileMostRecentActionTimestamp»
+				«contract.compileContractObeyed»
 			}
 		«ENDFOR»
 	'''
 
-	def compileClauseConstraints(CmlClass contract)'''
+	def compileClauseConstraints(CmlClass c)'''
 	function clauseAllowed(bytes32 _clauseId) internal returns (bool) {
-		«FOR clause : contract.clauses»
+		«FOR clause : c.clauses»
 			if (_clauseId == "«clause.name»") {
-				«clause.getConstraints»
+				«FOR constraint : clause.deriveConstraints»
+					«constraint»
+				«ENDFOR»
 				return true;
 			}
    		«ENDFOR»		      
@@ -223,9 +229,9 @@ class CmlGenerator extends AbstractGenerator2 {
 
 	'''
 
-	def compileMostRecentActionTimestamp(CmlClass contract)'''
+	def compileMostRecentActionTimestamp(CmlClass c)'''
 	function mostRecentActionTimestamp(bytes32 _clauseId) internal returns (uint) {
-		«FOR clause : contract.clauses»
+		«FOR clause : c.clauses»
 			«IF clause.constraint.temporal !== null && clause.constraint.temporal.reference instanceof ClauseQuery»
 				if (_clauseId == "«(clause.constraint.temporal.reference as ClauseQuery).clause.name»") {
 					uint max = 0;
@@ -238,6 +244,37 @@ class CmlGenerator extends AbstractGenerator2 {
 	}
 	
 	'''
+	
+	def compileContractObeyed(CmlClass c)'''
+	function contractObeyed() internal returns (bool) {
+		«FOR clause : c.clauses.filter[action.deontic.equals(Deontic.MUST)]»
+			«val tc = clause.constraint.temporal»
+			if («IF !(tc.reference instanceof Expression)»«tc.reference.deriveCompletionTimestamp» != 0  && «ENDIF»now > «tc.completionTimestamp») {
+				require(«clause.action.compoundAction.compile», "Clause «clause.name» breached.");
+			}
+   		«ENDFOR»		      
+		return true;
+	}
+
+	'''
+	
+	def completionTimestamp(TemporalConstraint tc) {
+		if(tc.precedence.equals(TemporalPrecedence.AFTER))
+			"DateTime.addDuration(" + tc.reference.deriveCompletionTimestamp + ", " + tc.timeframe.compile + ")"
+		else if (tc.precedence.equals(TemporalPrecedence.BEFORE))
+			tc.reference.deriveCompletionTimestamp
+	}
+	
+	def String deriveCompletionTimestamp(EObject reference) {
+		if(reference instanceof Expression)
+			reference.compile
+		else if(reference instanceof ClauseQuery)
+			"mostRecentActionTimestamp(\"" + reference.clause.name + "\")"
+		else if(reference instanceof EventQuery)
+			"_callMonitor[this."+ reference.event.name + "Event.selector].time"
+		else if(reference instanceof ActionQuery)
+			"_callMonitor[this." + reference.action.name + ".selector].time"
+	}
 	
 	def getTimestamps(Clause c)'''
 		«var actions = c.gatherActions»
@@ -254,75 +291,66 @@ class CmlGenerator extends AbstractGenerator2 {
 			return (tc.reference as ClauseQuery).clause.action.compoundAction.eAllOfType(AtomicAction).map[operation.name]
 		} else return emptyList
 	}
-	
-	def compile(ActionQuery aq)'''
-		«aq.party.name».id, this.«aq.action.name».selector'''
-		
-	def getConstraints(Clause c)'''
-		«var constraints = c.deriveConstraints»
-		«FOR m : constraints»
-			«m»
-		«ENDFOR»
-	'''
-	
+			
 	def deriveConstraints(Clause c) {
 		var constraints = newArrayList
-		var party = c.actor.party
-		var tc = c.constraint.temporal
-		var gc = c.constraint.general
+		val party = c.actor.party
+		val tc = c.constraint.temporal
+		val gc = c.constraint.general
 		if (party.name != "anyone")
 			constraints.add("require(onlyBy("+party.name+".id));")
 		if (tc !== null) {
-			if (tc.reference instanceof Expression) {
+			val reference = tc.reference
+			if (reference instanceof Expression) {
 				if (tc.timeframe === null)
-					constraints.add("require(only" + tc.precedence.literal.toFirstUpper + "(" + (tc.reference as Expression).compile +", 0, false"+"));")
+					constraints.add("require(only" + tc.precedence.literal.toFirstUpper + "(" + reference.compile +", 0, false"+"));")
 				if (tc.closed == false && tc.timeframe !== null)
-					constraints.add("require(only" + tc.precedence.literal.toFirstUpper + "(" + (tc.reference as Expression).compile +", "+ tc.timeframe.compile+ ", false"+"));")
+					constraints.add("require(only" + tc.precedence.literal.toFirstUpper + "(" + reference.compile +", "+ tc.timeframe.compile+ ", false"+"));")
 				if (tc.closed == true && tc.timeframe !== null)
-					constraints.add("require(only" + tc.precedence.literal.toFirstUpper + "(" + (tc.reference as Expression).compile +", "+ tc.timeframe.compile+ ", true"+"));")
+					constraints.add("require(only" + tc.precedence.literal.toFirstUpper + "(" + reference.compile +", "+ tc.timeframe.compile+ ", true"+"));")
 			}
-			if (tc.reference instanceof ClauseQuery) {
-				if ((tc.reference as ClauseQuery).status == "failed" || tc.precedence.literal == "before")
-					constraints.add("require(!("+(tc.reference as ClauseQuery).clause.action.compoundAction.compile+"));")
+			if (reference instanceof ClauseQuery) {
+				if (reference.status == "failed" || tc.precedence.literal == "before")
+					constraints.add("require(!(" + reference.clause.action.compoundAction.compile+"));")
 				else
-					constraints.add("require("+(tc.reference as ClauseQuery).clause.action.compoundAction.compile+");")	
+					constraints.add("require("+ reference.clause.action.compoundAction.compile+");")	
 				
 				if (tc.timeframe === null)
-					constraints.add("require(only" + tc.precedence.literal.toFirstUpper + "(mostRecentActionTimestamp(\"" + (tc.reference as ClauseQuery).clause.name + "\"), 0, false"+"));")
+					constraints.add("require(only" + tc.precedence.literal.toFirstUpper + "(mostRecentActionTimestamp(\"" + reference.clause.name + "\"), 0, false"+"));")
 				if (tc.closed == false && tc.timeframe !== null)
-					constraints.add("require(only" + tc.precedence.literal.toFirstUpper + "(mostRecentActionTimestamp(\"" + (tc.reference as ClauseQuery).clause.name +"\"), " + tc.timeframe.compile+ ", false"+"));")
+					constraints.add("require(only" + tc.precedence.literal.toFirstUpper + "(mostRecentActionTimestamp(\"" + reference.clause.name +"\"), " + tc.timeframe.compile+ ", false"+"));")
 				if (tc.closed == true && tc.timeframe !== null)
-					constraints.add("require(only" + tc.precedence.literal.toFirstUpper + "(mostRecentActionTimestamp(\"" + (tc.reference as ClauseQuery).clause.name +"\"), " + tc.timeframe.compile+ ", true"+"));")
+					constraints.add("require(only" + tc.precedence.literal.toFirstUpper + "(mostRecentActionTimestamp(\"" + reference.clause.name +"\"), " + tc.timeframe.compile+ ", true"+"));")
 			}
-			if (tc.reference instanceof EventQuery) {
+			if (reference instanceof EventQuery) {
 				if (tc.precedence.literal == "after")
-					constraints.add("require(_callMonitor[this."+ (tc.reference as EventQuery).event.name + "Event.selector].success);")
+					constraints.add("require(_callMonitor[this."+ reference.event.name + "Event.selector].success);")
 				if (tc.precedence.literal == "before")
-					constraints.add("require(!_callMonitor[this."+ (tc.reference as EventQuery).event.name + "Event.selector].success);")
+					constraints.add("require(!_callMonitor[this."+ reference.event.name + "Event.selector].success);")
 
 				if (tc.timeframe === null)
-					constraints.add("require(only" + tc.precedence.literal.toFirstUpper + "(_callMonitor[this." + (tc.reference as EventQuery).event.name + "Event.selector].time, 0, false" + "));")
+					constraints.add("require(only" + tc.precedence.literal.toFirstUpper + "(_callMonitor[this." + reference.event.name + "Event.selector].time, 0, false" + "));")
 				if (tc.closed == false && tc.timeframe !== null)
-					constraints.add("require(only" + tc.precedence.literal.toFirstUpper + "(_callMonitor[this." + (tc.reference as EventQuery).event.name + "Event.selector].time, " + tc.timeframe.compile + ", false" + "));")
+					constraints.add("require(only" + tc.precedence.literal.toFirstUpper + "(_callMonitor[this." + reference.event.name + "Event.selector].time, " + tc.timeframe.compile + ", false" + "));")
 				if (tc.closed == true && tc.timeframe !== null)
-					constraints.add("require(only" + tc.precedence.literal.toFirstUpper + "(_callMonitor[this." + (tc.reference as EventQuery).event.name + "Event.selector].time, " + tc.timeframe.compile + ", true" + "));")
+					constraints.add("require(only" + tc.precedence.literal.toFirstUpper + "(_callMonitor[this." + reference.event.name + "Event.selector].time, " + tc.timeframe.compile + ", true" + "));")
 			}
-			if (tc.reference instanceof ActionQuery) {
+			if (reference instanceof ActionQuery) {
 				if (tc.precedence.literal == "after")
-					constraints.add("require(actionDone(" + (tc.reference as ActionQuery).compile + ", false));")
+					constraints.add("require(actionDone(" + reference.party.name + ".id, this." + reference.action.name + ".selector, false));")
 				if (tc.precedence.literal == "before")
-					constraints.add("require(!actionDone(" + (tc.reference as ActionQuery).compile + ", true));")
+					constraints.add("require(!actionDone(" + reference.party.name + ".id, this." + reference.action.name + ".selector, true));")
 				
 				if (tc.timeframe === null)
-					constraints.add("require(only" + tc.precedence.literal.toFirstUpper + "(_callMonitor[this." + (tc.reference as ActionQuery).action.name + ".selector].time, 0, false" + "));")
+					constraints.add("require(only" + tc.precedence.literal.toFirstUpper + "(_callMonitor[this." + reference.action.name + ".selector].time, 0, false" + "));")
 				if (tc.closed == false && tc.timeframe !== null)
-					constraints.add("require(only" + tc.precedence.literal.toFirstUpper + "(_callMonitor[this." + (tc.reference as ActionQuery).action.name + ".selector].time, " + tc.timeframe.compile + ", false" + "));")
+					constraints.add("require(only" + tc.precedence.literal.toFirstUpper + "(_callMonitor[this." + reference.action.name + ".selector].time, " + tc.timeframe.compile + ", false" + "));")
 				if (tc.closed == true && tc.timeframe !== null)
-					constraints.add("require(only" + tc.precedence.literal.toFirstUpper + "(_callMonitor[this." + (tc.reference as ActionQuery).action.name + ".selector].time, " + tc.timeframe.compile + ", true" + "));")
+					constraints.add("require(only" + tc.precedence.literal.toFirstUpper + "(_callMonitor[this." + reference.action.name + ".selector].time, " + tc.timeframe.compile + ", true" + "));")
 			}	
 		}
 		if (gc !== null)
-			constraints.add("require(when("+gc.expression.compile+"));")
+			constraints.add("require(onlyWhen("+gc.expression.compile+"));")
 		constraints
 	}
 
@@ -891,32 +919,30 @@ class CmlGenerator extends AbstractGenerator2 {
 	}
 
 	def interceptAttribute(Attribute a, Expression reference) {
-		val containingClass = a.containingClass
-		// println(a.name + ": " + reference.resolvePath?.map[name] + " " +
-		// reference.resolvePath?.last.containingClass.inferType?.name)
-		if (containingClass !== null) {
-			if (containingClass.conformsToContract) {
+		val c = a.containingClass
+		if (c !== null) {
+			if (c.conformsToContract) {
 				switch (a.name) {
 					case "contractStart": "_contractStart"
 					case "caller": "Party(msg.sender)"
 				}
-			} else if (containingClass.conformsToParticipant) {
+			} else if (c.conformsToParticipant) {
 				switch (a.name) {
 					case "id": if (reference === null) "address payable id"
 				}
-			} else if (containingClass.conformsToAsset) {
+			} else if (c.conformsToAsset) {
 				switch (a.name) {
 					case "quantity": if (reference !== null) "address(this).balance"
 				}
-			} else if (containingClass.conformsToTransaction) {
+			} else if (c.conformsToTransaction) {
 				switch (a.name) {
 					case "sender": if (reference === null) "" else "Party(msg.sender)"
 				}
-			} else if (containingClass.conformsToTokenHolder) {
+			} else if (c.conformsToTokenHolder) {
 				switch (a.name) {
 					case "token": ""
 				}
-			} else if (containingClass.conformsToTokenTransaction) {
+			} else if (c.conformsToTokenTransaction) {
 				switch (a.name) {
 					case "amount": "msg.value"
 				}
@@ -926,14 +952,12 @@ class CmlGenerator extends AbstractGenerator2 {
 	
 	def interceptOperation(Operation o, List<Expression> args, Expression reference) {
 		if (!o.static) {
-			val containingClass = o.containingClass
+			val c = o.containingClass
 			val path = reference.resolvePath
 			
-			if (containingClass.conformsToParty) {
+			if (c.conformsToParty) {
 				switch (o.name) {
-					case "deposit": {
-						""
-					}
+					case "deposit": ""
 					case "withdraw": {
 						if (pullPayment) {
 							"_asyncTransfer(" + reference.compile + ".id , " + args.get(0).compile + ")"
@@ -942,7 +966,7 @@ class CmlGenerator extends AbstractGenerator2 {
 						}
 					}
 				}
-			} else if (containingClass.conformsToContract) {
+			} else if (c.conformsToContract) {
 				switch (o.name) {
 					case "transfer": {
 						if (pullPayment) {
@@ -952,7 +976,7 @@ class CmlGenerator extends AbstractGenerator2 {
 						}
 					}
 				}
-			} else if (containingClass.conformsToNumber) {
+			} else if (c.conformsToNumber) {
 				switch (o.name) {
 					case "toInteger": {
 						if (path.get(0).inferType.conformsToInteger || path.get(0).inferType.conformsToNumber)
@@ -969,13 +993,13 @@ class CmlGenerator extends AbstractGenerator2 {
 							reference.compile
 					}
 				}
-			} else if (containingClass.conformsToInteger) {
+			} else if (c.conformsToInteger) {
 				switch (o.name) {
 					case "average": "IntLib.average(" + reference.compile + ", " + args.get(0).compile + ")"
 					case "max": "IntLib.max(" + reference.compile + ", " + args.get(0).compile + ")"
 					case "min": "IntLib.min(" + reference.compile + ", " + args.get(0).compile + ")"
 				}
-			} else if (containingClass.conformsToReal) {
+			} else if (c.conformsToReal) {
 				switch (o.name) {
 					case "max": "RealLib.max(" + reference.compile + ", " + args.get(0).compile + ")"
 					case "min": "RealLib.min(" + reference.compile + ", " + args.get(0).compile + ")"
@@ -983,7 +1007,7 @@ class CmlGenerator extends AbstractGenerator2 {
 					case "ceil": if (fixedPointArithmetic) "RealLib.ceil(" + reference.compile + ", " + fixedPointDecimals+ ")" else "??? Not yet implemented"
 					case "floor": if (fixedPointArithmetic) "RealLib.floor(" + reference.compile + ", " + fixedPointDecimals+ ")" else "??? Not yet implemented"
 				}
-			} else if (containingClass.conformsToDateTime) {
+			} else if (c.conformsToDateTime) {
 				switch (o.name) {
 					case "isBefore": "DateTime.isBefore(" + reference.compile + ", " + args.get(0).compile + ")"
 					case "isAfter": "DateTime.isAfter(" + reference.compile + ", " + args.get(0).compile + ")"
@@ -999,7 +1023,7 @@ class CmlGenerator extends AbstractGenerator2 {
 					case "durationBetween": "DateTime.durationBetween(" + reference.compile + ", " +
 						args.get(0).compile + ")"
 				}
-			} else if (containingClass.conformsToDuration) {
+			} else if (c.conformsToDuration) {
 				switch (o.name) {
 					case "toSeconds": reference.compile
 					case "toMinutes": "DateTime.toMinutes(" + reference.compile + ")"
