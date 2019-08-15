@@ -293,8 +293,8 @@ class CmlGenerator extends AbstractGenerator2 {
 		} else return emptyList
 	}
 	
-	def temporalCheck(TemporalConstraint tc, String time, String duration, boolean within) {
-		"only" + tc.precedence.literal.toFirstUpper + "(" + time + ", " + duration + ", " + within.booleanValue + ")"
+	def temporalCheck(TemporalPrecedence precedence, String time, String duration, boolean within) {
+		"only" + precedence.literal.toFirstUpper + "(" + time + ", " + duration + ", " + within.booleanValue + ")"
 	}
 	
 	def conditionalCheck(String condition) {
@@ -305,8 +305,8 @@ class CmlGenerator extends AbstractGenerator2 {
 		"onlyBy(" + account + ")"
 	}
 	
-	def actionCheck(String party, String action, boolean before) {
-		"actionDone(" + party + ", " + action + ", " + before.booleanValue + ")"
+	def actionCheck(String party, String action) {
+		"actionDone(" + party + ", " + action + ")"
 	}
 	
 	def temporalCheckReason(TemporalConstraint tc) {
@@ -328,42 +328,42 @@ class CmlGenerator extends AbstractGenerator2 {
 			val reference = tc.reference
 			if (reference instanceof Expression) {
 				if (tc.timeframe === null)
-					constraints.add(temporalCheck(tc, reference.compile, "0", false) -> temporalCheckReason(tc))
+					constraints.add(temporalCheck(tc.precedence, reference.compile, "0", false) -> temporalCheckReason(tc))
 				if (tc.timeframe !== null)
-					constraints.add(temporalCheck(tc, reference.compile, tc.timeframe.compile, tc.closed) -> temporalCheckReason(tc))
+					constraints.add(temporalCheck(tc.precedence, reference.compile, tc.timeframe.compile, tc.closed) -> temporalCheckReason(tc))
 			}
 			else if (reference instanceof ClauseQuery) {
 				if (reference.status.equals(ClauseStatus.FAILED) || tc.precedence.equals(TemporalPrecedence.BEFORE))
-					constraints.add("!(" + reference.clause.action.compoundAction.compile +")" -> "Clause " + reference.clause.name + " was fulfilled")
+					constraints.add(conditionalCheck("!(" + reference.clause.action.compoundAction.compile +")") -> "Clause " + reference.clause.name + " was fulfilled")
 				else
-					constraints.add(reference.clause.action.compoundAction.compile -> "Clause " + reference.clause.name + " not fulfilled")	
+					constraints.add(conditionalCheck(reference.clause.action.compoundAction.compile) -> "Clause " + reference.clause.name + " not fulfilled")	
 				
 				if (tc.timeframe === null)
-					constraints.add(temporalCheck(tc, "mostRecentActionTimestamp(\"" + reference.clause.name + "\")", "0", false) -> temporalCheckReason(tc))
+					constraints.add(temporalCheck(tc.precedence, "mostRecentActionTimestamp(\"" + reference.clause.name + "\")", "0", false) -> temporalCheckReason(tc))
 				if (tc.timeframe !== null)
-					constraints.add(temporalCheck(tc, "mostRecentActionTimestamp(\"" + reference.clause.name + "\")", tc.timeframe.compile, tc.closed) -> temporalCheckReason(tc))
+					constraints.add(temporalCheck(tc.precedence, "mostRecentActionTimestamp(\"" + reference.clause.name + "\")", tc.timeframe.compile, tc.closed) -> temporalCheckReason(tc))
 			}
 			else if (reference instanceof EventQuery) {
 				if (tc.precedence.equals(TemporalPrecedence.AFTER))
-					constraints.add("_callMonitor[this."+ reference.event.name + "Event.selector].success" -> "Event " + reference.event.name + " did not occur")
+					constraints.add(conditionalCheck("_callMonitor[this."+ reference.event.name + "Event.selector].success") -> "Event " + reference.event.name + " did not occur")
 				if (tc.precedence.equals(TemporalPrecedence.BEFORE))
-					constraints.add("!_callMonitor[this."+ reference.event.name + "Event.selector].success" -> "Event " + reference.event.name + " already occurred")
+					constraints.add(conditionalCheck("!_callMonitor[this."+ reference.event.name + "Event.selector].success") -> "Event " + reference.event.name + " already occurred")
 
 				if (tc.timeframe === null)
-					constraints.add(temporalCheck(tc, "_callMonitor[this." + reference.event.name + "Event.selector].time", "0", false) -> temporalCheckReason(tc))
+					constraints.add(temporalCheck(tc.precedence, "_callMonitor[this." + reference.event.name + "Event.selector].time", "0", false) -> temporalCheckReason(tc))
 				if (tc.timeframe !== null)
-					constraints.add(temporalCheck(tc, "_callMonitor[this." + reference.event.name + "Event.selector].time", tc.timeframe.compile, tc.closed) -> temporalCheckReason(tc))
+					constraints.add(temporalCheck(tc.precedence, "_callMonitor[this." + reference.event.name + "Event.selector].time", tc.timeframe.compile, tc.closed) -> temporalCheckReason(tc))
 			}
 			else if (reference instanceof ActionQuery) {
 				if (tc.precedence.equals(TemporalPrecedence.AFTER))
-					constraints.add(actionCheck(reference.party.compile + ".id", "this." + reference.action.name + ".selector", false) -> reference.party.type.name + " " + reference.party.name + " did not fulfill " + reference.action.name)
+					constraints.add(actionCheck(reference.party.name + ".id", "this." + reference.action.name + ".selector") -> reference.party.type.name + " " + reference.party.name + " did not " + reference.action.name)
 				if (tc.precedence.equals(TemporalPrecedence.BEFORE))
-					constraints.add("!" + actionCheck(reference.party.compile + ".id", "this." + reference.action.name + ".selector", true) -> reference.party.type.name + " " + reference.party.name + " already fulfilled " + reference.action.name)
+					constraints.add("!" + actionCheck(reference.party.name + ".id", "this." + reference.action.name + ".selector") -> reference.party.type.name + " " + reference.party.name + " already did " + reference.action.name)
 				
 				if (tc.timeframe === null)
-					constraints.add(temporalCheck(tc, "_callMonitor[this." + reference.action.name + ".selector].time", "0", false) -> temporalCheckReason(tc))
+					constraints.add(temporalCheck(tc.precedence, "_callMonitor[this." + reference.action.name + ".selector].time", "0", false) -> temporalCheckReason(tc))
 				if (tc.timeframe !== null)
-					constraints.add(temporalCheck(tc, "_callMonitor[this." + reference.action.name + ".selector].time", tc.timeframe.compile, tc.closed) -> temporalCheckReason(tc))
+					constraints.add(temporalCheck(tc.precedence, "_callMonitor[this." + reference.action.name + ".selector].time", tc.timeframe.compile, tc.closed) -> temporalCheckReason(tc))
 			}	
 		}
 		if (gc !== null)
