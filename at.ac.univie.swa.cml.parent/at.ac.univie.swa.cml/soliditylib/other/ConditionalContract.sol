@@ -34,12 +34,6 @@ contract ConditionalContract {
 		return false;
 	}
 
-	function onlyWhen(bool _condition) pure internal returns(bool) {
-	    if (_condition)
-	        return true;
-	    return false;
-	}
-
 	function onlyAfter(uint _time, uint _duration, bool _within) view internal returns(bool) {
 		assert(_time != 0);
 		if (!_within) {
@@ -63,18 +57,7 @@ contract ConditionalContract {
 		}
 		return false;
 	}
-
-	function actionDone(address _party, bytes4 _action, bool _before) view internal returns(bool) {
-		if (_before) {
-			if (!(_callMonitor[_action].caller == _party && _callMonitor[_action].success))
-			    return true;
-		} else {
-			if (_callMonitor[_action].caller == _party && _callMonitor[_action].success)
-			    return true;
-		}
-		return false;
-	}
-
+    
 	function clauseAllowed(bytes32 _clauseId) internal returns(bool);
 	function mostRecentActionTimestamp(bytes32 _clauseId) internal returns(uint);
 	function contractObeyed() internal returns(bool);
