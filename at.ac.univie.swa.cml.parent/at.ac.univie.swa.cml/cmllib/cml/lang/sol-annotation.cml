@@ -1,0 +1,7 @@
+namespace cml.generator.annotation.solidity
+
+@interface Ownable
+@interface PullPayment
+@interface SafeMath
+@interface FixedPointArithmetic
+	Integer decimals

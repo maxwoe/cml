@@ -64,6 +64,7 @@ import at.ac.univie.swa.typing.CmlTypeConformance
 import com.google.inject.Inject
 import java.io.InputStream
 import java.math.BigDecimal
+import java.time.Instant
 import java.util.LinkedHashMap
 import java.util.LinkedHashSet
 import java.util.List
@@ -209,7 +210,7 @@ class CmlGenerator extends AbstractGenerator2 {
 				function() external payable {}
 				
 				«contract.compileClauseConstraints»
-				«contract.compileMostRecentActionTimestamp»
+				«contract.compileClauseFulfilledTime»
 				«contract.compileContractObeyed»
 			}
 		«ENDFOR»
@@ -230,18 +231,18 @@ class CmlGenerator extends AbstractGenerator2 {
 
 	'''
 
-	def compileMostRecentActionTimestamp(CmlClass c)'''
-	function mostRecentActionTimestamp(bytes32 _clauseId) internal returns (uint) {
+	def compileClauseFulfilledTime(CmlClass c)'''
+	function clauseFulfilledTime(bytes32 _clauseId) internal returns (uint) {
+		uint max = 0;
 		«FOR clause : c.clauses»
 			«IF clause.constraint.temporal !== null && clause.constraint.temporal.reference instanceof ClauseQuery»
-				if (_clauseId == "«(clause.constraint.temporal.reference as ClauseQuery).clause.name»") {
-					uint max = 0;
+				if (_clauseId == "«(clause.constraint.temporal.reference as ClauseQuery).clause.name»" && («(clause.constraint.temporal.reference as ClauseQuery).clause.action.compoundAction.compile»)) {
 					«clause.getTimestamps»
 					return max;
 				}
 			«ENDIF»
    		«ENDFOR»		      
-		return 0;
+		return max;
 	}
 	
 	'''
@@ -330,7 +331,7 @@ class CmlGenerator extends AbstractGenerator2 {
 	}
 	
 	def clauseFulfilledTime(Clause clause) {
-		"mostRecentActionTimestamp(\"" + clause.name + "\")"
+		"clauseFulfilledTime(\"" + clause.name + "\")"
 	}
 			
 	def deriveConstraints(Clause c) {
@@ -886,11 +887,15 @@ class CmlGenerator extends AbstractGenerator2 {
 			StringLiteral: '''"«exp.value»"'''
 			SuperExpression: '''super'''
 			ThisExpression: '''this''' // concept doesn't exist in the same manner in solidity
-			DateTimeLiteral: '''«exp.value»'''
+			DateTimeLiteral: '''«exp.compile»'''
 			DurationLiteral: '''«exp.value» «exp.unit»'''
 			SymbolReference: '''«exp.compile»'''
 			FeatureSelection: '''«exp.compile»'''
 		}
+	}
+	
+	def compile(DateTimeLiteral dtl) {
+		Instant.parse(dtl.value + "T00:00:00.00Z").getEpochSecond();
 	}
 
 	def fixedPointRepresentation(BigDecimal b) {

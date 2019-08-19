@@ -35,7 +35,9 @@ contract ConditionalContract {
 	}
 
 	function onlyAfter(uint _time, uint _duration, bool _within) view internal returns(bool) {
-		assert(_time != 0);
+		if (_time == 0) {
+			return false;
+		}
 		if (!_within) {
 			if (now > _time + _duration) // else function called too early
 			    return true;
@@ -47,7 +49,9 @@ contract ConditionalContract {
 	}
 
 	function onlyBefore(uint _time, uint _duration, bool _within) view internal returns(bool) {
-		assert(_time != 0);
+		if (_time == 0) {
+			return true;
+		}
 		if (!_within) {
 			if (now < _time - _duration) // else function called too late
 			    return true;
@@ -59,6 +63,6 @@ contract ConditionalContract {
 	}
     
 	function clauseAllowed(bytes32 _clauseId) internal returns(bool);
-	function mostRecentActionTimestamp(bytes32 _clauseId) internal returns(uint);
+	function clauseFulfilledTime(bytes32 _clauseId) internal returns(uint);
 	function contractObeyed() internal returns(bool);
 }

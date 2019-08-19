@@ -46,10 +46,6 @@ class CmlTypeConformance {
 			c.conformsToDuration || c.conformsToError || c.conformsToNumber
 	}
 	
-	def conformsToSolidityLibraryType(CmlClass c) {
-		c.fullyQualifiedName.toString.startsWith(CmlLib::SOLIDITY_LIB_PACKAGE)
-	}
-
 	def conformsToVoid(CmlClass c) {
 		c == VOID_TYPE
 	}

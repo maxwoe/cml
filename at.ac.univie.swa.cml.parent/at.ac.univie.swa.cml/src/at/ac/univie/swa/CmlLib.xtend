@@ -29,8 +29,7 @@ class CmlLib {
 	public val static LIB_ERROR = LIB_PACKAGE + ".Error"
 
 	public val static MAIN_LIB = "cml/lang/mainlib.cml"
-	public val static SOLIDITY_LIB_PACKAGE = "cml.lang.solidity"
-	public val static SOLIDITY_LIB = "cml/lang/soliditylib.cml"
+	public val static SOLIDITY_GENERATOR_ANNOTATION = "cml/lang/sol-annotation.cml"
 	
 	public val static LIB_TOKEN = LIB_PACKAGE + ".Token"
 	public val static LIB_PARTICIPANT = LIB_PACKAGE + ".Participant"
@@ -44,8 +43,8 @@ class CmlLib {
 		resourceSet.loadLib(MAIN_LIB)
 	}
 	
-	def loadSolidityLib(ResourceSet resourceSet) {
-		resourceSet.loadLib(SOLIDITY_LIB)
+	def loadSolidityGeneratorAnnotationLib(ResourceSet resourceSet) {
+		resourceSet.loadLib(at.ac.univie.swa.CmlLib.SOLIDITY_GENERATOR_ANNOTATION)
 	}
 	
 	def loadLib(ResourceSet resourceSet, String library) {

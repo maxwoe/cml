@@ -1,10 +1,4 @@
-namespace cml.lang.solidity
-
-@interface Ownable
-@interface PullPayment
-@interface SafeMath
-@interface FixedPointArithmetic
-	Integer decimals
+namespace cml.model.solidity
 
 contract SolidityContract
 	SolidityMessage msg
