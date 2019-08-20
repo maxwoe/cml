@@ -235,17 +235,15 @@ class CmlGenerator extends AbstractGenerator2 {
 		function clauseFulfilledTime(bytes32 _clauseId) internal returns (uint) {
 			uint max = 0;
 			«FOR clause : c.clauses»
-				«IF clause.constraint.temporal !== null && clause.constraint.temporal.reference instanceof ClauseQuery»
-					if (_clauseId == "«(clause.constraint.temporal.reference as ClauseQuery).clause.name»" && («(clause.constraint.temporal.reference as ClauseQuery).clause.action.compoundAction.compile»)) {
-						«var actions = clause.gatherActions»
-						«FOR a : actions»
-							if (max < «callTime(a)») {
-								max =  «callTime(a)»;
-							}
-						«ENDFOR»
-						return max;
-					}
-				«ENDIF»
+				if (_clauseId == "«clause.name»" && («clause.action.compoundAction.compile»)) {
+					«var actions = clause.action.compoundAction.eAllOfType(AtomicAction).map[operation.name]»
+					«FOR a : actions»
+						if (max < «callTime(a)») {
+							max =  «callTime(a)»;
+						}
+					«ENDFOR»
+					return max;
+				}
 	   		«ENDFOR»		      
 			return max;
 		}
@@ -289,13 +287,6 @@ class CmlGenerator extends AbstractGenerator2 {
 			callTime(reference.action.name)
 	}
 		
-	def gatherActions(Clause c) {
-		val tc = c.constraint.temporal
-		if (tc !== null) {
-			return (tc.reference as ClauseQuery).clause.action.compoundAction.eAllOfType(AtomicAction).map[operation.name]
-		} else return emptyList
-	}
-	
 	def temporalCheckReason(TemporalConstraint tc) {
 		if (tc.precedence.equals(TemporalPrecedence.AFTER) && !tc.closed)
 			"Function called too early"
