@@ -167,10 +167,17 @@ class CmlValidator extends AbstractCmlValidator {
 		}
 	}
 	
+//	@Check
+//	def void checkClauseQueryReference(ClauseQuery cq) {
+//		if (!cq.clause.action.deontic.equals(Deontic.MUST))
+//			error("Referred clause must use the deontic modality 'must'", CmlPackage.eINSTANCE.clauseQuery_Clause, WRONG_USAGE)
+//
+//	}
+	
 	@Check
 	def void checkDeonticMustDefinesTemporalConstraint(Clause c) {
 		if (c.action.deontic.equals(Deontic.MUST) && c.constraint.temporal === null) {
-			error("Modality 'must' requires a temporal constraint to be specified with 'due'", null, WRONG_USAGE)
+			error("Deontic modality 'must' requires a temporal constraint to be specified with 'due'", null, WRONG_USAGE)
 		}
 	}
 	

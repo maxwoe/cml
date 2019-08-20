@@ -1,6 +1,6 @@
 namespace cml.examples
 
-import cml.lang.solidity.*
+import cml.generator.annotation.solidity.*
 
 transaction InitTransaction
 	Duration biddingTime
@@ -24,18 +24,17 @@ contract SimpleAuction
 		party beneficiary
 		may withdrawPayment
 
-	init(InitTransaction tx)
-		biddingTime = tx.biddingTime
-		beneficiary = tx.beneficiary
+	init(InitTransaction t)
+		biddingTime = t.biddingTime
+		beneficiary = t.beneficiary
 
-	bid(TokenTransaction tx)
-		ensure(tx.amount > highestBid, "There already is a higher bid.")
-		caller.deposit(tx.amount)
+	bid(TokenTransaction t)
+		ensure(t.amount > highestBid, "There already is a higher bid.")
+		caller.deposit(t.amount)
 		if (highestBid != 0)
 			transfer(highestBidder, highestBid)
 		highestBidder = caller
-		highestBid = tx.amount
+		highestBid = t.amount
 
 	withdrawPayment()
 		beneficiary.withdraw(highestBid)
-		transfer(beneficiary, highestBid)

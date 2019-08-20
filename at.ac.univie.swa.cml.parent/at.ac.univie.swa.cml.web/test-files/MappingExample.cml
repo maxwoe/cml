@@ -1,28 +1,35 @@
 namespace cml.examples
 
-party User
+party Person
 	Integer age
-	
+
+party Customer extends Person
+	Integer customerId
+		
 asset Machine
-	Integer value
+	Number value
 	
 transaction Transaction
-	Integer parameter
+	Integer param1
+	Real param2
 
-event Event
-	DateTime timestamp
+event StatusChange
+	Status status
 
 enum Status
 	A B C
 
 contract MappingExample
-	User user
+	Customer customer
 	Machine machine
-	Event onEvent
+	StatusChange statusChange
 	Status status
+	DateTime deadline = 2021-01-01
+	Duration duration = 3 days
 
-	clause Clause
-		party anyone
-		may doAction
+	clause Clause_1
+		due before deadline
+		party customer
+		may doA
 
-	doAction(Transaction tx)
+	doA(Transaction t)

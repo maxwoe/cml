@@ -1,6 +1,6 @@
 namespace cml.examples
 
-import cml.lang.solidity.*
+import cml.generator.annotation.solidity.*
 
 transaction LockTimeTransaction
 	Duration duration
@@ -26,14 +26,15 @@ contract TimeLock
 		party vaultUser
 		may withdraw
 
-	deposit(TokenTransaction tx)
-		value = tx.amount
-		vaultUser = tx.sender
+	deposit(TokenTransaction t)
+		ensure(t.amount > 0, "Sent amount is invalid.")
+		value = t.amount
+		vaultUser = t.sender
 		vaultUser.deposit(value)
 		unlockDate = now.addDuration(2 minutes)
 		
-	increaseLockTime(LockTimeTransaction tx)
-		unlockDate = unlockDate.addDuration(tx.duration)
+	increaseLockTime(LockTimeTransaction t)
+		unlockDate = unlockDate.addDuration(t.duration)
 		
 	withdraw()
 		vaultUser.withdraw(value)

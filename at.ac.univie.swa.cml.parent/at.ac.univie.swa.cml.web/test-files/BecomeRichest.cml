@@ -1,8 +1,8 @@
 namespace cml.examples
 
-import cml.lang.solidity.*
+import cml.generator.annotation.solidity.*
 
-@Ownable @PullPayment
+@PullPayment
 contract BecomeRichest
 	Party richest
 	Number mostSent

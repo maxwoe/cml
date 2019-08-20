@@ -216,58 +216,69 @@ class CmlGenerator extends AbstractGenerator2 {
 		«ENDFOR»
 	'''
 
-	def compileClauseConstraints(CmlClass c)'''
-	function clauseAllowed(bytes32 _clauseId) internal returns (bool) {
-		«FOR clause : c.clauses»
-			if (_clauseId == "«clause.name»") {
-				«FOR constraint : clause.deriveConstraints»
-					require(«constraint.key»«IF !constraint.value.nullOrEmpty», "Referring to clause «clause.name»: «constraint.value»"«ENDIF»);
-				«ENDFOR»
-				return true;
-			}
-   		«ENDFOR»		      
-		return false;
-	}
-
-	'''
-
-	def compileClauseFulfilledTime(CmlClass c)'''
-	function clauseFulfilledTime(bytes32 _clauseId) internal returns (uint) {
-		uint max = 0;
-		«FOR clause : c.clauses»
-			«IF clause.constraint.temporal !== null && clause.constraint.temporal.reference instanceof ClauseQuery»
-				if (_clauseId == "«(clause.constraint.temporal.reference as ClauseQuery).clause.name»" && («(clause.constraint.temporal.reference as ClauseQuery).clause.action.compoundAction.compile»)) {
-					«clause.getTimestamps»
-					return max;
+	def compileClauseConstraints(CmlClass c) '''
+		function clauseAllowed(bytes32 _clauseId) internal returns (bool) {
+			«FOR clause : c.clauses»
+				if (_clauseId == "«clause.name»") {
+					«FOR constraint : clause.deriveConstraints»
+						require(«constraint.key»«IF !constraint.value.nullOrEmpty», "Referring to clause «clause.name»: «constraint.value»"«ENDIF»);
+					«ENDFOR»
+					return true;
 				}
-			«ENDIF»
-   		«ENDFOR»		      
-		return max;
-	}
-	
+	   		«ENDFOR»		      
+			return false;
+		}
+
 	'''
-	
-	def compileContractObeyed(CmlClass c)'''
-	function contractObeyed() internal returns (bool) {
-		«FOR clause : c.clauses.filter[action.deontic.equals(Deontic.MUST)]»
-			«val tc = clause.constraint.temporal»
-			if («IF !(tc.reference instanceof Expression)»«tc.reference.deriveCompletionTimestamp» != 0  && «ENDIF»now > «tc.completionTimestamp») {
-				require(«clause.action.compoundAction.compile», "CONTRACT BREACHED: Clause «clause.name» not fulfilled");
-			}
-   		«ENDFOR»		      
-		return true;
-	}
+
+	def compileClauseFulfilledTime(CmlClass c) '''
+		function clauseFulfilledTime(bytes32 _clauseId) internal returns (uint) {
+			uint max = 0;
+			«FOR clause : c.clauses»
+				«IF clause.constraint.temporal !== null && clause.constraint.temporal.reference instanceof ClauseQuery»
+					if (_clauseId == "«(clause.constraint.temporal.reference as ClauseQuery).clause.name»" && («(clause.constraint.temporal.reference as ClauseQuery).clause.action.compoundAction.compile»)) {
+						«var actions = clause.gatherActions»
+						«FOR a : actions»
+							if (max < «callTime(a)») {
+								max =  «callTime(a)»;
+							}
+						«ENDFOR»
+						return max;
+					}
+				«ENDIF»
+	   		«ENDFOR»		      
+			return max;
+		}
 
 	'''
 	
-	def completionTimestamp(TemporalConstraint tc) {
-		if(tc.precedence.equals(TemporalPrecedence.AFTER))
-			"DateTime.addDuration(" + tc.reference.deriveCompletionTimestamp + ", " + tc.timeframe.compile + ")"
-		else if (tc.precedence.equals(TemporalPrecedence.BEFORE))
-			tc.reference.deriveCompletionTimestamp
+	def compileContractObeyed(CmlClass c) '''
+		function contractObeyed() internal returns (bool) {
+			«FOR clause : c.clauses.filter[clause | clause.action.deontic.equals(Deontic.MUST) && !c.reparationClauses.exists[it === clause.name]]»
+				«val tc = clause.constraint.temporal»
+				if («IF !(tc.reference instanceof Expression)»«tc.reference.deriveReferenceCompletionTime» != 0  && «ENDIF»now > «tc.completionTime») {
+					require(«clause.action.compoundAction.compile», "CONTRACT BREACHED: Clause «clause.name» not fulfilled");
+				}
+	   		«ENDFOR»		      
+			return true;
+		}
+
+	'''
+	
+	def reparationClauses(CmlClass c) {
+		c.clauses.filter [it.constraint.temporal.reference instanceof ClauseQuery &&
+				(it.constraint.temporal.reference as ClauseQuery).status.equals(ClauseStatus.FAILED)
+		].map[(it.constraint.temporal.reference as ClauseQuery).clause.name]
 	}
 	
-	def String deriveCompletionTimestamp(EObject reference) {
+	def completionTime(TemporalConstraint tc) {
+		if(tc.precedence.equals(TemporalPrecedence.AFTER))
+			"DateTime.addDuration(" + tc.reference.deriveReferenceCompletionTime + ", " + tc.timeframe.compile + ")"
+		else if (tc.precedence.equals(TemporalPrecedence.BEFORE))
+			tc.reference.deriveReferenceCompletionTime
+	}
+	
+	def String deriveReferenceCompletionTime(EObject reference) {
 		if(reference instanceof Expression)
 			reference.compile
 		else if(reference instanceof ClauseQuery)
@@ -277,16 +288,7 @@ class CmlGenerator extends AbstractGenerator2 {
 		else if(reference instanceof ActionQuery)
 			callTime(reference.action.name)
 	}
-	
-	def getTimestamps(Clause c)'''
-		«var actions = c.gatherActions»
-		«FOR a : actions»
-			if (max < _callMonitor[«a.selector»].time) {
-				max =  _callMonitor[«a.selector»].time;
-			}
-		«ENDFOR»
-	'''
-	
+		
 	def gatherActions(Clause c) {
 		val tc = c.constraint.temporal
 		if (tc !== null) {
@@ -355,6 +357,7 @@ class CmlGenerator extends AbstractGenerator2 {
 				else
 					constraints.add(conditionalCheck(ref.clause.action.compoundAction.compile) -> "Clause " + ref.clause.name + " not fulfilled")	
 				
+				// TODO: temporal for failed case
 				if (tc.timeframe === null)
 					constraints.add(temporalCheck(tc.precedence, clauseFulfilledTime(ref.clause), "0", false) -> temporalCheckReason(tc))
 				else

@@ -1,0 +1,46 @@
+namespace cml.examples
+
+event ExternalEvent
+	Integer param
+	
+contract ClauseExample
+	ExternalEvent externalEvent
+		
+	clause Clause_1
+		due within 7 days after 2019-08-15
+		party anyone
+		must doA or doB
+	
+	clause Clause_2
+		due before clause Clause_1 fulfilled
+		party anyone
+		must doC and doD
+		
+	clause Clause_3
+		due within 1 days after clause Clause_2 fulfilled
+		party anyone
+		must doE
+
+	clause Clause_4
+		due within 30 minutes after event externalEvent
+		party anyone
+		must doF
+	
+	clause Clause_5
+		due before anyone did doE
+		party anyone
+		must doG
+	
+	doA()
+	
+	doB()
+	
+	doC()
+	
+	doD()
+	
+	doE()
+	
+	doF()
+	
+	doG()

@@ -1,6 +1,6 @@
 namespace cml.examples
 
-import cml.lang.solidity.*
+import cml.generator.annotation.solidity.*
 
 @SafeMath
 contract Counter
