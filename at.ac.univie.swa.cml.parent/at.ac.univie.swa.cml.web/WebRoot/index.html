@@ -37,6 +37,8 @@
                     syntaxDefinition: "xtext-resources/generated/mode-cml"
                 });
                 //editor.setTheme("ace/theme/monokai");
+                editor.setOption("showInvisibles", false);
+                editor.setOptions({ tabSize: 4, useSoftTabs: false });
 
                 editor.xtextServices.successListeners.push(function (serviceType, result) {
                     if (serviceType == 'validate' && result.issues.every(function (issue) { issue.severity != 'error' }) && editor.isFocused()) {
