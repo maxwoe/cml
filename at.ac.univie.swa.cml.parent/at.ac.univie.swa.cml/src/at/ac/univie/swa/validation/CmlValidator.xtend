@@ -35,6 +35,7 @@ import org.eclipse.xtext.validation.Check
 import org.eclipse.xtext.validation.CheckType
 
 import static extension org.eclipse.xtext.EcoreUtil2.*
+import at.ac.univie.swa.cml.AtomicAction
 
 /**
  * This class contains custom validation rules. 
@@ -161,8 +162,8 @@ class CmlValidator extends AbstractCmlValidator {
 	
 	@Check
 	def void checkDeonticMustTemporalConstraintRequirements(Clause c) {
-		if (c.action.deontic.equals(Deontic.MUST) && c.constraint.temporal.precedence.equals(TemporalPrecedence.AFTER) && !c.constraint.temporal.closed) {
-			error("Modality 'must' and temporal precedence 'after' requires a closed timeframe to be specified with 'within'", null,
+		if (c.action.deontic.equals(Deontic.MUST) && c.constraint.temporal.precedence.equals(TemporalPrecedence.AFTER) && c.constraint.temporal.timeframe === null) {
+			error("Modality 'must' and temporal precedence 'after' requires a timeframe to be specified with 'within'", null,
 				WRONG_USAGE)
 		}
 	}
@@ -312,9 +313,11 @@ class CmlValidator extends AbstractCmlValidator {
 				MISSING_INITZIALIZATION)
 	}
 	
+	
 	@Check
 	def void checkContractMethodArguments(Attribute a) {
-		if (a.eContainer instanceof Operation && a.eContainer.containingClass !== null && !a.inferType.subclassOfTransaction)
+		val allActions = a.eContainer.containingClass.clauses.flatMap[action.compoundAction.eAllOfType(AtomicAction).map[operation]].toSet
+		if (allActions.contains(a.eContainer) && a.eContainer.containingClass !== null && !a.inferType.subclassOfTransaction)
 			error("The attribute '" + a.name + "' is not a transaction", null,
 				INVALID_ARGS)
 	}

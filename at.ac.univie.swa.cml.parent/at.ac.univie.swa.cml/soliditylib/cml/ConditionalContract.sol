@@ -61,7 +61,19 @@ contract ConditionalContract {
 		}
 		return false;
 	}
+		
+	function callSuccess(bytes4 _selector) internal view returns (bool) {
+        return _callMonitor[_selector].success;
+    }
     
+    function callTime(bytes4 _selector) internal view returns (uint) {
+        return _callMonitor[_selector].time;
+    }
+    
+    function callCaller(bytes4 _selector) internal view returns (address) {
+        return _callMonitor[_selector].caller;
+    }
+	
 	function clauseAllowed(bytes32 _clauseId) internal returns(bool);
 	function clauseFulfilledTime(bytes32 _clauseId) internal returns(uint);
 	function contractObeyed() internal returns(bool);

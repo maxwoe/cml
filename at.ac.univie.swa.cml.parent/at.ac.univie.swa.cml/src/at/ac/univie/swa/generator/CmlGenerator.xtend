@@ -45,7 +45,6 @@ import at.ac.univie.swa.cml.PostfixExpression
 import at.ac.univie.swa.cml.RealLiteral
 import at.ac.univie.swa.cml.RelationalExpression
 import at.ac.univie.swa.cml.ReturnStatement
-import at.ac.univie.swa.cml.SeqCompoundAction
 import at.ac.univie.swa.cml.Statement
 import at.ac.univie.swa.cml.StringLiteral
 import at.ac.univie.swa.cml.SuperExpression
@@ -107,11 +106,11 @@ class CmlGenerator extends AbstractGenerator2 {
 		copyResource("openzeppelin/PullPayment.sol", fsa)
 		copyResource("openzeppelin/SafeMath.sol", fsa)
 		copyResource("openzeppelin/Secondary.sol", fsa)
-		copyResource("other/FPMath.sol", fsa)
-		copyResource("other/DateTime.sol", fsa)
-		copyResource("other/IntLib.sol", fsa)
-		copyResource("other/RealLib.sol", fsa)
-		copyResource("other/ConditionalContract.sol", fsa)
+		copyResource("cml/FPMath.sol", fsa)
+		copyResource("cml/DateTime.sol", fsa)
+		copyResource("cml/IntLib.sol", fsa)
+		copyResource("cml/RealLib.sol", fsa)
+		copyResource("cml/ConditionalContract.sol", fsa)
 		
 		for (p : resource.allContents.toIterable.filter(CmlProgram)) {
 			if (!p.contracts.empty) {
@@ -184,11 +183,11 @@ class CmlGenerator extends AbstractGenerator2 {
 			«IF ownable»import "./lib/openzeppelin/Ownable.sol";«ENDIF»
 			«IF pullPayment»import "./lib/openzeppelin/PullPayment.sol";«ENDIF»
 			«IF safeMath»import "./lib/openzeppelin/SafeMath.sol";«ENDIF»
-			«IF fixedPointArithmetic»import "./lib/other/FPMath.sol";«ENDIF»
-			import "./lib/other/ConditionalContract.sol";
-			import "./lib/other/DateTime.sol";
-			import "./lib/other/IntLib.sol";
-			import "./lib/other/RealLib.sol";
+			«IF fixedPointArithmetic»import "./lib/cml/FPMath.sol";«ENDIF»
+			import "./lib/cml/ConditionalContract.sol";
+			import "./lib/cml/DateTime.sol";
+			import "./lib/cml/IntLib.sol";
+			import "./lib/cml/RealLib.sol";
 			
 			contract «contract.name»«FOR a : contract.deriveInheritance BEFORE " is " SEPARATOR ", "»«a»«ENDFOR» {
 			
@@ -254,6 +253,7 @@ class CmlGenerator extends AbstractGenerator2 {
 		function contractObeyed() internal returns (bool) {
 			«FOR clause : c.clauses.filter[clause | clause.action.deontic.equals(Deontic.MUST) && !c.reparationClauses.exists[it === clause.name]]»
 				«val tc = clause.constraint.temporal»
+«««				TODO: ClauseQuery failed handling
 				if («IF !(tc.reference instanceof Expression)»«tc.reference.deriveReferenceCompletionTime» != 0  && «ENDIF»now > «tc.completionTime») {
 					require(«clause.action.compoundAction.compile», "CONTRACT BREACHED: Clause «clause.name» not fulfilled");
 				}
@@ -271,7 +271,7 @@ class CmlGenerator extends AbstractGenerator2 {
 	
 	def completionTime(TemporalConstraint tc) {
 		if(tc.precedence.equals(TemporalPrecedence.AFTER))
-			"DateTime.addDuration(" + tc.reference.deriveReferenceCompletionTime + ", " + tc.timeframe.compile + ")"
+			"DateTime.addDuration(" + tc.reference.deriveReferenceCompletionTime + ", " + tc.timeframe.window.compile + ")"
 		else if (tc.precedence.equals(TemporalPrecedence.BEFORE))
 			tc.reference.deriveReferenceCompletionTime
 	}
@@ -288,9 +288,9 @@ class CmlGenerator extends AbstractGenerator2 {
 	}
 		
 	def temporalCheckReason(TemporalConstraint tc) {
-		if (tc.precedence.equals(TemporalPrecedence.AFTER) && !tc.closed)
+		if (tc.precedence.equals(TemporalPrecedence.AFTER) && !tc.hasTimeFrame)
 			"Function called too early"
-		else if (tc.precedence.equals(TemporalPrecedence.BEFORE) && !tc.closed)
+		else if (tc.precedence.equals(TemporalPrecedence.BEFORE) && !tc.hasTimeFrame)
 			"Function called too late"
 		else "Function not called within expected timeframe"
 	}
@@ -304,19 +304,19 @@ class CmlGenerator extends AbstractGenerator2 {
 	}
 	
 	def callerCheck(String account) {
-		"onlyBy(" + account + ")"
+		"onlyBy(" + account + ".id" + ")"
 	}
 	
 	def callSuccess(String signature) {
-		"_callMonitor["+ signature.selector +"].success"
+		"callSuccess("+ signature.selector +")"
 	}
 	
 	def callTime(String signature) {
-		"_callMonitor["+ signature.selector +"].time"
+		"callTime("+ signature.selector +")"
 	}
 	
 	def callCaller(String signature) {
-		"_callMonitor["+ signature.selector +"].caller"
+		"callCaller("+ signature.selector +")"
 	}
 	
 	def selector(String signature) {
@@ -326,6 +326,10 @@ class CmlGenerator extends AbstractGenerator2 {
 	def clauseFulfilledTime(Clause clause) {
 		"clauseFulfilledTime(\"" + clause.name + "\")"
 	}
+	
+	def hasTimeFrame(TemporalConstraint tc) {
+		tc.timeframe !== null
+	}
 			
 	def deriveConstraints(Clause c) {
 		var constraints = newArrayList
@@ -333,14 +337,14 @@ class CmlGenerator extends AbstractGenerator2 {
 		val tc = c.constraint.temporal
 		val gc = c.constraint.general
 		if (party.name != "anyone")
-			constraints.add(callerCheck(party.name + ".id") -> "Caller not authorized")
+			constraints.add(callerCheck(party.name) -> "Caller not authorized")
 		if (tc !== null) {
 			val ref = tc.reference
 			if (ref instanceof Expression) {
 				if (tc.timeframe === null)
 					constraints.add(temporalCheck(tc.precedence, ref.compile, "0", false) -> temporalCheckReason(tc))
 				else
-					constraints.add(temporalCheck(tc.precedence, ref.compile, tc.timeframe.compile, tc.closed) -> temporalCheckReason(tc))
+					constraints.add(temporalCheck(tc.precedence, ref.compile, tc.timeframe.window.compile, tc.hasTimeFrame) -> temporalCheckReason(tc))
 			}
 			else if (ref instanceof ClauseQuery) {
 				if (ref.status.equals(ClauseStatus.FAILED) || tc.precedence.equals(TemporalPrecedence.BEFORE))
@@ -352,7 +356,7 @@ class CmlGenerator extends AbstractGenerator2 {
 				if (tc.timeframe === null)
 					constraints.add(temporalCheck(tc.precedence, clauseFulfilledTime(ref.clause), "0", false) -> temporalCheckReason(tc))
 				else
-					constraints.add(temporalCheck(tc.precedence, clauseFulfilledTime(ref.clause), tc.timeframe.compile, tc.closed) -> temporalCheckReason(tc))
+					constraints.add(temporalCheck(tc.precedence, clauseFulfilledTime(ref.clause), tc.timeframe.window.compile, tc.hasTimeFrame) -> temporalCheckReason(tc))
 			}
 			else if (ref instanceof EventQuery) {
 				if (tc.precedence.equals(TemporalPrecedence.AFTER))
@@ -363,7 +367,7 @@ class CmlGenerator extends AbstractGenerator2 {
 				if (tc.timeframe === null)
 					constraints.add(temporalCheck(tc.precedence, callTime(ref.event.name.concat("Event")), "0", false) -> temporalCheckReason(tc))
 				else
-					constraints.add(temporalCheck(tc.precedence, callTime(ref.event.name.concat("Event")), tc.timeframe.compile, tc.closed) -> temporalCheckReason(tc))
+					constraints.add(temporalCheck(tc.precedence, callTime(ref.event.name.concat("Event")), tc.timeframe.window.compile, tc.hasTimeFrame) -> temporalCheckReason(tc))
 			}
 			else if (ref instanceof ActionQuery) {
 				val actionParty = interceptAttribute(ref.party, null) ?: ref.party.name
@@ -381,7 +385,7 @@ class CmlGenerator extends AbstractGenerator2 {
 				if (tc.timeframe === null)
 					constraints.add(temporalCheck(tc.precedence, callTime(ref.action.name), "0", false) -> temporalCheckReason(tc))
 				else
-					constraints.add(temporalCheck(tc.precedence, callTime(ref.action.name), tc.timeframe.compile, tc.closed) -> temporalCheckReason(tc))
+					constraints.add(temporalCheck(tc.precedence, callTime(ref.action.name), tc.timeframe.window.compile, tc.hasTimeFrame) -> temporalCheckReason(tc))
 			}	
 		}
 		if (gc !== null)
@@ -556,11 +560,6 @@ class CmlGenerator extends AbstractGenerator2 {
 				val left = ca.left.compile
 				val right = ca.right.compile
 				left + " || " + right
-			}
-			SeqCompoundAction: {
-				val left = ca.left.compile
-				val right = ca.right.compile
-				left + " && " + right
 			}
 			AndCompoundAction: {
 				val left = ca.left.compile
@@ -763,7 +762,7 @@ class CmlGenerator extends AbstractGenerator2 {
 
 	def compile(TemporalConstraint tc) {
 		var modifiers = new LinkedHashMap<String, List<String>>()
-		if (tc.closed == false && tc.timeframe === null) {
+		if (tc.hasTimeFrame == false) {
 			if (tc.precedence == "after" && tc.reference instanceof Expression)
 				modifiers.put("onlyAfter", #[(tc.reference as Expression).compile, "0"])
 			if (tc.precedence == "before" && tc.reference instanceof Expression)
@@ -933,10 +932,14 @@ class CmlGenerator extends AbstractGenerator2 {
 		}
 	}
 
-	def interceptClass(CmlClass c, List<Expression> args, Expression reference) {
+	def interceptClass(CmlClass c, List<Expression> args, SymbolReference reference) {
 		switch (c) {
 			case c.conformsToError: {
 				args.get(0).compile
+			}
+			case c.subclassOfParty: {
+				args.remove(1)
+				reference.symbol.name + "(" + args.map[compile].join(", ") + ")"
 			}
 		}
 	}
@@ -967,7 +970,7 @@ class CmlGenerator extends AbstractGenerator2 {
 				}
 			} else if (c.conformsToTokenTransaction) {
 				switch (a.name) {
-					case "amount": "msg.value"
+					case "amount": if (reference === null) "" else "msg.value"
 				}
 			}
 		}

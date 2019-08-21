@@ -189,7 +189,7 @@ class CmlTypeProvider {
 			TemporalConstraint case f == ep.temporalConstraint_Reference:
 				DATETIME_TYPE
 			PeriodicTime case f == ep.periodicTime_Period,
-			TemporalConstraint case f == ep.temporalConstraint_Timeframe:
+			TemporalConstraint case f == ep.timeframe_Window:
 				DURATION_TYPE
 			Attribute case f == ep.attribute_Expression:
 				c.type.inferType

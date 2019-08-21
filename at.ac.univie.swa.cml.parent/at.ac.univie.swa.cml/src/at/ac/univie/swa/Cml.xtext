@@ -118,9 +118,12 @@ Constraint:
 	{Constraint} temporal=TemporalConstraint? general=GeneralConstraint?;
 
 TemporalConstraint:
-	'due' closed?='within'? timeframe=Expression? period=PeriodicTime? precedence=TemporalPrecedence reference=(TimeQuery
+	'due' timeframe=Timeframe? period=PeriodicTime? precedence=TemporalPrecedence reference=(TimeQuery
 	| Expression);
 
+Timeframe:
+	'within' window=Expression;
+	
 GeneralConstraint:
 	'given' expression=Expression;
 
@@ -140,10 +143,7 @@ XorCompoundAction returns CompoundAction:
 	OrCompoundAction (=> ({XorCompoundAction.left=current} op='xor') right=OrCompoundAction)*;
 
 OrCompoundAction returns CompoundAction:
-	SeqCompoundAction ({OrCompoundAction.left=current} op=('or') right=SeqCompoundAction)*;
-
-SeqCompoundAction returns CompoundAction:
-	AndCompoundAction ({SeqCompoundAction.left=current} op=('then') right=AndCompoundAction)*;
+	AndCompoundAction ({OrCompoundAction.left=current} op=('or') right=AndCompoundAction)*;
 
 AndCompoundAction returns CompoundAction:
 	PrimaryCompoundAction ({AndCompoundAction.left=current} op=('and') right=PrimaryCompoundAction)*;
