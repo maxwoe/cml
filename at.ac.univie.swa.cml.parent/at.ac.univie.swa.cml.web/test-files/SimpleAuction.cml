@@ -6,7 +6,7 @@ transaction InitTransaction
 	Duration biddingTime
 	Party beneficiary
 
-@Ownable @PullPayment
+@Ownership @PullPayment
 contract SimpleAuction
 	Number highestBid
 	Party highestBidder

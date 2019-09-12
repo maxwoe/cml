@@ -1,6 +1,6 @@
 namespace cml.generator.annotation.solidity
 
-@interface Ownable
+@interface Ownership
 @interface PullPayment
 @interface SafeMath
 @interface FixedPointArithmetic

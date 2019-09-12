@@ -21,7 +21,6 @@ import at.ac.univie.swa.cml.ClauseStatus
 import at.ac.univie.swa.cml.CmlClass
 import at.ac.univie.swa.cml.CmlProgram
 import at.ac.univie.swa.cml.CompoundAction
-import at.ac.univie.swa.cml.Constraint
 import at.ac.univie.swa.cml.DateTimeLiteral
 import at.ac.univie.swa.cml.Deontic
 import at.ac.univie.swa.cml.DoWhileStatement
@@ -220,7 +219,7 @@ class CmlGenerator extends AbstractGenerator2 {
 			«FOR clause : c.clauses»
 				if (_clauseId == "«clause.name»") {
 					«FOR constraint : clause.deriveConstraints»
-						require(«constraint.key»«IF !constraint.value.nullOrEmpty», "Referring to clause «clause.name»: «constraint.value»"«ENDIF»);
+						require(«constraint.key»«IF !constraint.value.nullOrEmpty», "«constraint.value»"«ENDIF»);
 					«ENDFOR»
 					return true;
 				}
@@ -609,40 +608,14 @@ class CmlGenerator extends AbstractGenerator2 {
 		«ENDFOR»
 	'''
 	
-	def resolvePath(FeatureSelection fs) {
-		val list = newLinkedList
-		list.add(fs.feature)
-		var current = fs.receiver
-		while (current !== null) {
-			if (current instanceof FeatureSelection) {
-				list.add(current.feature)
-				current = current.receiver
-			} else if (current instanceof SymbolReference) {
-				list.add(current.symbol)
-				current = null
-			} else {
-				current = null
-			}
-		}
-		list
-	}
-	
-	def resolvePath(Expression e) {
-		if (e instanceof FeatureSelection) {
-			e.resolvePath
-		} else if (e instanceof SymbolReference) {
-			#[e.symbol]
-		}
-	}
-	
 	def payable(Operation o) {
 		o.eAllOfType(Statement).filter(FeatureSelection)?.filter[opCall && feature instanceof Operation]?.map[feature]?.
 			findFirst[containingClass.conformsToParty && name == "deposit"] !== null
 	}
 	
-	def modifiesStateAttributes(Operation o) {
-		!o.eAllOfType(AssignmentExpression).map[left].filter(SymbolReference).map[symbol].filter(Attribute).filter[!static].empty
-	}
+//	def modifiesStateAttributes(Operation o) {
+//		!o.eAllOfType(AssignmentExpression).map[left].filter(SymbolReference).map[symbol].filter(Attribute).filter[!static].empty
+//	}
 	
 	def List<String> deriveAnnotations(Operation o) {
 		var list = newArrayList
@@ -651,8 +624,8 @@ class CmlGenerator extends AbstractGenerator2 {
 			list.add("payable")
 		else if (o.static) 
 			list.add("pure")
-		//else if (!o.modifiesStateAttributes)
-		//	list.add("view")
+//		else if (!o.modifiesStateAttributes) // TODO
+//			list.add("view")
 		list
 	}
 
@@ -742,31 +715,6 @@ class CmlGenerator extends AbstractGenerator2 {
 					case t.conformsToNumber: "uint"
 					default: t.name
 				}
-		}
-	}
-
-	def compile(Constraint a, Clause c) '''
-		// @notice modifier for clause «c.name»
-		modifier guard() {
-			«IF a.temporal !== null»require(«a.temporal.compile»)«ENDIF»;
-			require(«a.general.expression.compile»); _;
-		}
-	'''
-
-	def compileModifier(Expression e) '''
-		// @notice modifier for function «e.containingOperation.name»
-		modifier guard_«e.containingOperation.name»() {
-			require(«e.compile»); _;
-		}
-	'''
-
-	def compile(TemporalConstraint tc) {
-		var modifiers = new LinkedHashMap<String, List<String>>()
-		if (tc.hasTimeFrame == false) {
-			if (tc.precedence == "after" && tc.reference instanceof Expression)
-				modifiers.put("onlyAfter", #[(tc.reference as Expression).compile, "0"])
-			if (tc.precedence == "before" && tc.reference instanceof Expression)
-				modifiers.put("onlyBefore", #[(tc.reference as Expression).compile, "0"])
 		}
 	}
 
@@ -893,6 +841,32 @@ class CmlGenerator extends AbstractGenerator2 {
 
 	def fixedPointRepresentation(BigDecimal b) {
 		b.scaleByPowerOfTen(fixedPointDecimals).toString().replace("E+", "E")
+	}
+	
+	def resolvePath(FeatureSelection fs) {
+		val list = newLinkedList
+		list.add(fs.feature)
+		var current = fs.receiver
+		while (current !== null) {
+			if (current instanceof FeatureSelection) {
+				list.add(current.feature)
+				current = current.receiver
+			} else if (current instanceof SymbolReference) {
+				list.add(current.symbol)
+				current = null
+			} else {
+				current = null
+			}
+		}
+		list
+	}
+	
+	def resolvePath(Expression e) {
+		if (e instanceof FeatureSelection) {
+			e.resolvePath
+		} else if (e instanceof SymbolReference) {
+			#[e.symbol]
+		}
 	}
  	
 	def compile(FeatureSelection fs) {
