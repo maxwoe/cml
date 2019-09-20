@@ -36,6 +36,7 @@ class CmlLib {
 	public val static LIB_TOKEN_HOLDER = LIB_PACKAGE + ".TokenHolder"
 	public val static LIB_TOKEN_TRANSACTION = LIB_PACKAGE + ".TokenTransaction"
 	
+	public val static LIB_MAP = LIB_PACKAGE + ".Map"
 
 	static final Logger LOG = Logger.getLogger(CmlLib);
 	

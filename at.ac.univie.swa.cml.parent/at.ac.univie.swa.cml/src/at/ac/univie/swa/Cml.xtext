@@ -16,7 +16,7 @@ Declaration:
 	AnnotationDeclaration;
 
 CmlClass:
-	(abstract?='abstract')? kind='concept' name=ID ('extends' superclass=[CmlClass|QualifiedName])?
+	(abstract?='abstract')? kind='concept' name=ID ('<' typeVars+=TypeVar (',' typeVars+=TypeVar)* '>')? ('extends' superclass=[CmlClass|QualifiedName])?
 	(BEGIN
 	features+=FeatureAttributeAndOperation*
 	END)?;
@@ -76,7 +76,16 @@ AnnotationElement:
 
 Type:
 	CmlClass;
+	
+TypeRef:
+	Type | TypeVar;
 
+TypeVar:
+	name=ID;
+	
+TypeVarType returns TypeVar:
+	{TypeVar} type=[CmlClass|QualifiedName];
+	
 NamedElement:
 	CmlProgram | CmlClass | Feature | VariableDeclaration | AnnotationDeclaration;
 
@@ -96,13 +105,22 @@ FeatureEnumeration returns Feature:
 	EnumerationElement;
 
 fragment TypedDeclaration *:
-	type=[CmlClass|QualifiedName] name=ID;
+	type=Container name=ID;
 
+Container:
+	Primitive | Map;
+
+Primitive:
+	type=[CmlClass|QualifiedName];
+
+Map:
+	mapType=[CmlClass|QualifiedName] '<' key=[TypeRef|QualifiedName] ',' type=[TypeRef|QualifiedName]'>';	
+	
 Attribute:
 	(constant?='constant')? TypedDeclaration ('=' expression=Expression)?;
 
 Operation:
-	(type=[CmlClass|QualifiedName])? name=ID
+	(type=Container)? name=ID
 	'(' (params+=Attribute (',' params+=Attribute)*)? ')'
 	(body=Block)?;
 
@@ -232,8 +250,8 @@ Expression:
 	AssignmentExpression;
 
 AssignmentExpression returns Expression:
-	OrExpression ({AssignmentExpression.left=current} '=' right=Expression)?;
-
+	OrExpression ({AssignmentExpression.left=current} op=('=' | '+=' | '-=') right=Expression)?;
+	
 OrExpression returns Expression:
 	AndExpression (=> ({OrExpression.left=current} op='or') right=AndExpression)*;
 

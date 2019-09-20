@@ -47,9 +47,9 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 		} else if (context instanceof FeatureSelection) {
 			return scopeForFeatureSelection(context)
 		} else if (reference == CmlPackage.Literals.ACTOR__PARTY || reference == CmlPackage.Literals.ACTION_QUERY__PARTY) {
-			return scopeForAttributeRef(context, [Attribute a | !a.type.eIsProxy && (a.type.conformsToParty || a.type.subclassOfParty)])
+			return scopeForAttributeRef(context, [Attribute a | !a.type.eIsProxy && (a.type.inferType.conformsToParty || a.type.inferType.subclassOfParty)])
 		} else if (reference == CmlPackage.Literals.EVENT_QUERY__EVENT) {
-			return scopeForAttributeRef(context, [Attribute a | !a.type.eIsProxy && (a.type.conformsToEvent || a.type.subclassOfEvent)])
+			return scopeForAttributeRef(context, [Attribute a | !a.type.eIsProxy && (a.type.inferType.conformsToEvent || a.type.inferType.subclassOfEvent)])
 		} else if (reference == CmlPackage.Literals.ANNOTATION_ELEMENT__PARAM) {
 			return scopeForAnnotationParamRef(context, reference)
 		}
@@ -101,7 +101,7 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 
 	def protected IScope scopeForFeatureSelection(FeatureSelection fs) {
 		var type = fs.receiver.typeFor
-
+		
 		if (type === null || type.isPrimitive)
 			return IScope.NULLSCOPE
 

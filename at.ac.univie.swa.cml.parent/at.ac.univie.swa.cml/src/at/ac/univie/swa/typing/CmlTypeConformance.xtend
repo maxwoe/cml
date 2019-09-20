@@ -173,4 +173,9 @@ class CmlTypeConformance {
 	def isSubclassOf(CmlClass c1, CmlClass c2) {
 		c1.classHierarchy.contains(c2)
 	}
+	
+	def conformsToMap(CmlClass c) {
+		c.fullyQualifiedName.toString == CmlLib::LIB_MAP
+	}
+	
 }

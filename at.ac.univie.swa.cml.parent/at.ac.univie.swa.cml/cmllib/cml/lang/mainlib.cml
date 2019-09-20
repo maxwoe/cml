@@ -66,3 +66,11 @@ concept Error extends Any
 ensure(Boolean c, String m)
 	if(!c)
 		throw Error(m)
+concept Map<K,V> extends Any
+	Integer size()
+	Boolean isEmpty()
+	Boolean containsKey(K key)
+	clear()
+	add(K key, V value) 
+	rmv(K key)
+	V get(K key)

@@ -154,13 +154,13 @@ class CmlTypeProvider {
 				val symbol = c.symbol
 				if (symbol instanceof Operation) {
 					try {
-						symbol.params.get(c.args.indexOf(e)).type
+						symbol.params.get(c.args.indexOf(e)).type.inferType
 					} catch (Throwable t) {
 						null // otherwise there is no specific expected type
 					}
 				} else if (symbol instanceof CmlClass) {
 					try {
-						symbol.classHierarchyAttributes.values.get(c.args.indexOf(e)).type
+						symbol.classHierarchyAttributes.values.get(c.args.indexOf(e)).type.inferType
 					} catch (Throwable t) {
 						null // otherwise there is no specific expected type
 					}
@@ -181,9 +181,9 @@ class CmlTypeProvider {
 			MultiplicativeExpression case f == ep.multiplicativeExpression_Right:
 				c.left.typeFor
 			VariableDeclaration:
-				c.type
+				c.type.inferType
 			ReturnStatement:
-				c.containingOperation.type
+				c.containingOperation.type.inferType
 			PeriodicTime case f == ep.periodicTime_Start,
 			PeriodicTime case f == ep.periodicTime_End,
 			TemporalConstraint case f == ep.temporalConstraint_Reference:
@@ -203,14 +203,14 @@ class CmlTypeProvider {
 				// assume that it refers to a method and that there
 				// is a parameter corresponding to the argument
 				try {
-					(c.feature as Operation).params.get(c.args.indexOf(e)).type
+					(c.feature as Operation).params.get(c.args.indexOf(e)).type.inferType
 				} catch (Throwable t) {
 					null // otherwise there is no specific expected type
 				}
 			}
 			AnnotationElement case f == ep.annotationElement_Value: {
 				try {
-					(c.eContainer as Annotation).declaration.features.findFirst[it.name == c.param.name].type
+					(c.eContainer as Annotation).declaration.features.findFirst[it.name == c.param.name].type.inferType
 				} catch (Throwable t) {
 					null // otherwise there is no specific expected type
 				}
@@ -218,10 +218,6 @@ class CmlTypeProvider {
 			NestedExpression:
 				c.child.typeFor
 		}
-	}
-
-	def isPrimitive(Type c) {
-		c instanceof CmlClass && (c as CmlClass).eResource === null
 	}
 
 	def getSuperclassOrObject(CmlClass c) {

@@ -7,9 +7,11 @@ import at.ac.univie.swa.CmlModelUtil
 import at.ac.univie.swa.cml.Annotation
 import at.ac.univie.swa.cml.AnnotationDeclaration
 import at.ac.univie.swa.cml.AssignmentExpression
+import at.ac.univie.swa.cml.AtomicAction
 import at.ac.univie.swa.cml.Attribute
 import at.ac.univie.swa.cml.Block
 import at.ac.univie.swa.cml.Clause
+import at.ac.univie.swa.cml.ClauseQuery
 import at.ac.univie.swa.cml.Closure
 import at.ac.univie.swa.cml.CmlClass
 import at.ac.univie.swa.cml.CmlPackage
@@ -35,7 +37,6 @@ import org.eclipse.xtext.validation.Check
 import org.eclipse.xtext.validation.CheckType
 
 import static extension org.eclipse.xtext.EcoreUtil2.*
-import at.ac.univie.swa.cml.AtomicAction
 
 /**
  * This class contains custom validation rules. 
@@ -90,7 +91,7 @@ class CmlValidator extends AbstractCmlValidator {
 
 	@Check
 	def void checkSuperclass(CmlClass c) {
-		val expectedType = c.type
+		val expectedType = c.resolveImplClass
 		val actualType = c.superclass
 		if (expectedType === null || actualType === null)
 			return; // nothing to check
@@ -168,12 +169,12 @@ class CmlValidator extends AbstractCmlValidator {
 		}
 	}
 	
-//	@Check
-//	def void checkClauseQueryReference(ClauseQuery cq) {
-//		if (!cq.clause.action.deontic.equals(Deontic.MUST))
-//			error("Referred clause must use the deontic modality 'must'", CmlPackage.eINSTANCE.clauseQuery_Clause, WRONG_USAGE)
-//
-//	}
+	@Check
+	def void checkClauseQueryReference(ClauseQuery cq) {
+		if (!cq.clause.action.deontic.equals(Deontic.MUST))
+			error("Referred clause must use the deontic modality 'must'", CmlPackage.eINSTANCE.clauseQuery_Clause, WRONG_USAGE)
+
+	}
 	
 	@Check
 	def void checkDeonticMustDefinesTemporalConstraint(Clause c) {

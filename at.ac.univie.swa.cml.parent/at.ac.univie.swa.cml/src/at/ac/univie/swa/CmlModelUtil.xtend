@@ -1,30 +1,39 @@
 package at.ac.univie.swa
 
+import at.ac.univie.swa.cml.Annotation
+import at.ac.univie.swa.cml.AnnotationDeclaration
 import at.ac.univie.swa.cml.Attribute
 import at.ac.univie.swa.cml.Block
-import at.ac.univie.swa.cml.CmlClass
 import at.ac.univie.swa.cml.Clause
+import at.ac.univie.swa.cml.CmlClass
 import at.ac.univie.swa.cml.CmlProgram
+import at.ac.univie.swa.cml.Container
 import at.ac.univie.swa.cml.EnumerationElement
 import at.ac.univie.swa.cml.Feature
+import at.ac.univie.swa.cml.Map
 import at.ac.univie.swa.cml.NamedElement
 import at.ac.univie.swa.cml.Operation
+import at.ac.univie.swa.cml.Primitive
 import at.ac.univie.swa.cml.ReturnStatement
 import at.ac.univie.swa.cml.SwitchStatement
 import at.ac.univie.swa.cml.SymbolReference
+import at.ac.univie.swa.cml.Type
+import at.ac.univie.swa.cml.TypeRef
+import at.ac.univie.swa.cml.TypeVar
 import at.ac.univie.swa.cml.VariableDeclaration
+import at.ac.univie.swa.typing.CmlTypeConformance
 import at.ac.univie.swa.typing.CmlTypeProvider
 import com.google.inject.Inject
+import org.eclipse.emf.common.util.URI
 import org.eclipse.emf.ecore.EObject
 import org.eclipse.xtext.naming.IQualifiedNameProvider
 
 import static extension org.eclipse.xtext.EcoreUtil2.*
-import at.ac.univie.swa.cml.Annotation
-import at.ac.univie.swa.cml.AnnotationDeclaration
 
 class CmlModelUtil {
 
 	@Inject extension CmlLib
+	@Inject extension CmlTypeConformance
 	@Inject extension IQualifiedNameProvider
 
 	def returnStatement(Operation o) {
@@ -185,26 +194,79 @@ class CmlModelUtil {
 
 	def featureAsString(Feature f) {
 		f.name + if (f instanceof Operation)
-			"(" + f.params.map[type.name].join(", ") + ")"
+			"(" + f.params.map[type.inferType.typeName].join(", ") + ")"
 		else
 			""
 	}
 
 	def featureAsStringWithType(Feature f) {
-		f.featureAsString + " : " + f.inferType.name
+		f.featureAsString + " : " + f.inferType.typeName
 	}
-
+	
+	def typeName(Type t) {
+		switch (t) {
+			CmlClass:
+				switch (t) {
+					case t.conformsToMap: t.name + "<" + t.typeVars.map[type?.inferType.name].join(", ") + ">"
+					default: t.name
+				}
+		}
+	}
+	
+	def toClass(TypeRef t) {
+		switch (t) {
+			Type:
+				switch (t) {
+					CmlClass: t
+					default: CmlTypeProvider.NULL_TYPE
+				}
+			TypeVar: {
+				t.type.inferType
+			}
+			default:
+				CmlTypeProvider.NULL_TYPE
+		}
+	}
+	
+	def getResource(EObject context, URI uri) {
+		val rs = context.eResource().getResourceSet()
+		var r = rs.getResource(uri, false)
+		if (r === null)
+			r = rs.createResource(uri)
+		r
+	}
+	
+	def CmlClass inferType(Container c) {
+		switch (c) {
+			Primitive:
+				return c.type.toClass
+			Map: {
+				var clazz = c.mapType.toClass
+				switch (clazz) {
+					case clazz.conformsToMap: {
+						clazz.typeVars.get(0).type = c.key.toClass
+						clazz.typeVars.get(1).type = c.type.toClass
+						return clazz
+					}
+				}
+				return clazz
+			}
+			default:
+				CmlTypeProvider.NULL_TYPE
+		}
+	}
+	
 	def CmlClass inferType(NamedElement ne) {
 		switch (ne) {
-			Attribute: ne.type
-			Operation: ne.type ?: CmlTypeProvider.VOID_TYPE
+			Attribute: ne.type.inferType
+			Operation: ne.type.inferType != CmlTypeProvider.NULL_TYPE ? ne.type.inferType : CmlTypeProvider.VOID_TYPE
 			EnumerationElement: ne.containingClass
-			VariableDeclaration: ne.type
+			VariableDeclaration: ne.type.inferType
 			CmlClass: ne
 		}
 	}
 	
-	def type(CmlClass c) {
+	def resolveImplClass(CmlClass c) {
 		switch (c) {
 			case c.isParty: c.cmlPartyClass
 			case c.isAsset: c.cmlAssetClass
@@ -225,7 +287,7 @@ class CmlModelUtil {
 			current = current.superclass
 		}
 		
-		current = c.type
+		current = c.resolveImplClass
 		
 		while (current !== null && !visited.contains(current)) {
 			visited.add(current)
@@ -257,6 +319,10 @@ class CmlModelUtil {
 		hierarchy.add(c)
 		hierarchy.addAll(c.classHierarchyWithRoot)
 		hierarchy.toList.reverseView.map[attributes].flatten.toMap[name]
+	}
+	
+	def isPrimitive(Type t) {
+		t instanceof CmlClass && (t as CmlClass).eResource === null
 	}
 	
 	def signature(NamedElement ne) {
