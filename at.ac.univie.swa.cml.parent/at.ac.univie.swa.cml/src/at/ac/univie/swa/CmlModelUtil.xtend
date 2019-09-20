@@ -7,19 +7,15 @@ import at.ac.univie.swa.cml.Block
 import at.ac.univie.swa.cml.Clause
 import at.ac.univie.swa.cml.CmlClass
 import at.ac.univie.swa.cml.CmlProgram
-import at.ac.univie.swa.cml.Container
 import at.ac.univie.swa.cml.EnumerationElement
 import at.ac.univie.swa.cml.Feature
-import at.ac.univie.swa.cml.Map
 import at.ac.univie.swa.cml.NamedElement
 import at.ac.univie.swa.cml.Operation
-import at.ac.univie.swa.cml.Primitive
 import at.ac.univie.swa.cml.ReturnStatement
 import at.ac.univie.swa.cml.SwitchStatement
 import at.ac.univie.swa.cml.SymbolReference
 import at.ac.univie.swa.cml.Type
 import at.ac.univie.swa.cml.TypeRef
-import at.ac.univie.swa.cml.TypeVar
 import at.ac.univie.swa.cml.VariableDeclaration
 import at.ac.univie.swa.typing.CmlTypeConformance
 import at.ac.univie.swa.typing.CmlTypeProvider
@@ -29,6 +25,9 @@ import org.eclipse.emf.ecore.EObject
 import org.eclipse.xtext.naming.IQualifiedNameProvider
 
 import static extension org.eclipse.xtext.EcoreUtil2.*
+import at.ac.univie.swa.cml.TypeVariable
+import java.util.HashMap
+import java.util.LinkedHashMap
 
 class CmlModelUtil {
 
@@ -194,7 +193,7 @@ class CmlModelUtil {
 
 	def featureAsString(Feature f) {
 		f.name + if (f instanceof Operation)
-			"(" + f.params.map[type.inferType.typeName].join(", ") + ")"
+			"(" + f.params.map[declaredType.type.inferType.typeName].join(", ") + ")"
 		else
 			""
 	}
@@ -207,24 +206,18 @@ class CmlModelUtil {
 		switch (t) {
 			CmlClass:
 				switch (t) {
-					case t.conformsToMap: t.name + "<" + t.typeVars.map[type?.inferType.name].join(", ") + ">"
+					//case t.conformsToMap: t.name + "<" + t.typeVars.map[type?.inferType.name].join(", ") + ">"
 					default: t.name
 				}
 		}
 	}
+	var keyValueMap = new LinkedHashMap<String,Type>()
 	
-	def toClass(TypeRef t) {
-		switch (t) {
-			Type:
-				switch (t) {
-					CmlClass: t
-					default: CmlTypeProvider.NULL_TYPE
-				}
-			TypeVar: {
-				t.type.inferType
-			}
-			default:
-				CmlTypeProvider.NULL_TYPE
+	def inferType(EObject e) {
+		switch (e) {
+			Type: e
+			TypeVariable: /*keyValueMap.get(e.name)*/e.cmlAnyClass
+			default: CmlTypeProvider.NULL_TYPE
 		}
 	}
 	
@@ -235,33 +228,21 @@ class CmlModelUtil {
 			r = rs.createResource(uri)
 		r
 	}
-	
-	def CmlClass inferType(Container c) {
-		switch (c) {
-			Primitive:
-				return c.type.toClass
-			Map: {
-				var clazz = c.mapType.toClass
-				switch (clazz) {
-					case clazz.conformsToMap: {
-						clazz.typeVars.get(0).type = c.key.toClass
-						clazz.typeVars.get(1).type = c.type.toClass
-						return clazz
-					}
-				}
-				return clazz
-			}
-			default:
-				CmlTypeProvider.NULL_TYPE
-		}
-	}
-	
-	def CmlClass inferType(NamedElement ne) {
+		
+	def inferType(NamedElement ne) {
 		switch (ne) {
-			Attribute: ne.type.inferType
-			Operation: ne.type.inferType != CmlTypeProvider.NULL_TYPE ? ne.type.inferType : CmlTypeProvider.VOID_TYPE
+			Attribute: {
+				//ne.declaredType?.typeArgs?.map[type].forEach[println(it)]
+				/*if (ne.declaredType?.typeArgs?.map[type] !== null) {
+				keyValueMap.put("K", ne.declaredType.typeArgs?.map[type]?.get(0) as Type)
+				keyValueMap.put("V", ne.declaredType.typeArgs?.map[type]?.get(1) as Type)
+				}*/
+				//println(ne.declaredType.typeArgs.map[type]) 
+				ne.declaredType.type.inferType
+			}
+			Operation: ne.declaredType?.type.inferType != CmlTypeProvider.NULL_TYPE ? ne.declaredType?.type.inferType : CmlTypeProvider.VOID_TYPE
 			EnumerationElement: ne.containingClass
-			VariableDeclaration: ne.type.inferType
+			VariableDeclaration: ne.declaredType.type.inferType
 			CmlClass: ne
 		}
 	}
@@ -325,20 +306,4 @@ class CmlModelUtil {
 		t instanceof CmlClass && (t as CmlClass).eResource === null
 	}
 	
-	def signature(NamedElement ne) {
-		val sb = new StringBuilder();
-		if (ne instanceof Operation) {
-			sb.append(ne.name)
-			if (!ne.params.empty)
-				sb.append("(")
-			for (param : ne.params) {
-				sb.append(param.type.fullyQualifiedName)
-				sb.append(";")
-			}
-			if (!ne.params.empty)
-				sb.append(")")
-			sb.append(ne.inferType.fullyQualifiedName)
-		}
-		sb.toString
-	}
 }

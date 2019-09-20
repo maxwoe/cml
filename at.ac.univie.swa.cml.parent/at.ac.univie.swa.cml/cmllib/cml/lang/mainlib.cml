@@ -1,21 +1,21 @@
 namespace cml.lang
 
 concept Any
-	String toString()
+	fun String toString()
 concept Participant extends Any
 	String id
 concept TokenHolder extends Participant
 	Token token
 concept Party extends TokenHolder
-	deposit(Number n)
-	withdraw(Number n)
+	fun deposit(Number n)
+	fun withdraw(Number n)
 concept Contract extends TokenHolder
 	Party anyone
 	Party caller
 	DateTime now
 	DateTime contractStart
 	DateTime contractEnd
-	transfer(TokenHolder th, Number n)
+	fun transfer(TokenHolder th, Number n)
 concept Asset extends Any
 	String id
 	Number quantity
@@ -29,48 +29,48 @@ concept Enum extends Any
 concept String extends Any
 concept Boolean extends Any
 abstract concept Number extends Any
-	Real toReal()
-	Integer toInteger()
+	fun Real toReal()
+	fun Integer toInteger()
 concept Integer extends Number
-	Integer average(Integer i)
-	Integer max(Integer i)
-	Integer min(Integer i)
+	fun Integer average(Integer i)
+	fun Integer max(Integer i)
+	fun Integer min(Integer i)
 concept Real extends Number
-	Real max(Real i)
-	Real min(Real i)
-	Real sqrt()
-	Real ceil()
-	Real floor()
+	fun Real max(Real i)
+	fun Real min(Real i)
+	fun Real sqrt()
+	fun Real ceil()
+	fun Real floor()
 concept DateTime extends Any
-	Boolean isBefore(DateTime d)
-	Boolean isAfter(DateTime d)
-	Integer second()
-	Integer minute()
-	Integer hour()
-	Integer day()
-	Integer week()
-	Boolean equals(DateTime d)
-	DateTime addDuration(Duration d)
-	DateTime subtractDuration(Duration d)
-	Duration durationBetween(DateTime d)
+	fun Boolean isBefore(DateTime d)
+	fun Boolean isAfter(DateTime d)
+	fun Integer second()
+	fun Integer minute()
+	fun Integer hour()
+	fun Integer day()
+	fun Integer week()
+	fun Boolean equals(DateTime d)
+	fun DateTime addDuration(Duration d)
+	fun DateTime subtractDuration(Duration d)
+	fun Duration durationBetween(DateTime d)
 concept Duration extends Any
-	Duration toSeconds()
-	Duration toMinutes()
-	Duration toHours()
-	Duration toDays()
-	Duration toWeeks()
-	Duration addDuration(Duration d)
-	Duration subtractDuration(Duration d)
+	fun Duration toSeconds()
+	fun Duration toMinutes()
+	fun Duration toHours()
+	fun Duration toDays()
+	fun Duration toWeeks()
+	fun Duration addDuration(Duration d)
+	fun Duration subtractDuration(Duration d)
 concept Error extends Any
 	String message	
-ensure(Boolean c, String m)
+fun ensure(Boolean c, String m)
 	if(!c)
 		throw Error(m)
 concept Map<K,V> extends Any
-	Integer size()
-	Boolean isEmpty()
-	Boolean containsKey(K key)
-	clear()
-	add(K key, V value) 
-	rmv(K key)
-	V get(K key)
+	fun Integer size()
+	fun Boolean isEmpty()
+	fun Boolean containsKey(K key)
+	fun clear()
+	fun add(K key, V value) 
+	fun rmv(K key)
+	fun V get(K key)

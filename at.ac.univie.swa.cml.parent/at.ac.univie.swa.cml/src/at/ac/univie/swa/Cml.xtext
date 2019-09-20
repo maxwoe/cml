@@ -16,7 +16,7 @@ Declaration:
 	AnnotationDeclaration;
 
 CmlClass:
-	(abstract?='abstract')? kind='concept' name=ID ('<' typeVars+=TypeVar (',' typeVars+=TypeVar)* '>')? ('extends' superclass=[CmlClass|QualifiedName])?
+	(abstract?='abstract')? kind='concept' name=ID TypeVariables? ('extends' superclass=[CmlClass|QualifiedName])?
 	(BEGIN
 	features+=FeatureAttributeAndOperation*
 	END)?;
@@ -76,21 +76,36 @@ AnnotationElement:
 
 Type:
 	CmlClass;
-	
-TypeRef:
-	Type | TypeVar;
 
-TypeVar:
+TypeDeclaration:
+	type=[TypeRef|QualifiedName] (-> TypeArguments)?;
+
+TypeRef:
+	TypeTypeRef | TypeVarRef;
+	
+TypeVarRef returns TypeDeclaration:
+	type=[TypeVariable|QualifiedName];
+
+TypeTypeRef returns TypeDeclaration:
+	type=[Type|QualifiedName];
+
+TypeVariable:
 	name=ID;
 	
-TypeVarType returns TypeVar:
-	{TypeVar} type=[CmlClass|QualifiedName];
+fragment TypedDeclaration*:
+	type=[TypeRef|QualifiedName] (-> TypeArguments)?;
 	
+fragment TypeVariables*:
+	'<' typeVars+=TypeVariable (',' typeVars+=TypeVariable)* '>';
+	
+fragment TypeArguments*:
+	'<' typeArgs+=TypeDeclaration (',' typeArgs+=TypeDeclaration)* '>';
+		
 NamedElement:
 	CmlProgram | CmlClass | Feature | VariableDeclaration | AnnotationDeclaration;
 
 Feature:
-	Attribute | Operation | Clause | EnumerationElement;
+	Attribute | Operation | Clause  | EnumerationElement;
 
 FeatureAttribute returns Feature:
 	Attribute;
@@ -104,23 +119,11 @@ FeatureAttributeAndOperationAndClause returns Feature:
 FeatureEnumeration returns Feature:
 	EnumerationElement;
 
-fragment TypedDeclaration *:
-	type=Container name=ID;
-
-Container:
-	Primitive | Map;
-
-Primitive:
-	type=[CmlClass|QualifiedName];
-
-Map:
-	mapType=[CmlClass|QualifiedName] '<' key=[TypeRef|QualifiedName] ',' type=[TypeRef|QualifiedName]'>';	
-	
 Attribute:
-	(constant?='constant')? TypedDeclaration ('=' expression=Expression)?;
+	(constant?='constant')? declaredType=TypeDeclaration name=ID ('=' expression=Expression)?;
 
 Operation:
-	(type=Container)? name=ID
+	'fun' (declaredType=TypeDeclaration)? name=ID
 	'(' (params+=Attribute (',' params+=Attribute)*)? ')'
 	(body=Block)?;
 
@@ -211,7 +214,7 @@ Statement:
 	Expression;
 
 VariableDeclaration:
-	'var' TypedDeclaration '=' expression=Expression;
+	'var' declaredType=TypeDeclaration name=ID '=' expression=Expression;
 
 ReturnStatement:
 	{ReturnStatement} 'return' (=> expression=Expression)?;

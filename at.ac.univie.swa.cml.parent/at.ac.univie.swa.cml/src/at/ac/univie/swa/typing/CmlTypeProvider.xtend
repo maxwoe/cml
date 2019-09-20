@@ -154,13 +154,13 @@ class CmlTypeProvider {
 				val symbol = c.symbol
 				if (symbol instanceof Operation) {
 					try {
-						symbol.params.get(c.args.indexOf(e)).type.inferType
+						symbol.params.get(c.args.indexOf(e)).declaredType.type.inferType
 					} catch (Throwable t) {
 						null // otherwise there is no specific expected type
 					}
 				} else if (symbol instanceof CmlClass) {
 					try {
-						symbol.classHierarchyAttributes.values.get(c.args.indexOf(e)).type.inferType
+						symbol.classHierarchyAttributes.values.get(c.args.indexOf(e)).declaredType.type.inferType
 					} catch (Throwable t) {
 						null // otherwise there is no specific expected type
 					}
@@ -181,9 +181,9 @@ class CmlTypeProvider {
 			MultiplicativeExpression case f == ep.multiplicativeExpression_Right:
 				c.left.typeFor
 			VariableDeclaration:
-				c.type.inferType
+				c.declaredType.type.inferType
 			ReturnStatement:
-				c.containingOperation.type.inferType
+				c.containingOperation.declaredType.type.inferType
 			PeriodicTime case f == ep.periodicTime_Start,
 			PeriodicTime case f == ep.periodicTime_End,
 			TemporalConstraint case f == ep.temporalConstraint_Reference:
@@ -192,7 +192,7 @@ class CmlTypeProvider {
 			TemporalConstraint case f == ep.timeframe_Window:
 				DURATION_TYPE
 			Attribute case f == ep.attribute_Expression:
-				c.type.inferType
+				c.declaredType.type.inferType
 			CasePart case f == ep.casePart_Case:
 				c.containingSwitch.declaration.typeFor
 			RelationalExpression case f == ep.relationalExpression_Right:
@@ -203,14 +203,14 @@ class CmlTypeProvider {
 				// assume that it refers to a method and that there
 				// is a parameter corresponding to the argument
 				try {
-					(c.feature as Operation).params.get(c.args.indexOf(e)).type.inferType
+					(c.feature as Operation).params.get(c.args.indexOf(e)).declaredType.type.inferType
 				} catch (Throwable t) {
 					null // otherwise there is no specific expected type
 				}
 			}
 			AnnotationElement case f == ep.annotationElement_Value: {
 				try {
-					(c.eContainer as Annotation).declaration.features.findFirst[it.name == c.param.name].type.inferType
+					(c.eContainer as Annotation).declaration.features.findFirst[it.name == c.param.name].declaredType.type.inferType
 				} catch (Throwable t) {
 					null // otherwise there is no specific expected type
 				}

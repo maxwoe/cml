@@ -100,16 +100,16 @@ class CmlGenerator extends AbstractGenerator2 {
 	IFileSystemAccess2 fsa
 	
 	override doGenerate(Resource resource, ResourceSet input, IFileSystemAccess2 fsa, IGeneratorContext context) {
-		LOG.info("resource: " + resource)
-		
-		allResources = input.resources.map(r|r.allContents.toIterable.filter(CmlProgram)).flatten
-		this.fsa = fsa
-		
-		for (p : resource.allContents.toIterable.filter(CmlProgram)) {
-			if (!p.contracts.empty) {
-				fsa.generateFile("/" + resource.URI.trimFileExtension.segmentsList.last + ".sol", p.compile)
-			}
-		}
+//		LOG.info("resource: " + resource)
+//		
+//		allResources = input.resources.map(r|r.allContents.toIterable.filter(CmlProgram)).flatten
+//		this.fsa = fsa
+//		
+//		for (p : resource.allContents.toIterable.filter(CmlProgram)) {
+//			if (!p.contracts.empty) {
+//				fsa.generateFile("/" + resource.URI.trimFileExtension.segmentsList.last + ".sol", p.compile)
+//			}
+//		}
 	}
 
 	def addLibFromResources(String resourceName) {
