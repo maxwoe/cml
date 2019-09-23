@@ -9,25 +9,24 @@ import at.ac.univie.swa.cml.CmlClass
 import at.ac.univie.swa.cml.CmlProgram
 import at.ac.univie.swa.cml.EnumerationElement
 import at.ac.univie.swa.cml.Feature
+import at.ac.univie.swa.cml.GenericArrayTypeReference
 import at.ac.univie.swa.cml.NamedElement
 import at.ac.univie.swa.cml.Operation
+import at.ac.univie.swa.cml.ParameterizedTypeReference
 import at.ac.univie.swa.cml.ReturnStatement
 import at.ac.univie.swa.cml.SwitchStatement
 import at.ac.univie.swa.cml.SymbolReference
 import at.ac.univie.swa.cml.Type
-import at.ac.univie.swa.cml.TypeRef
+import at.ac.univie.swa.cml.TypeReference
+import at.ac.univie.swa.cml.TypeVariable
 import at.ac.univie.swa.cml.VariableDeclaration
 import at.ac.univie.swa.typing.CmlTypeConformance
 import at.ac.univie.swa.typing.CmlTypeProvider
 import com.google.inject.Inject
-import org.eclipse.emf.common.util.URI
 import org.eclipse.emf.ecore.EObject
 import org.eclipse.xtext.naming.IQualifiedNameProvider
 
 import static extension org.eclipse.xtext.EcoreUtil2.*
-import at.ac.univie.swa.cml.TypeVariable
-import java.util.HashMap
-import java.util.LinkedHashMap
 
 class CmlModelUtil {
 
@@ -193,7 +192,7 @@ class CmlModelUtil {
 
 	def featureAsString(Feature f) {
 		f.name + if (f instanceof Operation)
-			"(" + f.params.map[declaredType.type.inferType.typeName].join(", ") + ")"
+			"(" + f.params.map[inferType.typeName].join(", ") + ")"
 		else
 			""
 	}
@@ -206,44 +205,36 @@ class CmlModelUtil {
 		switch (t) {
 			CmlClass:
 				switch (t) {
-					//case t.conformsToMap: t.name + "<" + t.typeVars.map[type?.inferType.name].join(", ") + ">"
+					case t.conformsToMap: t.name + "<" + t.typeVars.map[inferType.name].join(", ") + ">"
 					default: t.name
 				}
 		}
 	}
-	var keyValueMap = new LinkedHashMap<String,Type>()
 	
+	def CmlClass inferType(TypeReference tr) {
+		switch(tr) {
+			ParameterizedTypeReference : tr.type.inferType
+			GenericArrayTypeReference : //tr.componentType.inferType
+										tr.cmlArrayClass
+		}
+	}
+
 	def inferType(EObject e) {
 		switch (e) {
-			Type: e
-			TypeVariable: /*keyValueMap.get(e.name)*/e.cmlAnyClass
+			Type: e as CmlClass
+			TypeVariable: e.cmlAnyClass
 			default: CmlTypeProvider.NULL_TYPE
 		}
 	}
 	
-	def getResource(EObject context, URI uri) {
-		val rs = context.eResource().getResourceSet()
-		var r = rs.getResource(uri, false)
-		if (r === null)
-			r = rs.createResource(uri)
-		r
-	}
-		
-	def inferType(NamedElement ne) {
+	def CmlClass inferType(NamedElement ne) {
 		switch (ne) {
-			Attribute: {
-				//ne.declaredType?.typeArgs?.map[type].forEach[println(it)]
-				/*if (ne.declaredType?.typeArgs?.map[type] !== null) {
-				keyValueMap.put("K", ne.declaredType.typeArgs?.map[type]?.get(0) as Type)
-				keyValueMap.put("V", ne.declaredType.typeArgs?.map[type]?.get(1) as Type)
-				}*/
-				//println(ne.declaredType.typeArgs.map[type]) 
-				ne.declaredType.type.inferType
-			}
-			Operation: ne.declaredType?.type.inferType != CmlTypeProvider.NULL_TYPE ? ne.declaredType?.type.inferType : CmlTypeProvider.VOID_TYPE
+			Attribute: ne.type.inferType
+			Operation: ne.type !== null ? ne.type.inferType : CmlTypeProvider.VOID_TYPE
 			EnumerationElement: ne.containingClass
-			VariableDeclaration: ne.declaredType.type.inferType
+			VariableDeclaration: ne.type.inferType
 			CmlClass: ne
+			default: CmlTypeProvider.NULL_TYPE
 		}
 	}
 	
@@ -261,18 +252,18 @@ class CmlModelUtil {
 	def classHierarchy(CmlClass c) {
 		val visited = newLinkedHashSet()
 		
-		var current = c.superclass
+		var current = c.superclass.inferType
 		
 		while (current !== null && !visited.contains(current)) {
 			visited.add(current)
-			current = current.superclass
+			current = current.superclass.inferType
 		}
 		
-		current = c.resolveImplClass
+		current = c.inferType.resolveImplClass
 		
 		while (current !== null && !visited.contains(current)) {
 			visited.add(current)
-			current = current.superclass
+			current = current.superclass.inferType
 		}
 		
 		visited

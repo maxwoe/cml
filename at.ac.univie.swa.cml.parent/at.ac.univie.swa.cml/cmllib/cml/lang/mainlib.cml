@@ -66,6 +66,9 @@ concept Error extends Any
 fun ensure(Boolean c, String m)
 	if(!c)
 		throw Error(m)
+concept Array<T> extends Any
+	fun Integer size()
+	fun T get(Integer i)
 concept Map<K,V> extends Any
 	fun Integer size()
 	fun Boolean isEmpty()
@@ -74,3 +77,4 @@ concept Map<K,V> extends Any
 	fun add(K key, V value) 
 	fun rmv(K key)
 	fun V get(K key)
+	fun K[] getKeys()

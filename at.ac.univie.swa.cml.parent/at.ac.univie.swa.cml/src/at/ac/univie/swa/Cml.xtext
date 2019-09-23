@@ -16,32 +16,32 @@ Declaration:
 	AnnotationDeclaration;
 
 CmlClass:
-	(abstract?='abstract')? kind='concept' name=ID TypeVariables? ('extends' superclass=[CmlClass|QualifiedName])?
+	(abstract?='abstract')? kind='concept' name=ID ('<' typeVars+=TypeVariable (',' typeVars+=TypeVariable)* '>')? ('extends' superclass=TypeReference)?
 	(BEGIN
 	features+=FeatureAttributeAndOperation*
 	END)?;
 
 Contract returns CmlClass:
 	annotations+=Annotation*
-	(abstract?='abstract')? kind='contract' name=ID ('extends' superclass=[CmlClass|QualifiedName])?
+	(abstract?='abstract')? kind='contract' name=ID ('extends' superclass=TypeReference)?
 	(BEGIN
 	features+=FeatureAttributeAndOperationAndClause*
 	END)?;
 
 Party returns CmlClass:
-	(abstract?='abstract')? kind='party' name=ID ('extends' superclass=[CmlClass|QualifiedName])?
+	(abstract?='abstract')? kind='party' name=ID ('extends' superclass=TypeReference)?
 	(BEGIN
 	features+=FeatureAttribute+
 	END)?;
 
 Asset returns CmlClass:
-	(abstract?='abstract')? kind='asset' name=ID ('extends' superclass=[CmlClass|QualifiedName])?
+	(abstract?='abstract')? kind='asset' name=ID ('extends' superclass=TypeReference)?
 	(BEGIN
 	features+=FeatureAttribute+
 	END)?;
 
 Transaction returns CmlClass:
-	(abstract?='abstract')? kind='transaction' name=ID ('extends' superclass=[CmlClass|QualifiedName])?
+	(abstract?='abstract')? kind='transaction' name=ID ('extends' superclass=TypeReference)?
 	(BEGIN
 	features+=FeatureAttribute+
 	END)?;
@@ -76,36 +76,33 @@ AnnotationElement:
 
 Type:
 	CmlClass;
+	
+TypeReference:
+	ParameterizedTypeReference =>({GenericArrayTypeReference.componentType=current} '[' ']')*;
 
-TypeDeclaration:
-	type=[TypeRef|QualifiedName] (-> TypeArguments)?;
+ParameterizedTypeReference:
+	type=[DeclaredType] (=>'<' typeArgs+=TypeReference (',' typeArgs+=TypeReference)* '>' )?;
 
-TypeRef:
+DeclaredType:
 	TypeTypeRef | TypeVarRef;
 	
-TypeVarRef returns TypeDeclaration:
-	type=[TypeVariable|QualifiedName];
+TypeVarRef returns ParameterizedTypeReference:
+	type=[TypeVariable];
 
-TypeTypeRef returns TypeDeclaration:
+TypeTypeRef returns ParameterizedTypeReference:
 	type=[Type|QualifiedName];
-
+	
 TypeVariable:
 	name=ID;
-	
-fragment TypedDeclaration*:
-	type=[TypeRef|QualifiedName] (-> TypeArguments)?;
-	
-fragment TypeVariables*:
-	'<' typeVars+=TypeVariable (',' typeVars+=TypeVariable)* '>';
-	
-fragment TypeArguments*:
-	'<' typeArgs+=TypeDeclaration (',' typeArgs+=TypeDeclaration)* '>';
-		
+			
 NamedElement:
 	CmlProgram | CmlClass | Feature | VariableDeclaration | AnnotationDeclaration;
 
+Symbol:
+	CmlClass;
+	
 Feature:
-	Attribute | Operation | Clause  | EnumerationElement;
+	Attribute | Operation | Clause | EnumerationElement;
 
 FeatureAttribute returns Feature:
 	Attribute;
@@ -120,10 +117,10 @@ FeatureEnumeration returns Feature:
 	EnumerationElement;
 
 Attribute:
-	(constant?='constant')? declaredType=TypeDeclaration name=ID ('=' expression=Expression)?;
+	(constant?='constant')? type=TypeReference name=ID ('=' expression=Expression)?;
 
 Operation:
-	'fun' (declaredType=TypeDeclaration)? name=ID
+	'fun' (type=TypeReference)? name=ID
 	'(' (params+=Attribute (',' params+=Attribute)*)? ')'
 	(body=Block)?;
 
@@ -214,7 +211,7 @@ Statement:
 	Expression;
 
 VariableDeclaration:
-	'var' declaredType=TypeDeclaration name=ID '=' expression=Expression;
+	'var' type=TypeReference name=ID '=' expression=Expression;
 
 ReturnStatement:
 	{ReturnStatement} 'return' (=> expression=Expression)?;
@@ -253,7 +250,7 @@ Expression:
 	AssignmentExpression;
 
 AssignmentExpression returns Expression:
-	OrExpression ({AssignmentExpression.left=current} op=('=' | '+=' | '-=') right=Expression)?;
+	OrExpression (=> ({AssignmentExpression.left=current} op=('=' | '+=' | '-=') right=Expression))?;
 	
 OrExpression returns Expression:
 	AndExpression (=> ({OrExpression.left=current} op='or') right=AndExpression)*;
@@ -266,7 +263,7 @@ EqualityExpression returns Expression:
 
 RelationalExpression returns Expression:
 	OtherOperatorExpression
-	(=> ({InstanceOfExpression.expression=current} 'is') type=[CmlClass|QualifiedName] |
+	(=> ({InstanceOfExpression.expression=current} 'is') type=TypeReference |
 	=> ({RelationalExpression.left=current} op=('>' | '<' | '>=' | '<=')) right=OtherOperatorExpression)*;
 
 OtherOperatorExpression returns Expression:
@@ -282,7 +279,7 @@ UnaryExpression returns Expression:
 	{UnaryExpression} op=('not' | '!' | '-' | '+') operand=UnaryExpression | CastedExpression;
 
 CastedExpression returns Expression:
-	PostfixExpression (=> ({CastedExpression.target=current} 'as') type=[CmlClass|QualifiedName])*;
+	PostfixExpression (=> ({CastedExpression.target=current} 'as') type=TypeReference)*;
 
 PostfixExpression returns Expression:
 	SelectionExpression
@@ -292,7 +289,8 @@ PostfixExpression returns Expression:
 
 SelectionExpression returns Expression:
 	PrimaryExpression
-	(=> ({FeatureSelection.receiver=current} ("." | explicitStatic?="::")) feature=[Feature]
+	(=> ({AssignmentExpression.assignable=current} ('.' | explicitStatic?="::") feature=[Feature] '=')	value=AssignmentExpression
+	| => ({FeatureSelection.receiver=current} ("." | explicitStatic?="::")) feature=[Feature]
 	(=> opCall?='(' (args+=Expression (',' args+=Expression)*)? ')')?)*;
 
 PrimaryExpression returns Expression:
@@ -300,6 +298,7 @@ PrimaryExpression returns Expression:
 	{ThisExpression} 'this' |
 	{SuperExpression} 'super' |
 	{SymbolReference} symbol=[NamedElement] (=> opCall?='(' (args+=Expression (',' args+=Expression)*)? ')')? |
+	{NewExpression} 'new' type=[Type|QualifiedName] '(' (args+=Expression (',' args+=Expression)*)? ')' |
 	{NestedExpression} '(' child=Expression ')';
 
 LiteralExpression returns Expression:

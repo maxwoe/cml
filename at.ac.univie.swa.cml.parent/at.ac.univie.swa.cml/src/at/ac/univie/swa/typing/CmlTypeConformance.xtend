@@ -174,6 +174,10 @@ class CmlTypeConformance {
 		c1.classHierarchy.contains(c2)
 	}
 	
+	def conformsToArray(CmlClass c) {
+		c.fullyQualifiedName.toString == CmlLib::LIB_ARRAY
+	}
+	
 	def conformsToMap(CmlClass c) {
 		c.fullyQualifiedName.toString == CmlLib::LIB_MAP
 	}

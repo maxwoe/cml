@@ -5,6 +5,7 @@ package at.ac.univie.swa.scoping
 
 import at.ac.univie.swa.CmlModelUtil
 import at.ac.univie.swa.cml.Annotation
+import at.ac.univie.swa.cml.AssignmentExpression
 import at.ac.univie.swa.cml.Attribute
 import at.ac.univie.swa.cml.Block
 import at.ac.univie.swa.cml.Closure
@@ -13,9 +14,9 @@ import at.ac.univie.swa.cml.CmlPackage
 import at.ac.univie.swa.cml.CmlProgram
 import at.ac.univie.swa.cml.FeatureSelection
 import at.ac.univie.swa.cml.ForStatement
+import at.ac.univie.swa.cml.NewExpression
 import at.ac.univie.swa.cml.Operation
 import at.ac.univie.swa.cml.OtherOperatorExpression
-import at.ac.univie.swa.cml.SymbolReference
 import at.ac.univie.swa.cml.VariableDeclaration
 import at.ac.univie.swa.typing.CmlTypeConformance
 import at.ac.univie.swa.typing.CmlTypeProvider
@@ -28,6 +29,7 @@ import org.eclipse.xtext.scoping.IScope
 import org.eclipse.xtext.scoping.Scopes
 import org.eclipse.xtext.scoping.impl.FilteringScope
 import org.eclipse.xtext.scoping.impl.SimpleScope
+import at.ac.univie.swa.cml.Type
 
 /**
  * This class contains custom scoping description.
@@ -46,10 +48,12 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 			return scopeForSymbolRef(context, reference)
 		} else if (context instanceof FeatureSelection) {
 			return scopeForFeatureSelection(context)
+		} else if (context instanceof AssignmentExpression/*reference == CmlPackage.Literals.ASSIGNMENT_EXPRESSION__FEATURE*/) {
+			return scopeForAssignable(context)
 		} else if (reference == CmlPackage.Literals.ACTOR__PARTY || reference == CmlPackage.Literals.ACTION_QUERY__PARTY) {
-			//return scopeForAttributeRef(context, [Attribute a | !a.type.eIsProxy && (a.type.inferType.conformsToParty || a.type.inferType.subclassOfParty)])
+			//return scopeForAttributeRef(context, [Attribute a | !a.typeDecl.type.eIsProxy && (a.inferType.conformsToParty || a.inferType.subclassOfParty)])
 		} else if (reference == CmlPackage.Literals.EVENT_QUERY__EVENT) {
-			//return scopeForAttributeRef(context, [Attribute a | !a.type.eIsProxy && (a.type.inferType.conformsToEvent || a.type.inferType.subclassOfEvent)])
+			//return scopeForAttributeRef(context, [Attribute a | !a.typeDecl.type.eIsProxy && (a.inferType.conformsToEvent || a.inferType.subclassOfEvent)])
 		} else if (reference == CmlPackage.Literals.ANNOTATION_ELEMENT__PARAM) {
 			return scopeForAnnotationParamRef(context, reference)
 		}
@@ -66,12 +70,12 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 				switch (eContainer) {
 					OtherOperatorExpression case eContainer.op == "=>": {
 						var left = eContainer.left
-						if (left instanceof SymbolReference)
-							if (left.symbol instanceof CmlClass) {
-								for (c : (left.symbol as CmlClass).classHierarchyWithRoot.toList.reverseView) {
+						if (left instanceof NewExpression)
+							if (left.type.inferType instanceof CmlClass) {
+								for (c : left.type.inferType.classHierarchyWithRoot.toList.reverseView) {
 									scope = Scopes::scopeFor(c.attributes, scope)
 								}
-								scope = Scopes.scopeFor((left.symbol as CmlClass).attributes, scope)
+								scope = Scopes.scopeFor(left.type.inferType.attributes, scope)
 							}
 					}
 				}
@@ -99,26 +103,32 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 		}
 	}
 
+	def protected IScope scopeForAssignable(AssignmentExpression ae) {
+		return ae.assignable.typeFor.scopeForType(false, ae.explicitStatic)
+	}
+	
 	def protected IScope scopeForFeatureSelection(FeatureSelection fs) {
-		var type = fs.receiver.typeFor
-		
+		return fs.receiver.typeFor.scopeForType(fs.opCall, fs.explicitStatic)
+	}
+	
+	def protected IScope scopeForType(Type type, Boolean opCall, Boolean explicitStatic) {
 		if (type === null || type.isPrimitive)
 			return IScope.NULLSCOPE
 
 		if (type instanceof CmlClass) {
-			if (fs.explicitStatic)
+			if (explicitStatic)
 				return Scopes::scopeFor(type.enumElements)
 
 			var parentScope = IScope::NULLSCOPE
 			for (c : type.classHierarchyWithRoot.toList.reverseView) {
-				parentScope = Scopes::scopeFor(c.selectedFeatures(fs), parentScope)
+				parentScope = Scopes::scopeFor(c.selectedFeatures(opCall), parentScope)
 			}
-			return Scopes::scopeFor(type.selectedFeatures(fs), parentScope)
+			return Scopes::scopeFor(type.selectedFeatures(opCall), parentScope)
 		}
 	}
 
-	def selectedFeatures(CmlClass type, FeatureSelection fs) {
-		if (fs.opCall)
+	def selectedFeatures(CmlClass type, Boolean opCall) {
+		if (opCall)
 			type.operations + type.attributes
 		else
 			type.attributes + type.operations

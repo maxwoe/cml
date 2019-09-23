@@ -43,6 +43,8 @@ import at.ac.univie.swa.cml.Type
 import at.ac.univie.swa.cml.UnaryExpression
 import at.ac.univie.swa.cml.VariableDeclaration
 import com.google.inject.Inject
+import at.ac.univie.swa.cml.NewExpression
+import at.ac.univie.swa.cml.NamedElement
 
 class CmlTypeProvider {
 	@Inject extension CmlLib
@@ -68,7 +70,7 @@ class CmlTypeProvider {
 			ThisExpression:
 				e.containingClass
 			SuperExpression:
-				e.containingClass.superclassOrObject
+				e.containingClass.superclassOrObject.inferType
 			SymbolReference:
 				e.symbol.inferType
 			NullLiteral:
@@ -120,7 +122,7 @@ class CmlTypeProvider {
 			FeatureSelection:
 				e.feature.inferType
 			CastedExpression:
-				e.type
+				e.type.inferType
 			NestedExpression:
 				e.child.typeFor
 			OtherOperatorExpression: {
@@ -139,6 +141,8 @@ class CmlTypeProvider {
 			}
 			Attribute:
 				e.expression.typeFor
+			NewExpression:
+				e.type.inferType
 			default:
 				UNDEFINED_TYPE
 		}
@@ -150,22 +154,22 @@ class CmlTypeProvider {
 		switch (c) {
 			Actor case f == ep.actor_Party:
 				c.getCmlPartyClass
-			SymbolReference case f == ep.symbolReference_Args: {
+			/*SymbolReference case f == ep.symbolReference_Args: {
 				val symbol = c.symbol
 				if (symbol instanceof Operation) {
 					try {
-						symbol.params.get(c.args.indexOf(e)).declaredType.type.inferType
+						symbol.params.get(c.args.indexOf(e)).inferType
 					} catch (Throwable t) {
 						null // otherwise there is no specific expected type
 					}
 				} else if (symbol instanceof CmlClass) {
 					try {
-						symbol.classHierarchyAttributes.values.get(c.args.indexOf(e)).declaredType.type.inferType
+						symbol.classHierarchyAttributes.values.get(c.args.indexOf(e)).inferType
 					} catch (Throwable t) {
 						null // otherwise there is no specific expected type
 					}
 				}
-			}
+			}*/
 			ThrowStatement case f == ep.throwStatement_Expression:
 				ERROR_TYPE
 			AssignmentExpression case f == ep.assignmentExpression_Right:
@@ -181,9 +185,9 @@ class CmlTypeProvider {
 			MultiplicativeExpression case f == ep.multiplicativeExpression_Right:
 				c.left.typeFor
 			VariableDeclaration:
-				c.declaredType.type.inferType
+				c.inferType
 			ReturnStatement:
-				c.containingOperation.declaredType.type.inferType
+				c.containingOperation.inferType
 			PeriodicTime case f == ep.periodicTime_Start,
 			PeriodicTime case f == ep.periodicTime_End,
 			TemporalConstraint case f == ep.temporalConstraint_Reference:
@@ -192,7 +196,7 @@ class CmlTypeProvider {
 			TemporalConstraint case f == ep.timeframe_Window:
 				DURATION_TYPE
 			Attribute case f == ep.attribute_Expression:
-				c.declaredType.type.inferType
+				c.inferType
 			CasePart case f == ep.casePart_Case:
 				c.containingSwitch.declaration.typeFor
 			RelationalExpression case f == ep.relationalExpression_Right:
@@ -203,14 +207,14 @@ class CmlTypeProvider {
 				// assume that it refers to a method and that there
 				// is a parameter corresponding to the argument
 				try {
-					(c.feature as Operation).params.get(c.args.indexOf(e)).declaredType.type.inferType
+					(c.feature as Operation).params.get(c.args.indexOf(e)).inferType
 				} catch (Throwable t) {
 					null // otherwise there is no specific expected type
 				}
 			}
 			AnnotationElement case f == ep.annotationElement_Value: {
 				try {
-					(c.eContainer as Annotation).declaration.features.findFirst[it.name == c.param.name].declaredType.type.inferType
+					(c.eContainer as Annotation).declaration.features.findFirst[it.name == c.param.name].inferType
 				} catch (Throwable t) {
 					null // otherwise there is no specific expected type
 				}

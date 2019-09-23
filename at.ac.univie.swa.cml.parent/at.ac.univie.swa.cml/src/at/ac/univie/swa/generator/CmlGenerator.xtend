@@ -30,10 +30,10 @@ import at.ac.univie.swa.cml.EventQuery
 import at.ac.univie.swa.cml.Expression
 import at.ac.univie.swa.cml.FeatureSelection
 import at.ac.univie.swa.cml.ForStatement
+import at.ac.univie.swa.cml.GenericArrayTypeReference
 import at.ac.univie.swa.cml.IfStatement
 import at.ac.univie.swa.cml.Import
 import at.ac.univie.swa.cml.IntegerLiteral
-import at.ac.univie.swa.cml.Map
 import at.ac.univie.swa.cml.MultiplicativeExpression
 import at.ac.univie.swa.cml.NamedElement
 import at.ac.univie.swa.cml.NestedCompoundAction
@@ -41,6 +41,7 @@ import at.ac.univie.swa.cml.NestedExpression
 import at.ac.univie.swa.cml.Operation
 import at.ac.univie.swa.cml.OrCompoundAction
 import at.ac.univie.swa.cml.OrExpression
+import at.ac.univie.swa.cml.ParameterizedTypeReference
 import at.ac.univie.swa.cml.PostfixExpression
 import at.ac.univie.swa.cml.RealLiteral
 import at.ac.univie.swa.cml.RelationalExpression
@@ -55,6 +56,7 @@ import at.ac.univie.swa.cml.TemporalPrecedence
 import at.ac.univie.swa.cml.ThisExpression
 import at.ac.univie.swa.cml.ThrowStatement
 import at.ac.univie.swa.cml.Type
+import at.ac.univie.swa.cml.TypeReference
 import at.ac.univie.swa.cml.UnaryExpression
 import at.ac.univie.swa.cml.VariableDeclaration
 import at.ac.univie.swa.cml.WhileStatement
@@ -100,16 +102,16 @@ class CmlGenerator extends AbstractGenerator2 {
 	IFileSystemAccess2 fsa
 	
 	override doGenerate(Resource resource, ResourceSet input, IFileSystemAccess2 fsa, IGeneratorContext context) {
-//		LOG.info("resource: " + resource)
-//		
-//		allResources = input.resources.map(r|r.allContents.toIterable.filter(CmlProgram)).flatten
-//		this.fsa = fsa
-//		
-//		for (p : resource.allContents.toIterable.filter(CmlProgram)) {
-//			if (!p.contracts.empty) {
-//				fsa.generateFile("/" + resource.URI.trimFileExtension.segmentsList.last + ".sol", p.compile)
-//			}
-//		}
+		LOG.info("resource: " + resource)
+		
+		allResources = input.resources.map(r|r.allContents.toIterable.filter(CmlProgram)).flatten
+		this.fsa = fsa
+		
+		for (p : resource.allContents.toIterable.filter(CmlProgram)) {
+			if (!p.contracts.empty) {
+				fsa.generateFile("/" + resource.URI.trimFileExtension.segmentsList.last + ".sol", p.compile)
+			}
+		}
 	}
 
 	def addLibFromResources(String resourceName) {
@@ -211,13 +213,12 @@ class CmlGenerator extends AbstractGenerator2 {
 			imports.add("./lib/cml/" + MODEL_NAME + ".sol")
 		}
 		
-		for(a : c.attributes.filter[type.inferType.conformsToMap]) {
-			val m = a.type as Map
-			val key = m.key as Type
-			val value = m.type as Type
+		for(a : c.attributes.filter[inferType.conformsToMap]) {
+			val key = (a.type as ParameterizedTypeReference).typeArgs.get(0).inferType
+			val value = (a.type as ParameterizedTypeReference).typeArgs.get(1).inferType
 			val mapImplName = compileMapImplName(key, value)
 			fsa.generateFile("/lib/cml/" + mapImplName + ".sol", compileMapLib(mapImplName, key, value))
-			fsa.generateFile("/lib/cml/" + "CLL" + key.compile.toFirstUpper + ".sol", compileCLLLib("CLL" + key.compile.toFirstUpper, key))
+			fsa.generateFile("/lib/cml/" + "CLL" + (key as Type).compile.toFirstUpper + ".sol", compileCLLLib("CLL" + (key as Type).compile.toFirstUpper, key))
 			imports.add("./lib/cml/" + mapImplName + ".sol")
 		}
 		
@@ -225,10 +226,9 @@ class CmlGenerator extends AbstractGenerator2 {
 	}
 	
 	def compileMapImplName(Attribute a) {
-		val m = a.type as Map
-		val keyType = m.key as Type
-		val valType = m.type as Type
-		compileMapImplName(keyType, valType)
+		val key = (a.type as ParameterizedTypeReference).typeArgs.get(0).inferType
+		val value = (a.type as ParameterizedTypeReference).typeArgs.get(1).inferType
+		compileMapImplName(key, value)
 	}
 			
 	def compileMapImplName(Type key, Type value) {
@@ -441,12 +441,12 @@ class CmlGenerator extends AbstractGenerator2 {
 				val actionParty = interceptAttribute(ref.party, null) ?: ref.party.name
 				if (tc.precedence.equals(TemporalPrecedence.AFTER)) {
 					if (ref.party.name != "anyone")
-						constraints.add(conditionalCheck(callCaller(ref.action.name) + " == " + actionParty + ".id") -> ref.party.type.inferType.name + " " + ref.party.name + " did not " + ref.action.name)
+						constraints.add(conditionalCheck(callCaller(ref.action.name) + " == " + actionParty + ".id") -> ref.party.inferType.name + " " + ref.party.name + " did not " + ref.action.name)
 					constraints.add(conditionalCheck(callSuccess(ref.action.name)) -> "Action " + ref.action.name + " did not occur")
 				}
 				if (tc.precedence.equals(TemporalPrecedence.BEFORE)) {
 					if (ref.party.name != "anyone")
-						constraints.add(conditionalCheck(callCaller(ref.action.name) + " != " + actionParty + ".id") -> ref.party.type.inferType.name + " " + ref.party.name + " did " + ref.action.name)
+						constraints.add(conditionalCheck(callCaller(ref.action.name) + " != " + actionParty + ".id") -> ref.party.inferType.name + " " + ref.party.name + " did " + ref.action.name)
 					constraints.add(conditionalCheck("!" + callSuccess(ref.action.name)) -> "Action " + ref.action.name + " already occurred")
 				}
 				
@@ -462,7 +462,7 @@ class CmlGenerator extends AbstractGenerator2 {
 	}
 
 	def compileEventFunctions(CmlClass c) '''
-		«FOR e : c.attributes.filter[type.inferType.mapsToEvent] SEPARATOR "\n" AFTER "\n"»
+		«FOR e : c.attributes.filter[inferType.mapsToEvent] SEPARATOR "\n" AFTER "\n"»
 			«e.compileEventAsFunction»
 		«ENDFOR»
 	'''
@@ -504,7 +504,7 @@ class CmlGenerator extends AbstractGenerator2 {
 	
 	def Set<CmlClass> traverseForEnums(CmlClass c) {
 		var set = newLinkedHashSet
-		for(class : c.attributes.map[type.inferType]) {
+		for(class : c.attributes.map[inferType]) {
 			if (class.mapsToEnum)
 				set.add(class)
 			if(!class.equals(c))
@@ -523,7 +523,7 @@ class CmlGenerator extends AbstractGenerator2 {
 	
 	def Set<CmlClass> traverseForStructs(CmlClass c) {
 		var set = newLinkedHashSet
-		for(class : c.attributes.filter[type.inferType.mapsToStruct].map[type.inferType]) {
+		for(class : c.attributes.filter[inferType.mapsToStruct].map[inferType]) {
 			set.add(class)
 			if(!class.equals(c))
 				set.addAll(traverseForStructs(class))
@@ -577,8 +577,8 @@ class CmlGenerator extends AbstractGenerator2 {
 		«FOR a : c.staticAttributes»
 			«a.compile»;
 		«ENDFOR»
-		«FOR a : c.attributes.filter[!type.inferType.mapsToEnum]»
-			«IF a.type.inferType.conformsToMap»
+		«FOR a : c.attributes.filter[!inferType.mapsToEnum]»
+			«IF a.inferType.conformsToMap»
 				«val name = a.compileMapImplName »
 				using «name» for «name».Data;
 				«name».Data internal «a.name»;
@@ -589,8 +589,8 @@ class CmlGenerator extends AbstractGenerator2 {
 	'''
 
 	def compileEvents(CmlClass c) '''
-		«FOR e : c.attributes.filter[type.inferType.mapsToEvent] BEFORE "/*\n * Events\n */\n" AFTER "\n"»
-			event «e.name.toFirstUpper»Event(«e.type.inferType.name» «e.name»);
+		«FOR e : c.attributes.filter[inferType.mapsToEvent] BEFORE "/*\n * Events\n */\n" AFTER "\n"»
+			event «e.name.toFirstUpper»Event(«e.inferType.name» «e.name»);
 		«ENDFOR»
 	'''
 
@@ -651,14 +651,14 @@ class CmlGenerator extends AbstractGenerator2 {
 	}
 	
 	def compileOpParams(List<Attribute> attributes) '''
-		«FOR a : attributes SEPARATOR ', '»«IF !a.type.inferType.conformsToTokenTransaction»«a.compileOpParam»«ENDIF»«ENDFOR»'''
+		«FOR a : attributes SEPARATOR ', '»«IF !a.inferType.conformsToTokenTransaction»«a.compileOpParam»«ENDIF»«ENDFOR»'''
 
 	def compileOpParam(Attribute a) {
-		interceptAttribute(a, null) ?: '''«(a.type.inferType as Type).compile»«IF a.type.inferType.mapsToStruct» memory«ENDIF» «a.name»'''
+		interceptAttribute(a, null) ?: '''«a.type.compile»«IF a.inferType.mapsToStruct» memory«ENDIF» «a.name»'''
 	}
 	
 	def compile(Attribute a) {
-		interceptAttribute(a, null) ?: '''«(a.type.inferType as Type).compile»«IF a.constant» constant«ENDIF» «a.name»«IF a.expression !== null» = «a.expression.compile»«ENDIF»'''
+		interceptAttribute(a, null) ?: '''«a.type.compile»«IF a.constant» constant«ENDIF» «a.name»«IF a.expression !== null» = «a.expression.compile»«ENDIF»'''
 	}
 		
 	def compile(CmlClass c) '''
@@ -675,7 +675,7 @@ class CmlGenerator extends AbstractGenerator2 {
 			«FOR m : modifiers.entrySet SEPARATOR ' '»
 				«m.key»(«m.value.join(", ")»)
 			«ENDFOR»
-			«IF o.type !== null»returns («(o.type.inferType as Type).compile»«IF o.type.inferType.mapsToStruct» memory«ENDIF»)«ENDIF»
+			«IF o.type !== null»returns («o.type.compile»«IF o.inferType.mapsToStruct» memory«ENDIF»)«ENDIF»
 		{
 			«FOR s : o.body?.statements ?: emptyList»
 				«compileStatement(s)»
@@ -722,7 +722,7 @@ class CmlGenerator extends AbstractGenerator2 {
 	
 	def String compileStatement(Statement s) {
 		switch (s) {
-			VariableDeclaration: '''«(s.type.inferType as Type).compile» «s.name» = «s.expression.compile»;'''
+			VariableDeclaration: '''«s.type.compile» «s.name» = «s.expression.compile»;'''
 			ReturnStatement:
 				"return (" + s.expression.compile + ");"
 			IfStatement: '''
@@ -765,8 +765,8 @@ class CmlGenerator extends AbstractGenerator2 {
 	}
 
 	def compileEventAsFunction(Attribute a) '''
-		// @notice trigger event «a.type.inferType.name»
-		function «a.name.toFirstLower»Event(«a.type.inferType.name» memory _«a.name») public postCall
+		// @notice trigger event «a.inferType.name»
+		function «a.name.toFirstLower»Event(«a.inferType.name» memory _«a.name») public postCall
 		{
 			«a.name» = _«a.name»;
 			emit «a.name.toFirstUpper»Event(«a.name»);
@@ -777,6 +777,13 @@ class CmlGenerator extends AbstractGenerator2 {
 		enum «c.name.toFirstUpper» { «FOR e : c.enumElements SEPARATOR ', '»«e.name»«ENDFOR» } «c.name.toFirstUpper» «c.name.toFirstLower»;
 	'''
 
+	def String compile(TypeReference tr) {
+		switch(tr) {
+			ParameterizedTypeReference : (tr.type.inferType as Type).compile
+			GenericArrayTypeReference : tr.componentType.compile + "[]"
+		}
+	}
+	
 	def String compile(Type t) {
 		switch (t) {
 			CmlClass:
@@ -788,7 +795,6 @@ class CmlGenerator extends AbstractGenerator2 {
 					case t.conformsToDateTime: "uint"
 					case t.conformsToDuration: "uint"
 					case t.conformsToNumber: "uint"
-					//case t.conformsToMap: "mapping(" + t.typeVars.map[(type as Type).compile].join(" => ") + ")"
 					case t.mapsToStruct,
 					case t.mapsToEnum: detachModel ? MODEL_NAME + "." + t.name : t.name
 					default: t.name

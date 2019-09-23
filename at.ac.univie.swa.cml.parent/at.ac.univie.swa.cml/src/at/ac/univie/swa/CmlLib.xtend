@@ -36,6 +36,7 @@ class CmlLib {
 	public val static LIB_TOKEN_HOLDER = LIB_PACKAGE + ".TokenHolder"
 	public val static LIB_TOKEN_TRANSACTION = LIB_PACKAGE + ".TokenTransaction"
 	
+	public val static LIB_ARRAY = LIB_PACKAGE + ".Array"
 	public val static LIB_MAP = LIB_PACKAGE + ".Map"
 
 	static final Logger LOG = Logger.getLogger(CmlLib);
@@ -91,6 +92,10 @@ class CmlLib {
 	
 	def getCmlEnumClass(EObject context) {
 		getCmlClass(context, LIB_ENUM)
+	}
+	
+	def getCmlArrayClass(EObject context) {
+		getCmlClass(context, LIB_ARRAY)
 	}
 	
 	def getCmlClass(EObject context, String qn) {
