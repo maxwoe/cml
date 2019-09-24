@@ -15,7 +15,7 @@ import at.ac.univie.swa.cml.Operation
 import at.ac.univie.swa.cml.ParameterizedTypeReference
 import at.ac.univie.swa.cml.ReturnStatement
 import at.ac.univie.swa.cml.SwitchStatement
-import at.ac.univie.swa.cml.SymbolReference
+import at.ac.univie.swa.cml.ReferenceExpression
 import at.ac.univie.swa.cml.Type
 import at.ac.univie.swa.cml.TypeReference
 import at.ac.univie.swa.cml.TypeVariable
@@ -158,20 +158,20 @@ class CmlModelUtil {
 		e.getContainerOfType(Clause)
 	}
 	
-	def referencedSymbols(Operation o) {
-		o.eAllOfType(SymbolReference).map[symbol]
+	def references(Operation o) {
+		o.eAllOfType(ReferenceExpression).map[reference]
 	}
 	
 	def referencedOperations(Operation o) {
-		o.referencedSymbols.filter(Operation).toSet
+		o.references.filter(Operation).toSet
 	}
 	
 	def referencedAttributes(Operation o) {
-		o.referencedSymbols.filter(Attribute).toSet
+		o.references.filter(Attribute).toSet
 	}
 	
 	def referencedClasses(Operation o) {
-		o.referencedSymbols.filter(CmlClass).toSet
+		o.references.filter(CmlClass).toSet
 	}
 	
 	def variableDeclarations(Operation o) {
@@ -219,7 +219,7 @@ class CmlModelUtil {
 		}
 	}
 
-	def inferType(EObject e) {
+	def CmlClass inferType(EObject e) {
 		switch (e) {
 			Type: e as CmlClass
 			TypeVariable: e.cmlAnyClass

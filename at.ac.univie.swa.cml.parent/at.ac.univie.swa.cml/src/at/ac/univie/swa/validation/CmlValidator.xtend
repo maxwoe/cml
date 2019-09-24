@@ -18,13 +18,14 @@ import at.ac.univie.swa.cml.CmlPackage
 import at.ac.univie.swa.cml.CmlProgram
 import at.ac.univie.swa.cml.Deontic
 import at.ac.univie.swa.cml.Expression
-import at.ac.univie.swa.cml.FeatureSelection
+import at.ac.univie.swa.cml.FeatureSelectionExpression
 import at.ac.univie.swa.cml.NamedElement
+import at.ac.univie.swa.cml.NewExpression
 import at.ac.univie.swa.cml.Operation
 import at.ac.univie.swa.cml.OtherOperatorExpression
+import at.ac.univie.swa.cml.ReferenceExpression
 import at.ac.univie.swa.cml.ReturnStatement
 import at.ac.univie.swa.cml.SuperExpression
-import at.ac.univie.swa.cml.SymbolReference
 import at.ac.univie.swa.cml.TemporalPrecedence
 import at.ac.univie.swa.cml.VariableDeclaration
 import at.ac.univie.swa.scoping.CmlIndex
@@ -37,7 +38,6 @@ import org.eclipse.xtext.validation.Check
 import org.eclipse.xtext.validation.CheckType
 
 import static extension org.eclipse.xtext.EcoreUtil2.*
-import at.ac.univie.swa.cml.NewExpression
 
 /**
  * This class contains custom validation rules. 
@@ -82,25 +82,25 @@ class CmlValidator extends AbstractCmlValidator {
 		}
 	}
 
-//	@Check
-//	def void checkClassHierarchy(CmlClass c) {
-//		if (c.classHierarchy.contains(c)) {
-//			error("Cycle in hierarchy of CmlClass '" + c.name + "'", CmlPackage::eINSTANCE.cmlClass_Superclass,
-//				HIERARCHY_CYCLE, c.superclass.name)
-//		}
-//	}
-//
-//	@Check
-//	def void checkSuperclass(CmlClass c) {
-//		val expectedType = c.resolveImplClass
-//		val actualType = c.superclass
-//		if (expectedType === null || actualType === null)
-//			return; // nothing to check
-//		if (!actualType.isConformant(expectedType)) {
-//			error("'" + c.name + "' must extend '" + c.kind + "'", CmlPackage::eINSTANCE.cmlClass_Superclass,
-//			INCOMPATIBLE_TYPES, c.superclass.name)
-//		}
-//	}
+	@Check
+	def void checkClassHierarchy(CmlClass c) {
+		if (c.classHierarchy.contains(c)) {
+			error("Cycle in hierarchy of CmlClass '" + c.name + "'", CmlPackage::eINSTANCE.cmlClass_Superclass,
+				HIERARCHY_CYCLE, c.superclass.inferType.name)
+		}
+	}
+
+	@Check
+	def void checkSuperclass(CmlClass c) {
+		val expectedType = c.resolveImplClass
+		val actualType = c.superclass.inferType
+		if (expectedType === null || actualType === null)
+			return; // nothing to check
+		if (!actualType.isConformant(expectedType)) {
+			error("'" + c.name + "' must extend '" + c.kind + "'", CmlPackage::eINSTANCE.cmlClass_Superclass,
+			INCOMPATIBLE_TYPES, c.superclass.inferType.name)
+		}
+	}
 
 	@Check
 	def void checkNoDuplicateClasses(CmlProgram cmlp) {
@@ -137,16 +137,16 @@ class CmlValidator extends AbstractCmlValidator {
 	}
 
 	@Check
-	def void checkFeatureSelection(FeatureSelection fc) {
-		val feature = fc.feature
+	def void checkFeatureSelection(FeatureSelectionExpression fse) {
+		val feature = fse.feature
 
-		if (feature instanceof Attribute && fc.opCall)
-			error("Method invocation on a field", CmlPackage.eINSTANCE.featureSelection_OpCall,
+		if (feature instanceof Attribute && fse.opCall)
+			error("Method invocation on a field", CmlPackage.eINSTANCE.featureSelectionExpression_OpCall,
 				METHOD_INVOCATION_ON_FIELD)
-		else if (feature instanceof Operation && !fc.opCall)
+		else if (feature instanceof Operation && !fse.opCall)
 			error(
 				"Field selection on a method",
-				CmlPackage.eINSTANCE.featureSelection_Feature,
+				CmlPackage.eINSTANCE.featureSelectionExpression_Feature,
 				FIELD_SELECTION_ON_METHOD
 			)
 	}
@@ -209,8 +209,8 @@ class CmlValidator extends AbstractCmlValidator {
 	}
 
 	@Check
-	def void checkSuperUsage(SuperExpression s) {
-		if (s.eContainingFeature != CmlPackage.eINSTANCE.featureSelection_Receiver)
+	def void checkSuperUsage(SuperExpression se) {
+		if (se.eContainingFeature != CmlPackage.eINSTANCE.featureSelectionExpression_Receiver)
 			error("'super' can be used only as feature selection receiver", null, WRONG_SUPER_USAGE)
 	}
 
@@ -228,12 +228,12 @@ class CmlValidator extends AbstractCmlValidator {
 	}
 	
 	@Check
-	def void checkAssignment(SymbolReference sr) {
-		val assignment = sr.getContainerOfType(AssignmentExpression)
+	def void checkAssignment(ReferenceExpression re) {
+		val assignment = re.getContainerOfType(AssignmentExpression)
 		if (assignment !== null) {
 			val left = assignment.left
-			if (left instanceof SymbolReference) {
-				val attribute = left.symbol
+			if (left instanceof ReferenceExpression) {
+				val attribute = left.reference
 				if (attribute instanceof Attribute) {
 					if (attribute.constant) {
 						error("The constant attribute '" + attribute.name + "' cannot be assigned", null,
@@ -251,16 +251,16 @@ class CmlValidator extends AbstractCmlValidator {
 			val otherOpExp = exp.getContainerOfType(OtherOperatorExpression)
 			if (otherOpExp.op == "=>") {
 				val left = otherOpExp.left
-				if (left instanceof NewExpression) {
-					val type = left.type.inferType
+				if (left instanceof ReferenceExpression) {
+					val type = left.reference.inferType
 					if (type instanceof CmlClass) {
 						if (exp instanceof AssignmentExpression) {
 							val expLeft = exp.left
-							if (expLeft instanceof SymbolReference) {
-								val expSymbol = expLeft.symbol
-								if (expSymbol instanceof Attribute) {
-									if (!type.classHierarchyAttributes.values.exists[it == expSymbol]) {
-										error("Couldn't resolve reference to attribute '" + expSymbol.name + "'", null,
+							if (expLeft instanceof ReferenceExpression) {
+								val expRef = expLeft.reference
+								if (expRef instanceof Attribute) {
+									if (!type.classHierarchyAttributes.values.exists[it == expRef]) {
+										error("Couldn't resolve reference to attribute '" + expRef.name + "'", null,
 											OPPOSITE_INCONSISTENCY)
 									}
 								} else
@@ -281,8 +281,8 @@ class CmlValidator extends AbstractCmlValidator {
 		val right = exp.right
 		if (exp.op == "=>") {
 			if (right instanceof Closure) {
-				if (left instanceof NewExpression) {
-					val type = left.type.inferType
+				if (left instanceof ReferenceExpression) {
+					val type = left.reference.inferType
 					if (type instanceof CmlClass) {
 						if (type.abstract)
 							error("Cannot instantiate the type '" + type.name + "'",
@@ -325,12 +325,12 @@ class CmlValidator extends AbstractCmlValidator {
 	}
 
 	@Check
-	def void checkMethodInvocationArguments(FeatureSelection fs) {
-		val operation = fs.feature
+	def void checkMethodInvocationArguments(FeatureSelectionExpression fse) {
+		val operation = fse.feature
 		if (operation instanceof Operation) {
-			if (operation.params.size != fs.args.size) {
-				error("Invalid number of arguments: expected " + operation.params.size + " but was " + fs.args.size,
-					CmlPackage.eINSTANCE.featureSelection_Feature, INVALID_ARGS)
+			if (operation.params.size != fse.args.size) {
+				error("Invalid number of arguments: expected " + operation.params.size + " but was " + fse.args.size,
+					CmlPackage.eINSTANCE.featureSelectionExpression_Feature, INVALID_ARGS)
 			}
 		}
 	}
@@ -346,16 +346,16 @@ class CmlValidator extends AbstractCmlValidator {
 		}
 	}
 
-	/* @Check
-	def void checkMethodInvocationArguments(NewExpression ne) {
-		val operation = ne.type.symbol
+	@Check
+	def void checkMethodInvocationArguments(ReferenceExpression re) {
+		val operation = re.reference
 		if (operation instanceof Operation) {
-			if (sr.args.size != operation.params.size) {
-				error("Invalid number of arguments: expected " + operation.params.size + " but was " + sr.args.size,
-					CmlPackage.eINSTANCE.symbolReference_Symbol, INVALID_ARGS)
+			if (re.args.size != operation.params.size) {
+				error("Invalid number of arguments: expected " + operation.params.size + " but was " + re.args.size,
+					CmlPackage.eINSTANCE.referenceExpression_Reference, INVALID_ARGS)
 			}
 		}
-	}*/
+	}
 
 	@Check
 	def void checkConstructorArguments(NewExpression ne) {
@@ -363,10 +363,10 @@ class CmlValidator extends AbstractCmlValidator {
 		if (class instanceof CmlClass) {
 			if (class.abstract)
 				error("Cannot instantiate the type '" + ne.type.inferType.name + "'",
-					CmlPackage.eINSTANCE.symbolReference_Symbol, INVALID_INSTANTIATION)
+					CmlPackage.eINSTANCE.newExpression_Type, INVALID_INSTANTIATION)
 			if (class.classHierarchyAttributes.size != ne.args.size) {
 				error("Invalid number of arguments: expected " + class.classHierarchyAttributes.size + " but was " +
-					ne.args.size, CmlPackage.eINSTANCE.symbolReference_Symbol, INVALID_ARGS)
+					ne.args.size, CmlPackage.eINSTANCE.newExpression_Type, INVALID_ARGS)
 			}
 		}
 	}

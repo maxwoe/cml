@@ -98,9 +98,6 @@ TypeVariable:
 NamedElement:
 	CmlProgram | CmlClass | Feature | VariableDeclaration | AnnotationDeclaration;
 
-Symbol:
-	CmlClass;
-	
 Feature:
 	Attribute | Operation | Clause | EnumerationElement;
 
@@ -282,22 +279,21 @@ CastedExpression returns Expression:
 	PostfixExpression (=> ({CastedExpression.target=current} 'as') type=TypeReference)*;
 
 PostfixExpression returns Expression:
-	SelectionExpression
+	FeatureSelectionExpression
 	(=> ({PostfixExpression.operand=current} op=("++" | "--" | "@pre")) |
 	=> ({ArrayAccessExpression.array=current}
 	'[' indexes+=Expression ']' (=> '[' indexes+=Expression ']')*))?;
 
-SelectionExpression returns Expression:
+FeatureSelectionExpression returns Expression:
 	PrimaryExpression
-	(=> ({AssignmentExpression.assignable=current} ('.' | explicitStatic?="::") feature=[Feature] '=')	value=AssignmentExpression
-	| => ({FeatureSelection.receiver=current} ("." | explicitStatic?="::")) feature=[Feature]
+	(=> ({FeatureSelectionExpression.receiver=current} ("." | explicitStatic?="::")) feature=[Feature]
 	(=> opCall?='(' (args+=Expression (',' args+=Expression)*)? ')')?)*;
 
 PrimaryExpression returns Expression:
 	LiteralExpression |
 	{ThisExpression} 'this' |
 	{SuperExpression} 'super' |
-	{SymbolReference} symbol=[NamedElement] (=> opCall?='(' (args+=Expression (',' args+=Expression)*)? ')')? |
+	{ReferenceExpression} reference=[NamedElement] (=> opCall?='(' (args+=Expression (',' args+=Expression)*)? ')')? |
 	{NewExpression} 'new' type=[Type|QualifiedName] '(' (args+=Expression (',' args+=Expression)*)? ')' |
 	{NestedExpression} '(' child=Expression ')';
 

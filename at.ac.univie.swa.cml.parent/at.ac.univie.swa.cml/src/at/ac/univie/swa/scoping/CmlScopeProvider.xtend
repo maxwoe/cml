@@ -5,20 +5,19 @@ package at.ac.univie.swa.scoping
 
 import at.ac.univie.swa.CmlModelUtil
 import at.ac.univie.swa.cml.Annotation
-import at.ac.univie.swa.cml.AssignmentExpression
 import at.ac.univie.swa.cml.Attribute
 import at.ac.univie.swa.cml.Block
 import at.ac.univie.swa.cml.Closure
 import at.ac.univie.swa.cml.CmlClass
 import at.ac.univie.swa.cml.CmlPackage
 import at.ac.univie.swa.cml.CmlProgram
-import at.ac.univie.swa.cml.FeatureSelection
+import at.ac.univie.swa.cml.FeatureSelectionExpression
 import at.ac.univie.swa.cml.ForStatement
 import at.ac.univie.swa.cml.NewExpression
 import at.ac.univie.swa.cml.Operation
 import at.ac.univie.swa.cml.OtherOperatorExpression
+import at.ac.univie.swa.cml.Type
 import at.ac.univie.swa.cml.VariableDeclaration
-import at.ac.univie.swa.typing.CmlTypeConformance
 import at.ac.univie.swa.typing.CmlTypeProvider
 import com.google.common.base.Predicate
 import javax.inject.Inject
@@ -29,7 +28,6 @@ import org.eclipse.xtext.scoping.IScope
 import org.eclipse.xtext.scoping.Scopes
 import org.eclipse.xtext.scoping.impl.FilteringScope
 import org.eclipse.xtext.scoping.impl.SimpleScope
-import at.ac.univie.swa.cml.Type
 
 /**
  * This class contains custom scoping description.
@@ -41,15 +39,12 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 
 	@Inject extension CmlTypeProvider
 	@Inject extension CmlModelUtil
-	@Inject extension CmlTypeConformance
 
 	override getScope(EObject context, EReference reference) {
-		if (reference == CmlPackage.Literals.SYMBOL_REFERENCE__SYMBOL) {
-			return scopeForSymbolRef(context, reference)
-		} else if (context instanceof FeatureSelection) {
+		if (reference == CmlPackage.Literals.REFERENCE_EXPRESSION__REFERENCE) {
+			return scopeForReference(context, reference)
+		} else if (context instanceof FeatureSelectionExpression) {
 			return scopeForFeatureSelection(context)
-		} else if (context instanceof AssignmentExpression/*reference == CmlPackage.Literals.ASSIGNMENT_EXPRESSION__FEATURE*/) {
-			return scopeForAssignable(context)
 		} else if (reference == CmlPackage.Literals.ACTOR__PARTY || reference == CmlPackage.Literals.ACTION_QUERY__PARTY) {
 			//return scopeForAttributeRef(context, [Attribute a | !a.typeDecl.type.eIsProxy && (a.inferType.conformsToParty || a.inferType.subclassOfParty)])
 		} else if (reference == CmlPackage.Literals.EVENT_QUERY__EVENT) {
@@ -60,7 +55,7 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 		super.getScope(context, reference)
 	}
 
-	def protected IScope scopeForSymbolRef(EObject context, EReference reference) {
+	def protected IScope scopeForReference(EObject context, EReference reference) {
 		var container = context.eContainer
 
 		return switch (container) {
@@ -79,35 +74,31 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 							}
 					}
 				}
-				new SimpleScope(scopeForSymbolRef(container, reference), scope.allElements)
+				new SimpleScope(scopeForReference(container, reference), scope.allElements)
 			}
 			Operation:
-				Scopes.scopeFor(container.params, scopeForSymbolRef(container, reference))
+				Scopes.scopeFor(container.params, scopeForReference(container, reference))
 			Block:
 				Scopes.scopeFor(container.statements.takeWhile[it != context].filter(VariableDeclaration),
-					scopeForSymbolRef(container, reference))
+					scopeForReference(container, reference))
 			CmlClass: {
 				var parentScope = IScope::NULLSCOPE
 				for (c : container.classHierarchyWithRoot.toList.reverseView) {
 					parentScope = Scopes::scopeFor(c.attributes + c.operations, parentScope)
 				}
 				parentScope = Scopes::scopeFor(container.attributes + container.operations, parentScope)
-				new SimpleScope(scopeForSymbolRef(container, reference), parentScope.allElements)
+				new SimpleScope(scopeForReference(container, reference), parentScope.allElements)
 			}
 			ForStatement:
-				Scopes.scopeFor(#[container.declaration], scopeForSymbolRef(container, reference))
+				Scopes.scopeFor(#[container.declaration], scopeForReference(container, reference))
 			CmlProgram:
 				allClasses(container, reference)
 			default:
-				scopeForSymbolRef(container, reference)
+				scopeForReference(container, reference)
 		}
 	}
 
-	def protected IScope scopeForAssignable(AssignmentExpression ae) {
-		return ae.assignable.typeFor.scopeForType(false, ae.explicitStatic)
-	}
-	
-	def protected IScope scopeForFeatureSelection(FeatureSelection fs) {
+	def protected IScope scopeForFeatureSelection(FeatureSelectionExpression fs) {
 		return fs.receiver.typeFor.scopeForType(fs.opCall, fs.explicitStatic)
 	}
 	

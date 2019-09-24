@@ -28,7 +28,7 @@ import at.ac.univie.swa.cml.DurationLiteral
 import at.ac.univie.swa.cml.EqualityExpression
 import at.ac.univie.swa.cml.EventQuery
 import at.ac.univie.swa.cml.Expression
-import at.ac.univie.swa.cml.FeatureSelection
+import at.ac.univie.swa.cml.FeatureSelectionExpression
 import at.ac.univie.swa.cml.ForStatement
 import at.ac.univie.swa.cml.GenericArrayTypeReference
 import at.ac.univie.swa.cml.IfStatement
@@ -38,19 +38,20 @@ import at.ac.univie.swa.cml.MultiplicativeExpression
 import at.ac.univie.swa.cml.NamedElement
 import at.ac.univie.swa.cml.NestedCompoundAction
 import at.ac.univie.swa.cml.NestedExpression
+import at.ac.univie.swa.cml.NewExpression
 import at.ac.univie.swa.cml.Operation
 import at.ac.univie.swa.cml.OrCompoundAction
 import at.ac.univie.swa.cml.OrExpression
 import at.ac.univie.swa.cml.ParameterizedTypeReference
 import at.ac.univie.swa.cml.PostfixExpression
 import at.ac.univie.swa.cml.RealLiteral
+import at.ac.univie.swa.cml.ReferenceExpression
 import at.ac.univie.swa.cml.RelationalExpression
 import at.ac.univie.swa.cml.ReturnStatement
 import at.ac.univie.swa.cml.Statement
 import at.ac.univie.swa.cml.StringLiteral
 import at.ac.univie.swa.cml.SuperExpression
 import at.ac.univie.swa.cml.SwitchStatement
-import at.ac.univie.swa.cml.SymbolReference
 import at.ac.univie.swa.cml.TemporalConstraint
 import at.ac.univie.swa.cml.TemporalPrecedence
 import at.ac.univie.swa.cml.ThisExpression
@@ -544,7 +545,7 @@ class CmlGenerator extends AbstractGenerator2 {
 	
 	def Set<NamedElement> traverseForTypes(Operation o) {
 		var set = new LinkedHashSet<NamedElement>
-		set.addAll(o.referencedSymbols)
+		set.addAll(o.references)
 		set.addAll(o.variableDeclarations)
 		for(op : o.referencedOperations) {
 			if (op !== o)
@@ -684,12 +685,12 @@ class CmlGenerator extends AbstractGenerator2 {
 	'''
 	
 	def payable(Operation o) {
-		o.eAllOfType(Statement).filter(FeatureSelection)?.filter[opCall && feature instanceof Operation]?.map[feature]?.
+		o.eAllOfType(Statement).filter(FeatureSelectionExpression)?.filter[opCall && feature instanceof Operation]?.map[feature]?.
 			findFirst[containingClass.conformsToParty && name == "deposit"] !== null
 	}
 	
 //	def modifiesStateAttributes(Operation o) {
-//		!o.eAllOfType(AssignmentExpression).map[left].filter(SymbolReference).map[symbol].filter(Attribute).filter[!static].empty
+//		!o.eAllOfType(AssignmentExpression).map[left].filter(ReferenceExpression).map[symbol].filter(Attribute).filter[!static].empty
 //	}
 	
 	def List<String> deriveAnnotations(Operation o) {
@@ -722,7 +723,7 @@ class CmlGenerator extends AbstractGenerator2 {
 	
 	def String compileStatement(Statement s) {
 		switch (s) {
-			VariableDeclaration: '''«s.type.compile» «s.name» = «s.expression.compile»;'''
+			VariableDeclaration: '''«s.type.compile»«IF s.type.inferType.mapsToStruct» memory«ENDIF» «s.name» = «s.expression.compile»;'''
 			ReturnStatement:
 				"return (" + s.expression.compile + ");"
 			IfStatement: '''
@@ -885,8 +886,7 @@ class CmlGenerator extends AbstractGenerator2 {
 					case '=': '''«left» = «right»'''
 					case '+=': '''«left» += «right»'''
 					case '-=': '''«left» -= «right»'''
-					default:
-						""
+					default: ""
 				}
 			}
 			OrExpression: '''«(exp.left.compile)» || «(exp.right.compile)»'''
@@ -905,8 +905,7 @@ class CmlGenerator extends AbstractGenerator2 {
 					case '>': '''«left» > «right»'''
 					case '>=': '''«left» >= «right»'''
 					case '<=': '''«left» <= «right»'''
-					default:
-						""
+					default: ""
 				}
 			}
 			AdditiveExpression: {
@@ -985,8 +984,16 @@ class CmlGenerator extends AbstractGenerator2 {
 			ThisExpression: '''this''' // concept doesn't exist in the same manner in solidity
 			DateTimeLiteral: '''«exp.compile»'''
 			DurationLiteral: '''«exp.value» «exp.unit»'''
-			SymbolReference: '''«exp.compile»'''
-			FeatureSelection: '''«exp.compile»'''
+			ReferenceExpression: '''«exp.compile»'''
+			FeatureSelectionExpression: '''«exp.compile»'''
+			NewExpression: '''«exp.compile»'''
+		}
+	}
+	
+	def compile(NewExpression ne) {
+		val type = ne.type.inferType
+		if (type.mapsToStruct) {
+			(detachModel ? MODEL_NAME + "." : "") + type.name + "(" + ne.args.map[compile].filter[!it.empty].join(", ") + ")"
 		}
 	}
 	
@@ -998,16 +1005,16 @@ class CmlGenerator extends AbstractGenerator2 {
 		b.scaleByPowerOfTen(fixedPointDecimals).toString().replace("E+", "E")
 	}
 	
-	def resolvePath(FeatureSelection fs) {
+	def resolvePath(FeatureSelectionExpression fse) {
 		val list = newLinkedList
-		list.add(fs.feature)
-		var current = fs.receiver
+		list.add(fse.feature)
+		var current = fse.receiver
 		while (current !== null) {
-			if (current instanceof FeatureSelection) {
+			if (current instanceof FeatureSelectionExpression) {
 				list.add(current.feature)
 				current = current.receiver
-			} else if (current instanceof SymbolReference) {
-				list.add(current.symbol)
+			} else if (current instanceof ReferenceExpression) {
+				list.add(current.reference)
 				current = null
 			} else {
 				current = null
@@ -1017,87 +1024,88 @@ class CmlGenerator extends AbstractGenerator2 {
 	}
 	
 	def resolvePath(Expression e) {
-		if (e instanceof FeatureSelection) {
+		if (e instanceof FeatureSelectionExpression) {
 			e.resolvePath
-		} else if (e instanceof SymbolReference) {
-			#[e.symbol]
+		} else if (e instanceof ReferenceExpression) {
+			#[e.reference]
 		}
 	}
  	
-	def compile(FeatureSelection fs) {
+	def compile(FeatureSelectionExpression fse) {
 		var String rslt
 
-		if (!fs.opCall && fs.feature instanceof Attribute)
-			rslt = interceptAttribute(fs.feature as Attribute, fs)
+		if (!fse.opCall && fse.feature instanceof Attribute)
+			rslt = interceptAttribute(fse.feature as Attribute, fse)
 
-		if (fs.opCall && fs.feature instanceof Operation)
-			rslt = interceptOperation(fs.feature as Operation, fs.args, fs.receiver)
+		if (fse.opCall && fse.feature instanceof Operation)
+			rslt = interceptOperation(fse.feature as Operation, fse.args, fse.receiver)
 
 		rslt ?: {
 			val sb = new StringBuilder()
-			sb.append(fs.receiver.compile)
+			sb.append(fse.receiver.compile)
 			sb.append(".")
-			sb.append(fs.feature.name)
-			if (fs.opCall)
-				sb.append("(" + fs.args.map[compile].join(", ") + ")")
+			sb.append(fse.feature.name)
+			if (fse.opCall)
+				sb.append("(" + fse.args.map[compile].join(", ") + ")")
 			sb.toString
 		}
 	}
 
-	def compile(SymbolReference sr) {
+	def compile(ReferenceExpression re) {
 		var String rslt
 
-		if (!sr.opCall && sr.symbol instanceof Attribute)
-			rslt = interceptAttribute(sr.symbol as Attribute, sr)
+		if (!re.opCall && re.reference instanceof Attribute)
+			rslt = interceptAttribute(re.reference as Attribute, re)
 
-		if (sr.opCall && sr.symbol instanceof Operation)
-			rslt = interceptOperation(sr.symbol as Operation, sr.args, sr)
+		if (re.opCall && re.reference instanceof Operation)
+			rslt = interceptOperation(re.reference as Operation, re.args, re)
 
-		if (sr.opCall && sr.symbol instanceof CmlClass)
-			rslt = interceptClass(sr.symbol as CmlClass, sr.args, sr)
+		if (re.opCall && re.reference instanceof CmlClass)
+			rslt = interceptClass(re.reference as CmlClass, re.args, re)
 
 		rslt ?: {
 			val sb = new StringBuilder()
-			if(detachModel && sr.symbol.inferType.mapsToEnum)
+			if(detachModel && re.reference.inferType.mapsToEnum)
 				sb.append(MODEL_NAME + ".")
-			sb.append(sr.symbol.name)
-			if (sr.opCall)
-				sb.append("(" + sr.args.map[compile].join(", ") + ")")
+			sb.append(re.reference.name)
+			if (re.opCall)
+				sb.append("(" + re.args.map[compile].join(", ") + ")")
 			sb.toString
 		}
 	}
 
-	def interceptClass(CmlClass c, List<Expression> args, SymbolReference reference) {
+	def interceptClass(CmlClass c, List<Expression> args, ReferenceExpression re) {
 		switch (c) {
 			case c.conformsToError: {
 				args.get(0).compile
 			}
-			case c.subclassOfParty: {
-				args.remove(1)
-				reference.symbol.name + "(" + args.map[compile].join(", ") + ")"
-			}
+			/*case c.subclassOfParty: {
+				val _args = args.copyAll
+				_args.remove(1)
+				re.reference.name + "(" + _args.map[compile].join(", ") + ")"
+			}*/
 		}
 	}
 
-	def interceptAttribute(Attribute a, Expression reference) {
+	def interceptAttribute(Attribute a, Expression ref) {
 		val c = a.containingClass
 		if (c !== null) {
 			if (c.conformsToContract) {
 				switch (a.name) {
 					case "contractStart": "_contractStart"
-					case "caller": "Party(msg.sender)"
+					case "caller": caller
 				}
 			} else if (c.conformsToParticipant) {
 				switch (a.name) {
-					case "id": if (reference === null) "address payable id"
+					case "id": if (ref === null) "address payable id"
 				}
 			} else if (c.conformsToAsset) {
 				switch (a.name) {
-					case "quantity": if (reference !== null) "address(this).balance"
+					case "quantity": if (ref !== null) "address(this).balance"
 				}
 			} else if (c.conformsToTransaction) {
 				switch (a.name) {
-					case "sender": if (reference === null) "" else "Party(msg.sender)"
+					case "sender": if (ref === null) "" else caller
 				}
 			} else if (c.conformsToTokenHolder) {
 				switch (a.name) {
@@ -1105,25 +1113,29 @@ class CmlGenerator extends AbstractGenerator2 {
 				}
 			} else if (c.conformsToTokenTransaction) {
 				switch (a.name) {
-					case "amount": if (reference === null) "" else "msg.value"
+					case "amount": if (ref === null) "" else "msg.value"
 				}
 			}
 		}
 	}
+	
+	def caller() {
+		(detachModel ? MODEL_NAME + "." : "") + "Party(msg.sender)"
+	}
 		
-	def interceptOperation(Operation o, List<Expression> args, Expression reference) {
+	def interceptOperation(Operation o, List<Expression> args, Expression ref) {
 		if (!o.static) {
 			val c = o.containingClass
-			val path = reference.resolvePath
+			val path = ref.resolvePath
 			
 			if (c.conformsToParty) {
 				switch (o.name) {
 					case "deposit": ""
 					case "withdraw": {
 						if (pullPayment) {
-							"_asyncTransfer(" + reference.compile + ".id , " + args.get(0).compile + ")"
+							"_asyncTransfer(" + ref.compile + ".id , " + args.get(0).compile + ")"
 						} else {
-							reference.compile + ".id.transfer" + "(" + args.get(0).compile + ")"
+							ref.compile + ".id.transfer" + "(" + args.get(0).compile + ")"
 						}
 					}
 				}
@@ -1141,69 +1153,69 @@ class CmlGenerator extends AbstractGenerator2 {
 				switch (o.name) {
 					case "toInteger": {
 						if (path.get(0).inferType.conformsToInteger || path.get(0).inferType.conformsToNumber)
-							reference.compile
+							ref.compile
 						else if (path.get(0).inferType.conformsToReal)
-							if(fixedPointArithmetic) "RealLib.toInteger(" + reference.compile + ", " +
+							if(fixedPointArithmetic) "RealLib.toInteger(" + ref.compile + ", " +
 								fixedPointDecimals + ")" else "??? Not yet implemented"
 					}
 					case "toReal": {
 						if (path.get(0).inferType.conformsToInteger)
-							if(fixedPointArithmetic) "IntLib.toReal(" + reference.compile +
+							if(fixedPointArithmetic) "IntLib.toReal(" + ref.compile +
 								")" else "??? Not yet implemented"
 						else if (path.get(0).inferType.conformsToReal || path.get(0).inferType.conformsToNumber)
-							reference.compile
+							ref.compile
 					}
 				}
 			} else if (c.conformsToInteger) {
 				switch (o.name) {
-					case "average": "IntLib.average(" + reference.compile + ", " + args.get(0).compile + ")"
-					case "max": "IntLib.max(" + reference.compile + ", " + args.get(0).compile + ")"
-					case "min": "IntLib.min(" + reference.compile + ", " + args.get(0).compile + ")"
+					case "average": "IntLib.average(" + ref.compile + ", " + args.get(0).compile + ")"
+					case "max": "IntLib.max(" + ref.compile + ", " + args.get(0).compile + ")"
+					case "min": "IntLib.min(" + ref.compile + ", " + args.get(0).compile + ")"
 				}
 			} else if (c.conformsToReal) {
 				switch (o.name) {
-					case "max": "RealLib.max(" + reference.compile + ", " + args.get(0).compile + ")"
-					case "min": "RealLib.min(" + reference.compile + ", " + args.get(0).compile + ")"
-					case "sqrt": "RealLib.sqrt(" + reference.compile + ")"
-					case "ceil": if (fixedPointArithmetic) "RealLib.ceil(" + reference.compile + ", " + fixedPointDecimals+ ")" else "??? Not yet implemented"
-					case "floor": if (fixedPointArithmetic) "RealLib.floor(" + reference.compile + ", " + fixedPointDecimals+ ")" else "??? Not yet implemented"
+					case "max": "RealLib.max(" + ref.compile + ", " + args.get(0).compile + ")"
+					case "min": "RealLib.min(" + ref.compile + ", " + args.get(0).compile + ")"
+					case "sqrt": "RealLib.sqrt(" + ref.compile + ")"
+					case "ceil": if (fixedPointArithmetic) "RealLib.ceil(" + ref.compile + ", " + fixedPointDecimals+ ")" else "??? Not yet implemented"
+					case "floor": if (fixedPointArithmetic) "RealLib.floor(" + ref.compile + ", " + fixedPointDecimals+ ")" else "??? Not yet implemented"
 				}
 			} else if (c.conformsToDateTime) {
 				switch (o.name) {
-					case "isBefore": "DateTime.isBefore(" + reference.compile + ", " + args.get(0).compile + ")"
-					case "isAfter": "DateTime.isAfter(" + reference.compile + ", " + args.get(0).compile + ")"
-					case "second": "DateTime.getSecond(" + reference.compile + ")"
-					case "minute": "DateTime.getMinute(" + reference.compile + ")"
-					case "hour": "DateTime.getHour(" + reference.compile + ")"
-					case "day": "DateTime.getDay(" + reference.compile + ")"
-					case "week": "DateTime.getWeek(" + reference.compile + ")"
-					case "equals": "DateTime.equals(" + reference.compile + ", " + args.get(0).compile + ")"
-					case "addDuration": "DateTime.addDuration(" + reference.compile + ", " + args.get(0).compile + ")"
-					case "subtractDuration": "DateTime.subtractDuration(" + reference.compile + ", " +
+					case "isBefore": "DateTime.isBefore(" + ref.compile + ", " + args.get(0).compile + ")"
+					case "isAfter": "DateTime.isAfter(" + ref.compile + ", " + args.get(0).compile + ")"
+					case "second": "DateTime.getSecond(" + ref.compile + ")"
+					case "minute": "DateTime.getMinute(" + ref.compile + ")"
+					case "hour": "DateTime.getHour(" + ref.compile + ")"
+					case "day": "DateTime.getDay(" + ref.compile + ")"
+					case "week": "DateTime.getWeek(" + ref.compile + ")"
+					case "equals": "DateTime.equals(" + ref.compile + ", " + args.get(0).compile + ")"
+					case "addDuration": "DateTime.addDuration(" + ref.compile + ", " + args.get(0).compile + ")"
+					case "subtractDuration": "DateTime.subtractDuration(" + ref.compile + ", " +
 						args.get(0).compile + ")"
-					case "durationBetween": "DateTime.durationBetween(" + reference.compile + ", " +
+					case "durationBetween": "DateTime.durationBetween(" + ref.compile + ", " +
 						args.get(0).compile + ")"
 				}
 			} else if (c.conformsToDuration) {
 				switch (o.name) {
-					case "toSeconds": reference.compile
-					case "toMinutes": "DateTime.toMinutes(" + reference.compile + ")"
-					case "toHours": "DateTime.toHours(" + reference.compile + ")"
-					case "toDays": "DateTime.toDays(" + reference.compile + ")"
-					case "toWeeks": "DateTime.toWeeks(" + reference.compile + ")"
-					case "addDuration": "DateTime.addDuration(" + reference.compile + ", " + args.get(0).compile + ")"
-					case "subtractDuration": "DateTime.subtractDuration(" + reference.compile + ", " +
+					case "toSeconds": ref.compile
+					case "toMinutes": "DateTime.toMinutes(" + ref.compile + ")"
+					case "toHours": "DateTime.toHours(" + ref.compile + ")"
+					case "toDays": "DateTime.toDays(" + ref.compile + ")"
+					case "toWeeks": "DateTime.toWeeks(" + ref.compile + ")"
+					case "addDuration": "DateTime.addDuration(" + ref.compile + ", " + args.get(0).compile + ")"
+					case "subtractDuration": "DateTime.subtractDuration(" + ref.compile + ", " +
 						args.get(0).compile + ")"
 				}
 			} else if (c.conformsToMap) {
 				switch (o.name) {
-					case "size": reference.compile + ".getSize()"
-					case "isEmpty": reference.compile + ".isEmpty()"
-					case "containsKey": reference.compile + ".containsKey(" + args.get(0).compile + ")"
-					case "clear": reference.compile + ".clear()"
-					case "add": reference.compile + ".add(" + args.get(0).compile + ", " + args.get(1).compile + ")"
-					case "rmv": reference.compile + ".remove(" + args.get(0).compile + ")"
-					case "get": reference.compile + ".get(" + args.get(0).compile + ")"
+					case "size": ref.compile + ".getSize()"
+					case "isEmpty": ref.compile + ".isEmpty()"
+					case "containsKey": ref.compile + ".containsKey(" + args.get(0).compile + ")"
+					case "clear": ref.compile + ".clear()"
+					case "add": ref.compile + ".add(" + args.get(0).compile + ", " + args.get(1).compile + ")"
+					case "rmv": ref.compile + ".remove(" + args.get(0).compile + ")"
+					case "get": ref.compile + ".get(" + args.get(0).compile + ")"
 				}
 			}	
 		} else {

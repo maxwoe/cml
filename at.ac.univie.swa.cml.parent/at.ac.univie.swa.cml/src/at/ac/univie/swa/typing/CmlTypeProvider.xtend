@@ -20,22 +20,23 @@ import at.ac.univie.swa.cml.DateTimeLiteral
 import at.ac.univie.swa.cml.DurationLiteral
 import at.ac.univie.swa.cml.EqualityExpression
 import at.ac.univie.swa.cml.Expression
-import at.ac.univie.swa.cml.FeatureSelection
+import at.ac.univie.swa.cml.FeatureSelectionExpression
 import at.ac.univie.swa.cml.GeneralConstraint
 import at.ac.univie.swa.cml.IntegerLiteral
 import at.ac.univie.swa.cml.MultiplicativeExpression
 import at.ac.univie.swa.cml.NestedExpression
+import at.ac.univie.swa.cml.NewExpression
 import at.ac.univie.swa.cml.NullLiteral
 import at.ac.univie.swa.cml.Operation
 import at.ac.univie.swa.cml.OrExpression
 import at.ac.univie.swa.cml.OtherOperatorExpression
 import at.ac.univie.swa.cml.PeriodicTime
 import at.ac.univie.swa.cml.RealLiteral
+import at.ac.univie.swa.cml.ReferenceExpression
 import at.ac.univie.swa.cml.RelationalExpression
 import at.ac.univie.swa.cml.ReturnStatement
 import at.ac.univie.swa.cml.StringLiteral
 import at.ac.univie.swa.cml.SuperExpression
-import at.ac.univie.swa.cml.SymbolReference
 import at.ac.univie.swa.cml.TemporalConstraint
 import at.ac.univie.swa.cml.ThisExpression
 import at.ac.univie.swa.cml.ThrowStatement
@@ -43,8 +44,6 @@ import at.ac.univie.swa.cml.Type
 import at.ac.univie.swa.cml.UnaryExpression
 import at.ac.univie.swa.cml.VariableDeclaration
 import com.google.inject.Inject
-import at.ac.univie.swa.cml.NewExpression
-import at.ac.univie.swa.cml.NamedElement
 
 class CmlTypeProvider {
 	@Inject extension CmlLib
@@ -71,8 +70,8 @@ class CmlTypeProvider {
 				e.containingClass
 			SuperExpression:
 				e.containingClass.superclassOrObject.inferType
-			SymbolReference:
-				e.symbol.inferType
+			ReferenceExpression:
+				e.reference.inferType
 			NullLiteral:
 				NULL_TYPE
 			StringLiteral:
@@ -119,7 +118,7 @@ class CmlTypeProvider {
 				}
 			AssignmentExpression:
 				e.left.typeFor
-			FeatureSelection:
+			FeatureSelectionExpression:
 				e.feature.inferType
 			CastedExpression:
 				e.type.inferType
@@ -130,8 +129,8 @@ class CmlTypeProvider {
 				val right = e.right
 				if (e.op == "=>") {
 					if (right instanceof Closure) {
-						if (left instanceof SymbolReference) {
-							val symbol = left.symbol
+						if (left instanceof ReferenceExpression) {
+							val symbol = left.reference
 							if (symbol instanceof CmlClass) {
 								symbol
 							}
@@ -203,7 +202,7 @@ class CmlTypeProvider {
 				c.left.typeFor
 			EqualityExpression case f == ep.equalityExpression_Right:
 				c.left.typeFor
-			FeatureSelection case f == ep.featureSelection_Args: {
+			FeatureSelectionExpression case f == ep.featureSelectionExpression_Args: {
 				// assume that it refers to a method and that there
 				// is a parameter corresponding to the argument
 				try {
