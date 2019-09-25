@@ -316,13 +316,13 @@ class CmlValidator extends AbstractCmlValidator {
 	}
 	
 	
-	@Check
-	def void checkContractMethodArguments(Attribute a) {
-		val allActions = a.eContainer.containingClass.clauses.flatMap[action.compoundAction.eAllOfType(AtomicAction).map[operation]].toSet
-		if (allActions.contains(a.eContainer) && a.eContainer.containingClass !== null && !a.inferType.subclassOfTransaction)
-			error("The attribute '" + a.name + "' is not a transaction", null,
-				INVALID_ARGS)
-	}
+//	@Check
+//	def void checkContractMethodArguments(Attribute a) {
+//		val allActions = a.eContainer.containingClass.clauses.flatMap[action.compoundAction.eAllOfType(AtomicAction).map[operation]].toSet
+//		if (allActions.contains(a.eContainer) && a.eContainer.containingClass !== null && !a.inferType.subclassOfTransaction)
+//			error("The attribute '" + a.name + "' is not a transaction", null,
+//				INVALID_ARGS)
+//	}
 
 	@Check
 	def void checkMethodInvocationArguments(FeatureSelectionExpression fse) {

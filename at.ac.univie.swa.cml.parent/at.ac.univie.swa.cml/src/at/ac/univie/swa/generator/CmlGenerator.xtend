@@ -81,6 +81,8 @@ import org.eclipse.xtext.generator.IGeneratorContext
 
 import static extension org.eclipse.emf.ecore.util.EcoreUtil.*
 import static extension org.eclipse.xtext.EcoreUtil2.*
+import at.ac.univie.swa.cml.CmlFactory
+import at.ac.univie.swa.cml.NullLiteral
 
 /**
  * Generates code from your model files on save.
@@ -91,6 +93,7 @@ class CmlGenerator extends AbstractGenerator2 {
 
 	static final Logger LOG = Logger.getLogger(CmlGenerator)
 	static final String MODEL_NAME = "Model"
+	static val GLOBAL_ID_TYPE = CmlFactory::eINSTANCE.createCmlClass => [name = "address"]
 	int fixedPointDecimals
 	boolean fixedPointArithmetic
 	boolean safeMath
@@ -214,12 +217,14 @@ class CmlGenerator extends AbstractGenerator2 {
 			imports.add("./lib/cml/" + MODEL_NAME + ".sol")
 		}
 		
-		for(a : c.attributes.filter[inferType.conformsToMap]) {
-			val key = (a.type as ParameterizedTypeReference).typeArgs.get(0).inferType
+		for (a : c.attributes.filter[inferType.conformsToMap]) {
+			var key = (a.type as ParameterizedTypeReference).typeArgs.get(0).inferType
 			val value = (a.type as ParameterizedTypeReference).typeArgs.get(1).inferType
-			val mapImplName = compileMapImplName(key, value)
+			if (value.conformsToParty || value.subclassOfParty)
+				key = GLOBAL_ID_TYPE
+			val mapImplName = a.compileMapImplName
 			fsa.generateFile("/lib/cml/" + mapImplName + ".sol", compileMapLib(mapImplName, key, value))
-			fsa.generateFile("/lib/cml/" + "CLL" + (key as Type).compile.toFirstUpper + ".sol", compileCLLLib("CLL" + (key as Type).compile.toFirstUpper, key))
+			fsa.generateFile("/lib/cml/" + "CLL" + (key as Type).compile.toFirstUpper + ".sol",	compileCLLLib("CLL" + (key as Type).compile.toFirstUpper, key))
 			imports.add("./lib/cml/" + mapImplName + ".sol")
 		}
 		
@@ -227,8 +232,10 @@ class CmlGenerator extends AbstractGenerator2 {
 	}
 	
 	def compileMapImplName(Attribute a) {
-		val key = (a.type as ParameterizedTypeReference).typeArgs.get(0).inferType
+		var key = (a.type as ParameterizedTypeReference).typeArgs.get(0).inferType
 		val value = (a.type as ParameterizedTypeReference).typeArgs.get(1).inferType
+		if (value.conformsToParty || value.subclassOfParty)
+				key = GLOBAL_ID_TYPE
 		compileMapImplName(key, value)
 	}
 			
@@ -373,7 +380,7 @@ class CmlGenerator extends AbstractGenerator2 {
 	}
 	
 	def callerCheck(String account) {
-		"onlyBy(" + account + ".id" + ")"
+		"onlyBy(" + account +  ".id" + ")"
 	}
 	
 	def callSuccess(String signature) {
@@ -405,8 +412,13 @@ class CmlGenerator extends AbstractGenerator2 {
 		val party = c.actor.party
 		val tc = c.constraint.temporal
 		val gc = c.constraint.general
-		if (party.name != "anyone")
+		if (party.name != "anyone") {
+			if(party.inferType.conformsToMap)
+				constraints.add(party.name + ".containsKey(msg.sender)" -> "Caller not authorized")
+			else
 			constraints.add(callerCheck(party.name) -> "Caller not authorized")
+		}
+			
 		if (tc !== null) {
 			val ref = tc.reference
 			if (ref instanceof Expression) {
@@ -655,7 +667,7 @@ class CmlGenerator extends AbstractGenerator2 {
 		«FOR a : attributes SEPARATOR ', '»«IF !a.inferType.conformsToTokenTransaction»«a.compileOpParam»«ENDIF»«ENDFOR»'''
 
 	def compileOpParam(Attribute a) {
-		interceptAttribute(a, null) ?: '''«a.type.compile»«IF a.inferType.mapsToStruct» memory«ENDIF» «a.name»'''
+		interceptAttribute(a, null) ?: '''«a.type.compile»«IF a.inferType.requiresDataLocation» memory«ENDIF» «a.name»'''
 	}
 	
 	def compile(Attribute a) {
@@ -676,7 +688,7 @@ class CmlGenerator extends AbstractGenerator2 {
 			«FOR m : modifiers.entrySet SEPARATOR ' '»
 				«m.key»(«m.value.join(", ")»)
 			«ENDFOR»
-			«IF o.type !== null»returns («o.type.compile»«IF o.inferType.mapsToStruct» memory«ENDIF»)«ENDIF»
+			«IF o.type !== null»returns («o.type.compile»«IF o.inferType.requiresDataLocation» memory«ENDIF»)«ENDIF»
 		{
 			«FOR s : o.body?.statements ?: emptyList»
 				«compileStatement(s)»
@@ -723,7 +735,7 @@ class CmlGenerator extends AbstractGenerator2 {
 	
 	def String compileStatement(Statement s) {
 		switch (s) {
-			VariableDeclaration: '''«s.type.compile»«IF s.type.inferType.mapsToStruct» memory«ENDIF» «s.name» = «s.expression.compile»;'''
+			VariableDeclaration: '''«s.type.compile»«IF s.type.inferType.requiresDataLocation» memory«ENDIF» «s.name» = «s.expression.compile»;'''
 			ReturnStatement:
 				"return (" + s.expression.compile + ");"
 			IfStatement: '''
@@ -789,6 +801,7 @@ class CmlGenerator extends AbstractGenerator2 {
 		switch (t) {
 			CmlClass:
 				switch (t) {
+					case t == GLOBAL_ID_TYPE: "address"
 					case t.conformsToInteger: "uint" // "int"
 					case t.conformsToBoolean: "bool"
 					case t.conformsToString: "bytes32"
@@ -803,43 +816,46 @@ class CmlGenerator extends AbstractGenerator2 {
 		}
 	}
 		
-	def compileMapLib(String libName, Type key, Type value) '''
+	def compileMapLib(String libName, Type keyType, Type valueType) {
+		var key = keyType.compile
+		val value = valueType.compile
+		'''
 		pragma solidity >=0.4.22 <0.7.0;
 		pragma experimental ABIEncoderV2;
 		
-		import "./CLL«key.compile.toFirstUpper».sol";
-		«IF (value as CmlClass).mapsToStruct»import "./«MODEL_NAME».sol";«ENDIF»
+		import "./CLL«key.toFirstUpper».sol";
+		«IF (valueType as CmlClass).mapsToStruct»import "./«MODEL_NAME».sol";«ENDIF»
 		
 		library «libName» {
 		
 			struct Data {
-			    mapping(«key.compile» => «value.compile») map;
-		        CLL«key.compile.toFirstUpper».CLL mapIdList;
+			    mapping(«key» => «value») map;
+		        CLL«key.toFirstUpper».CLL mapIdList;
 			}
 			
-			using CLL«key.compile.toFirstUpper» for CLL«key.compile.toFirstUpper».CLL;
+			using CLL«key.toFirstUpper» for CLL«key.toFirstUpper».CLL;
 		    
 		    function getSize(Data storage self) public view returns (uint) {
 		        return self.mapIdList.sizeOf();
 		    }
 		
-		    function add(Data storage self, «key.compile» _key, «value.compile»«IF (value as CmlClass).mapsToStruct» memory«ENDIF» _value) public {
+		    function add(Data storage self, «key» _key, «value»«IF valueType.requiresDataLocation» memory«ENDIF» _value) public {
 		        self.map[_key] = _value;
 		        self.mapIdList.push(_key, true);
 		    }
 		
-		    function remove(Data storage self, «key.compile» _key) public {
+		    function remove(Data storage self, «key» _key) public {
 		        if(self.mapIdList.nodeExists(_key)) {
 		            delete self.map[_key];
 		            self.mapIdList.remove(_key);
 		        }
 		    }
 		
-		    function containsKey(Data storage self, «key.compile» _key) public view returns (bool) {
+		    function containsKey(Data storage self, «key» _key) public view returns (bool) {
 		        return self.mapIdList.nodeExists(_key);
 		    }
 		    
-		    function get(Data storage self, «key.compile» _key) public view returns («value.compile»«IF (value as CmlClass).mapsToStruct» memory«ENDIF») {
+		    function get(Data storage self, «key» _key) public view returns («value»«IF valueType.requiresDataLocation» memory«ENDIF») {
 		        return self.map[_key];
 		    }
 		    
@@ -847,12 +863,12 @@ class CmlGenerator extends AbstractGenerator2 {
 		        return !self.mapIdList.exists();
 		    }
 		    
-		    function getKeys(Data storage self) public view returns («key.compile»[] memory) {
+		    function getKeys(Data storage self) public view returns («key»[] memory) {
 		        return self.mapIdList.keys();
 		    }
 		    
 		    function clear(Data storage self) public {
-		        «key.compile»[] memory arr = getKeys(self);
+		        «key»[] memory arr = getKeys(self);
 		        for (uint i = 0; i < arr.length; i++) {
 		            delete self.map[arr[i]];
 		            remove(self, arr[i]);
@@ -860,6 +876,14 @@ class CmlGenerator extends AbstractGenerator2 {
 		    }
 		}
 	'''
+	}
+	
+	def requiresDataLocation(Type t) {
+		if(t instanceof CmlClass)
+			if(t.mapsToStruct || t.conformsToArray) 
+				return true
+		false
+	}
 	
 	def compileCLLLib(String libName, Type type) '''
 		«getResource("cml/CLL.sol").replace("$LIB_NAME$", libName).replace("$TYPE$", type.compile)»'''
@@ -987,13 +1011,14 @@ class CmlGenerator extends AbstractGenerator2 {
 			ReferenceExpression: '''«exp.compile»'''
 			FeatureSelectionExpression: '''«exp.compile»'''
 			NewExpression: '''«exp.compile»'''
+			NullLiteral: '''?'''
 		}
 	}
 	
 	def compile(NewExpression ne) {
 		val type = ne.type.inferType
 		if (type.mapsToStruct) {
-			(detachModel ? MODEL_NAME + "." : "") + type.name + "(" + ne.args.map[compile].filter[!it.empty].join(", ") + ")"
+			(detachModel ? MODEL_NAME + "." : "") + type.name + "(" + ne.args.map[compile].filterNull.filter[!it.empty].join(", ") + ")"
 		}
 	}
 	

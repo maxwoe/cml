@@ -44,6 +44,7 @@ import at.ac.univie.swa.cml.Type
 import at.ac.univie.swa.cml.UnaryExpression
 import at.ac.univie.swa.cml.VariableDeclaration
 import com.google.inject.Inject
+import at.ac.univie.swa.cml.ArrayAccessExpression
 
 class CmlTypeProvider {
 	@Inject extension CmlLib
@@ -71,7 +72,7 @@ class CmlTypeProvider {
 			SuperExpression:
 				e.containingClass.superclassOrObject.inferType
 			ReferenceExpression:
-				e.reference.inferType
+				e.reference.inferType(e)
 			NullLiteral:
 				NULL_TYPE
 			StringLiteral:
@@ -119,7 +120,7 @@ class CmlTypeProvider {
 			AssignmentExpression:
 				e.left.typeFor
 			FeatureSelectionExpression:
-				e.feature.inferType
+				e.feature.inferType(e)
 			CastedExpression:
 				e.type.inferType
 			NestedExpression:
@@ -142,6 +143,8 @@ class CmlTypeProvider {
 				e.expression.typeFor
 			NewExpression:
 				e.type.inferType
+			ArrayAccessExpression:
+				e.array.typeFor
 			default:
 				UNDEFINED_TYPE
 		}
@@ -184,9 +187,9 @@ class CmlTypeProvider {
 			MultiplicativeExpression case f == ep.multiplicativeExpression_Right:
 				c.left.typeFor
 			VariableDeclaration:
-				c.inferType
+				c.inferType(e)
 			ReturnStatement:
-				c.containingOperation.inferType
+				c.containingOperation.inferType(e)
 			PeriodicTime case f == ep.periodicTime_Start,
 			PeriodicTime case f == ep.periodicTime_End,
 			TemporalConstraint case f == ep.temporalConstraint_Reference:
@@ -195,7 +198,7 @@ class CmlTypeProvider {
 			TemporalConstraint case f == ep.timeframe_Window:
 				DURATION_TYPE
 			Attribute case f == ep.attribute_Expression:
-				c.inferType
+				c.inferType(e)
 			CasePart case f == ep.casePart_Case:
 				c.containingSwitch.declaration.typeFor
 			RelationalExpression case f == ep.relationalExpression_Right:
@@ -206,14 +209,14 @@ class CmlTypeProvider {
 				// assume that it refers to a method and that there
 				// is a parameter corresponding to the argument
 				try {
-					(c.feature as Operation).params.get(c.args.indexOf(e)).inferType
+					(c.feature as Operation).params.get(c.args.indexOf(e)).inferType(e)
 				} catch (Throwable t) {
 					null // otherwise there is no specific expected type
 				}
 			}
 			AnnotationElement case f == ep.annotationElement_Value: {
 				try {
-					(c.eContainer as Annotation).declaration.features.findFirst[it.name == c.param.name].inferType
+					(c.eContainer as Annotation).declaration.features.findFirst[it.name == c.param.name].inferType(e)
 				} catch (Throwable t) {
 					null // otherwise there is no specific expected type
 				}

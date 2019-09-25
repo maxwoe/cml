@@ -28,6 +28,7 @@ import org.eclipse.xtext.scoping.IScope
 import org.eclipse.xtext.scoping.Scopes
 import org.eclipse.xtext.scoping.impl.FilteringScope
 import org.eclipse.xtext.scoping.impl.SimpleScope
+import at.ac.univie.swa.typing.CmlTypeConformance
 
 /**
  * This class contains custom scoping description.
@@ -39,6 +40,7 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 
 	@Inject extension CmlTypeProvider
 	@Inject extension CmlModelUtil
+	@Inject extension CmlTypeConformance
 
 	override getScope(EObject context, EReference reference) {
 		if (reference == CmlPackage.Literals.REFERENCE_EXPRESSION__REFERENCE) {
@@ -46,9 +48,9 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 		} else if (context instanceof FeatureSelectionExpression) {
 			return scopeForFeatureSelection(context)
 		} else if (reference == CmlPackage.Literals.ACTOR__PARTY || reference == CmlPackage.Literals.ACTION_QUERY__PARTY) {
-			//return scopeForAttributeRef(context, [Attribute a | !a.typeDecl.type.eIsProxy && (a.inferType.conformsToParty || a.inferType.subclassOfParty)])
+			return scopeForAttributeRef(context, [Attribute a | a.type !== null && (a.inferType.conformsToParty || a.inferType.subclassOfParty)])
 		} else if (reference == CmlPackage.Literals.EVENT_QUERY__EVENT) {
-			//return scopeForAttributeRef(context, [Attribute a | !a.typeDecl.type.eIsProxy && (a.inferType.conformsToEvent || a.inferType.subclassOfEvent)])
+			return scopeForAttributeRef(context, [Attribute a | a.type !== null && (a.inferType.conformsToEvent || a.inferType.subclassOfEvent)])
 		} else if (reference == CmlPackage.Literals.ANNOTATION_ELEMENT__PARAM) {
 			return scopeForAnnotationParamRef(context, reference)
 		}
