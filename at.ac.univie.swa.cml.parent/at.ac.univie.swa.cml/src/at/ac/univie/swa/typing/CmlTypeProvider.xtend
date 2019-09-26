@@ -45,6 +45,8 @@ import at.ac.univie.swa.cml.UnaryExpression
 import at.ac.univie.swa.cml.VariableDeclaration
 import com.google.inject.Inject
 import at.ac.univie.swa.cml.ArrayAccessExpression
+import org.eclipse.xtext.nodemodel.util.NodeModelUtils
+import at.ac.univie.swa.cml.GenericArrayTypeReference
 
 class CmlTypeProvider {
 	@Inject extension CmlLib
@@ -143,8 +145,18 @@ class CmlTypeProvider {
 				e.expression.typeFor
 			NewExpression:
 				e.type.inferType
-			ArrayAccessExpression:
-				e.array.typeFor
+			ArrayAccessExpression: {
+				val array = e.array
+				if (array instanceof ReferenceExpression) {
+					val reference = array.reference
+					if (reference instanceof Attribute) {
+						val type = reference.type
+						if (type instanceof GenericArrayTypeReference) {
+							type.componentType.inferType
+						}
+					}
+				}
+			}
 			default:
 				UNDEFINED_TYPE
 		}
@@ -156,22 +168,22 @@ class CmlTypeProvider {
 		switch (c) {
 			Actor case f == ep.actor_Party:
 				c.getCmlPartyClass
-			/*SymbolReference case f == ep.symbolReference_Args: {
-				val symbol = c.symbol
-				if (symbol instanceof Operation) {
+			ReferenceExpression case f == ep.referenceExpression_Args: {
+				val reference = c.reference
+				if (reference instanceof Operation) {
 					try {
-						symbol.params.get(c.args.indexOf(e)).inferType
+						reference.params.get(c.args.indexOf(e)).inferType
 					} catch (Throwable t) {
 						null // otherwise there is no specific expected type
 					}
-				} else if (symbol instanceof CmlClass) {
+				} else if (reference instanceof CmlClass) {
 					try {
-						symbol.classHierarchyAttributes.values.get(c.args.indexOf(e)).inferType
+						reference.classHierarchyAttributes.values.get(c.args.indexOf(e)).inferType
 					} catch (Throwable t) {
 						null // otherwise there is no specific expected type
 					}
 				}
-			}*/
+			}
 			ThrowStatement case f == ep.throwStatement_Expression:
 				ERROR_TYPE
 			AssignmentExpression case f == ep.assignmentExpression_Right:
@@ -221,6 +233,15 @@ class CmlTypeProvider {
 					null // otherwise there is no specific expected type
 				}
 			}
+			ArrayAccessExpression case f == ep.arrayAccessExpression_Indexes: {
+				try {
+					(c.typeFor as CmlClass).resolveIdType
+				} catch (Throwable t) {
+					null // otherwise there is no specific expected type
+				}
+			}
+			ArrayAccessExpression:
+				c.array.typeFor
 			NestedExpression:
 				c.child.typeFor
 		}

@@ -48,9 +48,9 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 		} else if (context instanceof FeatureSelectionExpression) {
 			return scopeForFeatureSelection(context)
 		} else if (reference == CmlPackage.Literals.ACTOR__PARTY || reference == CmlPackage.Literals.ACTION_QUERY__PARTY) {
-			return scopeForAttributeRef(context, [Attribute a | a.type !== null && (a.inferType.conformsToParty || a.inferType.subclassOfParty)])
+			return scopeForAttributeRef(context, [Attribute a | a.type !== null /*/&& (a.inferType.conformsToParty || a.inferType.subclassOfParty)*/])
 		} else if (reference == CmlPackage.Literals.EVENT_QUERY__EVENT) {
-			return scopeForAttributeRef(context, [Attribute a | a.type !== null && (a.inferType.conformsToEvent || a.inferType.subclassOfEvent)])
+			return scopeForAttributeRef(context, [Attribute a | a.type !== null /*&& (a.inferType.conformsToEvent || a.inferType.subclassOfEvent)*/])
 		} else if (reference == CmlPackage.Literals.ANNOTATION_ELEMENT__PARAM) {
 			return scopeForAnnotationParamRef(context, reference)
 		}

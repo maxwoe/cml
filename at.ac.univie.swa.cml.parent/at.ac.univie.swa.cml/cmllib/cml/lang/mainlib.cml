@@ -66,6 +66,13 @@ concept Error extends Any
 fun ensure(Boolean c, String m)
 	if(!c)
 		throw Error(m)
+concept Collection extends Any
+concept IdArray<K,V> extends Collection
+	fun add(V value)
+	fun rmv(K key)
+	fun contains(K key)
+	fun V nth(Integer t)
+	fun Integer count()
 concept Array<T> extends Any
 	fun Integer size()
 	fun T get(Integer i)

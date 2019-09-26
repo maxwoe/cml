@@ -26,10 +26,11 @@ import at.ac.univie.swa.typing.CmlTypeConformance
 import at.ac.univie.swa.typing.CmlTypeProvider
 import com.google.inject.Inject
 import org.eclipse.emf.ecore.EObject
+import org.eclipse.xtext.EcoreUtil2
 import org.eclipse.xtext.naming.IQualifiedNameProvider
+import org.eclipse.xtext.nodemodel.util.NodeModelUtils
 
 import static extension org.eclipse.xtext.EcoreUtil2.*
-import org.eclipse.xtext.nodemodel.util.NodeModelUtils
 
 class CmlModelUtil {
 
@@ -201,28 +202,18 @@ class CmlModelUtil {
 	}
 
 	def featureAsStringWithType(Feature f) {
-		f.featureAsString + " : " + f.name
-	}
-	
-	/*def typeName(TypeReference tr) {
-		switch (tr) {
-			CmlClass:
-				switch (t) {
-					case t.conformsToMap: t.name + "<" + t.typeVars.map[name].join(", ") + ">"
-					default: t.name
-				}
-		}
-	}*/
-	
-	def CmlClass inferType(TypeReference tr, Expression e) {
-		switch(tr) {
-			ParameterizedTypeReference : tr.type.inferType(e)
-			GenericArrayTypeReference : tr.componentType.inferType //tr.cmlArrayClass
-		}
+		f.featureAsString + " : " //+ f.inferType.name
 	}
 	
 	def CmlClass inferType(TypeReference tr) {
 		tr.inferType(null)
+	}
+	
+	def CmlClass inferType(TypeReference tr, Expression e) {
+		switch(tr) {
+			ParameterizedTypeReference : tr.type.inferType(e)
+			GenericArrayTypeReference : tr.cmlMapClass //tr.componentType.inferType(e) 
+		}
 	}
 	
 	def CmlClass inferType(EObject obj) {
@@ -233,17 +224,18 @@ class CmlModelUtil {
 		switch (obj) {
 			Type: obj as CmlClass
 			TypeVariable: {
-				var eContainer = exp.eContainer
-				if (eContainer instanceof FeatureSelectionExpression) {
-					if (eContainer.feature instanceof Operation)
+				val eContainer = EcoreUtil2.getContainerOfType(exp, FeatureSelectionExpression)
+				if (eContainer !== null) {
+					val operation = EcoreUtil2.getContainerOfType(exp, Operation)
+					if(operation !== null)
 						return retrieveType(eContainer, obj)
 				}
 				if (exp instanceof FeatureSelectionExpression) {
 					return retrieveType(exp, obj)
-				} 
-				CmlTypeProvider.UNDEFINED_TYPE
+				}
+				CmlTypeProvider.VOID_TYPE
 			}
-			default: CmlTypeProvider.NULL_TYPE
+			default: CmlTypeProvider.NULL_TYPE//throw new Exception("type resolving error")
 		}
 	}
 	
@@ -253,14 +245,35 @@ class CmlModelUtil {
 			val reference = receiver.reference
 			if (reference instanceof Attribute) {
 				val type = reference.type
-				if (type instanceof GenericArrayTypeReference)
-					type.componentType.inferType(exp)
+				
+				if (type instanceof GenericArrayTypeReference) {
+					if(t.name.equals("K"))
+						return type.componentType.inferType(exp).resolveIdType
+					if(t.name.equals("V"))	
+						return type.componentType.inferType(exp)
+				}
 				if (type instanceof ParameterizedTypeReference) {
-					val index = (type.type as CmlClass).typeVars.indexOf((type.type as CmlClass).typeVars.findFirst[name.equals(t.name)])
+					val typeVar = (type.type as CmlClass).typeVars.findFirst[name.equals(t.name)]
+					val index = (type.type as CmlClass).typeVars.indexOf(typeVar)
 					type.typeArgs.get(index).inferType(exp)
 				}
 			}
 		}
+	}
+	
+	def isArray(NamedElement ne, Expression e) {
+		switch (ne) {
+			Attribute: ne.type.inferType(e)
+			Operation: ne.type !== null ? ne.type.inferType(e) : CmlTypeProvider.VOID_TYPE
+			EnumerationElement: ne.containingClass
+			VariableDeclaration: ne.type.inferType(e)
+			CmlClass: ne
+			default:  CmlTypeProvider.VOID_TYPE//throw new Exception(NodeModelUtils.getTokenText(NodeModelUtils.getNode(ne)) + "type resolving error")
+		}
+	}
+	
+	def CmlClass inferType(NamedElement ne) {
+		ne.inferType(null)
 	}
 	
 	def CmlClass inferType(NamedElement ne, Expression e) {
@@ -270,12 +283,8 @@ class CmlModelUtil {
 			EnumerationElement: ne.containingClass
 			VariableDeclaration: ne.type.inferType(e)
 			CmlClass: ne
-			default: CmlTypeProvider.NULL_TYPE
+			default:  CmlTypeProvider.VOID_TYPE//throw new Exception(NodeModelUtils.getTokenText(NodeModelUtils.getNode(ne)) + "type resolving error")
 		}
-	}
-	
-	def CmlClass inferType(NamedElement ne) {
-		ne.inferType(null)
 	}
 	
 	def resolveImplClass(CmlClass c) {
@@ -337,4 +346,7 @@ class CmlModelUtil {
 		t instanceof CmlClass && (t as CmlClass).eResource === null
 	}
 	
+	def resolveIdType(CmlClass c) {
+		c.classHierarchyAttributes.get("id").inferType
+	}
 }

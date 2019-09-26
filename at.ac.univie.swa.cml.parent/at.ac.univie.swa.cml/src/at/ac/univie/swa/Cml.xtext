@@ -293,7 +293,8 @@ PrimaryExpression returns Expression:
 	LiteralExpression |
 	{ThisExpression} 'this' |
 	{SuperExpression} 'super' |
-	{ReferenceExpression} reference=[NamedElement] (=> opCall?='(' (args+=Expression (',' args+=Expression)*)? ')')? |
+	{ReferenceExpression} reference=[NamedElement] (=> opCall?='(' (args+=Expression (',' args+=Expression)*)? ')')? 
+	(=>({ArrayAccessExpression.array=current} '[' indexes+=Expression ']' (=>'[' indexes+=Expression ']')*))?|
 	{NewExpression} 'new' type=[Type|QualifiedName] '(' (args+=Expression (',' args+=Expression)*)? ')' |
 	{NestedExpression} '(' child=Expression ')';
 
@@ -305,7 +306,8 @@ LiteralExpression returns Expression:
 	{DurationLiteral} value=INT unit=TimeUnit |
 	{DateTimeLiteral} value=DATE |
 	{NullLiteral} 'null' |
-	{Closure} '[' expression=ExpressionInClosure ']';
+	{ArrayLiteral} '{' (elements+=Expression (',' elements+=Expression )*)? '}' |
+	{Closure} '[' expression=ExpressionInClosure ']' ;
 
 ExpressionInClosure returns Expression:
 	{Block} (expressions+=Expression ';'?)*;

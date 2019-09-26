@@ -7,7 +7,6 @@ import at.ac.univie.swa.CmlModelUtil
 import at.ac.univie.swa.cml.Annotation
 import at.ac.univie.swa.cml.AnnotationDeclaration
 import at.ac.univie.swa.cml.AssignmentExpression
-import at.ac.univie.swa.cml.AtomicAction
 import at.ac.univie.swa.cml.Attribute
 import at.ac.univie.swa.cml.Block
 import at.ac.univie.swa.cml.Clause
@@ -33,7 +32,9 @@ import at.ac.univie.swa.typing.CmlTypeConformance
 import at.ac.univie.swa.typing.CmlTypeProvider
 import com.google.common.collect.HashMultimap
 import com.google.inject.Inject
+import org.apache.log4j.Logger
 import org.eclipse.xtext.naming.IQualifiedNameProvider
+import org.eclipse.xtext.nodemodel.util.NodeModelUtils
 import org.eclipse.xtext.validation.Check
 import org.eclipse.xtext.validation.CheckType
 
@@ -51,7 +52,8 @@ class CmlValidator extends AbstractCmlValidator {
 	@Inject extension CmlTypeProvider
 	@Inject extension CmlTypeConformance
 	@Inject extension CmlIndex
-
+	
+	static final Logger LOG = Logger.getLogger(CmlValidator)
 	protected static val ISSUE_CODE_PREFIX = "cml.lang."
 	public static val HIERARCHY_CYCLE = ISSUE_CODE_PREFIX + "HierarchyCycle"
 	public static val FIELD_SELECTION_ON_METHOD = ISSUE_CODE_PREFIX + "FieldSelectionOnMethod"
@@ -218,12 +220,14 @@ class CmlValidator extends AbstractCmlValidator {
 	def void checkConformance(Expression exp) {
 		val actualType = exp.typeFor
 		val expectedType = exp.expectedType
+		LOG.debug("Expression:" + NodeModelUtils.getTokenText(NodeModelUtils.getNode(exp)) + 
+			" expected: " + expectedType.fullyQualifiedName +
+			" actual: " + actualType.fullyQualifiedName)
 		if (expectedType === null || actualType === null)
 			return; // nothing to check
 		if (!actualType.isConformant(expectedType)) {
-			error(
-				"Incompatible types. Expected '" + (expectedType as CmlClass).fullyQualifiedName + "' but was '" +
-					(actualType as CmlClass).fullyQualifiedName + "'", null, INCOMPATIBLE_TYPES);
+			error("Incompatible types. Expected '" + expectedType.fullyQualifiedName + "' but was '" +
+					actualType.fullyQualifiedName + "'", null, INCOMPATIBLE_TYPES);
 		}
 	}
 	
