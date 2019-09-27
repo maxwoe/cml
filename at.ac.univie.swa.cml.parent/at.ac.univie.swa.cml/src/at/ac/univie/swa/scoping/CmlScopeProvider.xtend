@@ -12,12 +12,14 @@ import at.ac.univie.swa.cml.CmlClass
 import at.ac.univie.swa.cml.CmlPackage
 import at.ac.univie.swa.cml.CmlProgram
 import at.ac.univie.swa.cml.FeatureSelectionExpression
-import at.ac.univie.swa.cml.ForStatement
+import at.ac.univie.swa.cml.ForBasicStatement
+import at.ac.univie.swa.cml.ForLoopStatement
 import at.ac.univie.swa.cml.NewExpression
 import at.ac.univie.swa.cml.Operation
 import at.ac.univie.swa.cml.OtherOperatorExpression
 import at.ac.univie.swa.cml.Type
 import at.ac.univie.swa.cml.VariableDeclaration
+import at.ac.univie.swa.typing.CmlTypeConformance
 import at.ac.univie.swa.typing.CmlTypeProvider
 import com.google.common.base.Predicate
 import javax.inject.Inject
@@ -28,7 +30,6 @@ import org.eclipse.xtext.scoping.IScope
 import org.eclipse.xtext.scoping.Scopes
 import org.eclipse.xtext.scoping.impl.FilteringScope
 import org.eclipse.xtext.scoping.impl.SimpleScope
-import at.ac.univie.swa.typing.CmlTypeConformance
 
 /**
  * This class contains custom scoping description.
@@ -91,7 +92,9 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 				parentScope = Scopes::scopeFor(container.attributes + container.operations, parentScope)
 				new SimpleScope(scopeForReference(container, reference), parentScope.allElements)
 			}
-			ForStatement:
+			ForLoopStatement:
+				Scopes.scopeFor(#[container.declaration], scopeForReference(container, reference))
+			ForBasicStatement:
 				Scopes.scopeFor(#[container.declaration], scopeForReference(container, reference))
 			CmlProgram:
 				allClasses(container, reference)

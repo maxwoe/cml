@@ -7,8 +7,10 @@ import at.ac.univie.swa.cml.AdditiveExpression
 import at.ac.univie.swa.cml.AndExpression
 import at.ac.univie.swa.cml.Annotation
 import at.ac.univie.swa.cml.AnnotationElement
+import at.ac.univie.swa.cml.ArrayAccessExpression
 import at.ac.univie.swa.cml.AssignmentExpression
 import at.ac.univie.swa.cml.Attribute
+import at.ac.univie.swa.cml.Block
 import at.ac.univie.swa.cml.BooleanLiteral
 import at.ac.univie.swa.cml.CasePart
 import at.ac.univie.swa.cml.CastedExpression
@@ -21,7 +23,9 @@ import at.ac.univie.swa.cml.DurationLiteral
 import at.ac.univie.swa.cml.EqualityExpression
 import at.ac.univie.swa.cml.Expression
 import at.ac.univie.swa.cml.FeatureSelectionExpression
+import at.ac.univie.swa.cml.ForLoopStatement
 import at.ac.univie.swa.cml.GeneralConstraint
+import at.ac.univie.swa.cml.GenericArrayTypeReference
 import at.ac.univie.swa.cml.IntegerLiteral
 import at.ac.univie.swa.cml.MultiplicativeExpression
 import at.ac.univie.swa.cml.NestedExpression
@@ -41,12 +45,11 @@ import at.ac.univie.swa.cml.TemporalConstraint
 import at.ac.univie.swa.cml.ThisExpression
 import at.ac.univie.swa.cml.ThrowStatement
 import at.ac.univie.swa.cml.Type
+import at.ac.univie.swa.cml.TypeVariable
 import at.ac.univie.swa.cml.UnaryExpression
 import at.ac.univie.swa.cml.VariableDeclaration
 import com.google.inject.Inject
-import at.ac.univie.swa.cml.ArrayAccessExpression
-import org.eclipse.xtext.nodemodel.util.NodeModelUtils
-import at.ac.univie.swa.cml.GenericArrayTypeReference
+import org.eclipse.xtext.EcoreUtil2
 
 class CmlTypeProvider {
 	@Inject extension CmlLib
@@ -73,8 +76,12 @@ class CmlTypeProvider {
 				e.containingClass
 			SuperExpression:
 				e.containingClass.superclassOrObject.inferType
-			ReferenceExpression:
-				e.reference.inferType(e)
+			ReferenceExpression: {
+				if(e.reference instanceof TypeVariable) {
+					val forLoopStatement =  EcoreUtil2.getContainerOfType(e, ForLoopStatement)
+					forLoopStatement.forExpression.resolveArrayRefAttrType
+				} else e.reference.inferType(e)
+			}
 			NullLiteral:
 				NULL_TYPE
 			StringLiteral:
@@ -147,15 +154,7 @@ class CmlTypeProvider {
 				e.type.inferType
 			ArrayAccessExpression: {
 				val array = e.array
-				if (array instanceof ReferenceExpression) {
-					val reference = array.reference
-					if (reference instanceof Attribute) {
-						val type = reference.type
-						if (type instanceof GenericArrayTypeReference) {
-							type.componentType.inferType
-						}
-					}
-				}
+				array.resolveArrayRefAttrType
 			}
 			default:
 				UNDEFINED_TYPE
@@ -189,7 +188,7 @@ class CmlTypeProvider {
 			AssignmentExpression case f == ep.assignmentExpression_Right:
 				c.left.typeFor
 			GeneralConstraint case f == ep.generalConstraint_Expression,
-			case f == ep.forStatement_Condition,
+			case f == ep.forBasicStatement_Condition,
 			case f == ep.doWhileStatement_Condition,
 			case f == ep.whileStatement_Condition,
 			case f == ep.ifStatement_Condition:
@@ -244,6 +243,8 @@ class CmlTypeProvider {
 				c.array.typeFor
 			NestedExpression:
 				c.child.typeFor
+			ForLoopStatement case f == ep.forLoopStatement_ForExpression:
+				c.getCmlMapClass
 		}
 	}
 

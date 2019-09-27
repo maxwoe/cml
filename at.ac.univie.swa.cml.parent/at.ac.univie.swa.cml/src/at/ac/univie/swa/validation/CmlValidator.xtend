@@ -220,7 +220,7 @@ class CmlValidator extends AbstractCmlValidator {
 	def void checkConformance(Expression exp) {
 		val actualType = exp.typeFor
 		val expectedType = exp.expectedType
-		LOG.debug("Expression:" + NodeModelUtils.getTokenText(NodeModelUtils.getNode(exp)) + 
+		println("Expression:" + NodeModelUtils.getTokenText(NodeModelUtils.getNode(exp)) + 
 			" expected: " + expectedType.fullyQualifiedName +
 			" actual: " + actualType.fullyQualifiedName)
 		if (expectedType === null || actualType === null)
@@ -392,6 +392,16 @@ class CmlValidator extends AbstractCmlValidator {
 					error("Duplicate " + desc + " '" + d.name + "'", d, CmlPackage.eINSTANCE.namedElement_Name,
 						DUPLICATE_ELEMENT)
 			}
+		}
+	}
+	
+	@Check
+	def void checkIdentityDefinition(CmlClass c) {
+		if ((c.kind.equals("party") || c.kind.equals("asset")) && c.identifier === null && !c.isAbstract && !c.classHierarchy.exists[identifier !== null]) {
+			error("'" + c.name + "' is not abstract. It must define an identifying attribute.",
+				null,
+				"",
+				c.name)
 		}
 	}
 	

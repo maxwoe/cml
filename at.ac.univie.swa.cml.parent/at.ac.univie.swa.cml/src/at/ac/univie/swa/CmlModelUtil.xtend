@@ -212,15 +212,15 @@ class CmlModelUtil {
 	def CmlClass inferType(TypeReference tr, Expression e) {
 		switch(tr) {
 			ParameterizedTypeReference : tr.type.inferType(e)
-			GenericArrayTypeReference : tr.cmlMapClass //tr.componentType.inferType(e) 
+			GenericArrayTypeReference : tr.cmlMapClass
 		}
 	}
 	
-	def CmlClass inferType(EObject obj) {
+	def inferType(EObject obj) {
 		obj.inferType(null)
 	}
 
-	def CmlClass inferType(EObject obj, Expression exp) {
+	def inferType(EObject obj, Expression exp) {
 		switch (obj) {
 			Type: obj as CmlClass
 			TypeVariable: {
@@ -233,9 +233,9 @@ class CmlModelUtil {
 				if (exp instanceof FeatureSelectionExpression) {
 					return retrieveType(exp, obj)
 				}
-				CmlTypeProvider.VOID_TYPE
+				CmlTypeProvider.UNDEFINED_TYPE
 			}
-			default: CmlTypeProvider.NULL_TYPE//throw new Exception("type resolving error")
+			default: CmlTypeProvider.UNDEFINED_TYPE//throw new Exception("type resolving error")
 		}
 	}
 	
@@ -245,13 +245,14 @@ class CmlModelUtil {
 			val reference = receiver.reference
 			if (reference instanceof Attribute) {
 				val type = reference.type
-				
+
 				if (type instanceof GenericArrayTypeReference) {
-					if(t.name.equals("K"))
+					if (t.name.equals("K"))
 						return type.componentType.inferType(exp).resolveIdType
-					if(t.name.equals("V"))	
+					if (t.name.equals("V"))
 						return type.componentType.inferType(exp)
 				}
+
 				if (type instanceof ParameterizedTypeReference) {
 					val typeVar = (type.type as CmlClass).typeVars.findFirst[name.equals(t.name)]
 					val index = (type.type as CmlClass).typeVars.indexOf(typeVar)
@@ -261,29 +262,18 @@ class CmlModelUtil {
 		}
 	}
 	
-	def isArray(NamedElement ne, Expression e) {
-		switch (ne) {
-			Attribute: ne.type.inferType(e)
-			Operation: ne.type !== null ? ne.type.inferType(e) : CmlTypeProvider.VOID_TYPE
-			EnumerationElement: ne.containingClass
-			VariableDeclaration: ne.type.inferType(e)
-			CmlClass: ne
-			default:  CmlTypeProvider.VOID_TYPE//throw new Exception(NodeModelUtils.getTokenText(NodeModelUtils.getNode(ne)) + "type resolving error")
-		}
-	}
-	
-	def CmlClass inferType(NamedElement ne) {
+	def inferType(NamedElement ne) {
 		ne.inferType(null)
 	}
 	
-	def CmlClass inferType(NamedElement ne, Expression e) {
+	def inferType(NamedElement ne, Expression e) {
 		switch (ne) {
 			Attribute: ne.type.inferType(e)
 			Operation: ne.type !== null ? ne.type.inferType(e) : CmlTypeProvider.VOID_TYPE
 			EnumerationElement: ne.containingClass
 			VariableDeclaration: ne.type.inferType(e)
 			CmlClass: ne
-			default:  CmlTypeProvider.VOID_TYPE//throw new Exception(NodeModelUtils.getTokenText(NodeModelUtils.getNode(ne)) + "type resolving error")
+			default:  CmlTypeProvider.UNDEFINED_TYPE//throw new Exception(NodeModelUtils.getTokenText(NodeModelUtils.getNode(ne)) + "type resolving error")
 		}
 	}
 	
@@ -347,6 +337,23 @@ class CmlModelUtil {
 	}
 	
 	def resolveIdType(CmlClass c) {
-		c.classHierarchyAttributes.get("id").inferType
+		val hierarchy = newLinkedHashSet()
+		hierarchy.add(c)
+		hierarchy.addAll(c.classHierarchy)
+		val type = hierarchy.findFirst[identifier !== null]?.identifier?.inferType
+		type ?:	CmlTypeProvider.UNDEFINED_TYPE
+	}
+	
+	def resolveArrayRefAttrType(EObject e) {
+		if (e instanceof ReferenceExpression) {
+			val reference = e.reference
+			if (reference instanceof Attribute) {
+				val type = reference.type
+				if (type instanceof GenericArrayTypeReference) {
+					return type.componentType.inferType
+				}
+			}
+		}
+		CmlTypeProvider.UNDEFINED_TYPE
 	}
 }

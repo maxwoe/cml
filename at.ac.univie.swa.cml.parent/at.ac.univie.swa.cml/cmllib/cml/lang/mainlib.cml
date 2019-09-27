@@ -1,87 +1,73 @@
 namespace cml.lang
 
 concept Any
-	fun String toString()
-concept Participant extends Any
+concept Asset extends Any
+concept NonDigitalAsset extends Asset
+concept DigitalAsset extends Asset identified by id
 	String id
-concept TokenHolder extends Participant
+	Number quantity
+concept Token extends DigitalAsset
+concept Participant extends Any 
+concept Account extends Participant identified by id
+	String id
 	Token token
-concept Party extends TokenHolder
-	fun deposit(Number n)
-	fun withdraw(Number n)
-concept Contract extends TokenHolder
+concept Party extends Account
+	def deposit(Number n)
+	def withdraw(Number n)
+concept Contract extends Account
 	Party anyone
 	Party caller
 	DateTime now
 	DateTime contractStart
 	DateTime contractEnd
-	fun transfer(TokenHolder th, Number n)
-concept Asset extends Any
-	String id
-	Number quantity
-concept Token extends Asset
+	def transfer(Account a, Number n)
 concept Transaction extends Any
-	Party sender
-concept TokenTransaction extends Transaction
-	Number amount
 concept Event extends Any
 concept Enum extends Any
 concept String extends Any
 concept Boolean extends Any
 abstract concept Number extends Any
-	fun Real toReal()
-	fun Integer toInteger()
+	def Real toReal()
+	def Integer toInteger()
 concept Integer extends Number
-	fun Integer average(Integer i)
-	fun Integer max(Integer i)
-	fun Integer min(Integer i)
+	def Integer average(Integer i)
+	def Integer max(Integer i)
+	def Integer min(Integer i)
 concept Real extends Number
-	fun Real max(Real i)
-	fun Real min(Real i)
-	fun Real sqrt()
-	fun Real ceil()
-	fun Real floor()
+	def Real max(Real i)
+	def Real min(Real i)
+	def Real sqrt()
+	def Real ceil()
+	def Real floor()
 concept DateTime extends Any
-	fun Boolean isBefore(DateTime d)
-	fun Boolean isAfter(DateTime d)
-	fun Integer second()
-	fun Integer minute()
-	fun Integer hour()
-	fun Integer day()
-	fun Integer week()
-	fun Boolean equals(DateTime d)
-	fun DateTime addDuration(Duration d)
-	fun DateTime subtractDuration(Duration d)
-	fun Duration durationBetween(DateTime d)
+	def Boolean isBefore(DateTime d)
+	def Boolean isAfter(DateTime d)
+	def Integer second()
+	def Integer minute()
+	def Integer hour()
+	def Integer day()
+	def Integer week()
+	def Boolean equals(DateTime d)
+	def DateTime addDuration(Duration d)
+	def DateTime subtractDuration(Duration d)
+	def Duration durationBetween(DateTime d)
 concept Duration extends Any
-	fun Duration toSeconds()
-	fun Duration toMinutes()
-	fun Duration toHours()
-	fun Duration toDays()
-	fun Duration toWeeks()
-	fun Duration addDuration(Duration d)
-	fun Duration subtractDuration(Duration d)
+	def Duration toSeconds()
+	def Duration toMinutes()
+	def Duration toHours()
+	def Duration toDays()
+	def Duration toWeeks()
+	def Duration addDuration(Duration d)
+	def Duration subtractDuration(Duration d)
 concept Error extends Any
 	String message	
-fun ensure(Boolean c, String m)
+abstract concept Collection extends Any
+concept OrderedMap<K,V> extends Collection
+	def add(V value)
+	def rmv(K key)
+	def Boolean contains(K key)
+	def V get(Integer t)
+	def Integer count()
+def ensure(Boolean c, String m)
 	if(!c)
-		throw Error(m)
-concept Collection extends Any
-concept IdArray<K,V> extends Collection
-	fun add(V value)
-	fun rmv(K key)
-	fun contains(K key)
-	fun V nth(Integer t)
-	fun Integer count()
-concept Array<T> extends Any
-	fun Integer size()
-	fun T get(Integer i)
-concept Map<K,V> extends Any
-	fun Integer size()
-	fun Boolean isEmpty()
-	fun Boolean containsKey(K key)
-	fun clear()
-	fun add(K key, V value) 
-	fun rmv(K key)
-	fun V get(K key)
-	fun K[] getKeys()
+		throw new Error(m)
