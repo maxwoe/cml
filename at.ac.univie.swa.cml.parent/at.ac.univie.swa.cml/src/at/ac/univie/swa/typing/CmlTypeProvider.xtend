@@ -175,9 +175,13 @@ class CmlTypeProvider {
 					} catch (Throwable t) {
 						null // otherwise there is no specific expected type
 					}
-				} else if (reference instanceof CmlClass) {
+				}
+			}
+			NewExpression: {
+				val type = c.type
+				if (type instanceof CmlClass) {
 					try {
-						reference.classHierarchyAttributes.values.get(c.args.indexOf(e)).inferType
+						type.classHierarchyAttributes.values.get(c.args.indexOf(e)).inferType
 					} catch (Throwable t) {
 						null // otherwise there is no specific expected type
 					}
@@ -243,8 +247,8 @@ class CmlTypeProvider {
 				c.array.typeFor
 			NestedExpression:
 				c.child.typeFor
-			ForLoopStatement case f == ep.forLoopStatement_ForExpression:
-				c.getCmlMapClass
+			//ForLoopStatement case f == ep.forLoopStatement_ForExpression:
+			//	c.
 		}
 	}
 

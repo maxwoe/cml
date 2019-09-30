@@ -212,15 +212,20 @@ class CmlModelUtil {
 	def CmlClass inferType(TypeReference tr, Expression e) {
 		switch(tr) {
 			ParameterizedTypeReference : tr.type.inferType(e)
-			GenericArrayTypeReference : tr.cmlMapClass
+			GenericArrayTypeReference : {
+				val c = tr.componentType.inferType(e)
+				if(c.isIdentifiable)
+					tr.cmlMapClass
+				else tr.cmlArrayClass
+			}
 		}
 	}
 	
-	def inferType(EObject obj) {
+	def CmlClass inferType(EObject obj) {
 		obj.inferType(null)
 	}
 
-	def inferType(EObject obj, Expression exp) {
+	def CmlClass inferType(EObject obj, Expression exp) {
 		switch (obj) {
 			Type: obj as CmlClass
 			TypeVariable: {
@@ -341,7 +346,14 @@ class CmlModelUtil {
 		hierarchy.add(c)
 		hierarchy.addAll(c.classHierarchy)
 		val type = hierarchy.findFirst[identifier !== null]?.identifier?.inferType
-		type ?:	CmlTypeProvider.UNDEFINED_TYPE
+		type ?:	CmlTypeProvider.INTEGER_TYPE
+	}
+	
+	def isIdentifiable(CmlClass c) {
+		val hierarchy = newLinkedHashSet()
+		hierarchy.add(c)
+		hierarchy.addAll(c.classHierarchy)
+		hierarchy.findFirst[identifier !== null] !== null
 	}
 	
 	def resolveArrayRefAttrType(EObject e) {

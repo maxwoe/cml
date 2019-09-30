@@ -1,13 +1,14 @@
-namespace cml.lang
+namespace cml.lang2
 
-concept Any
-concept Asset extends Any
-	def Boolean exists()
-concept Token extends Asset
+asset Asset
+asset NonDigitalAsset extends Asset
+asset DigitalAsset extends Asset identified by id
+asset Token extends DigitalAsset
 	String id
 	Number quantity
+
+party Party
 concept Participant extends Any 
-	def Boolean exists()
 concept Account extends Participant identified by id
 	String id
 	Token token
@@ -62,12 +63,10 @@ concept Duration extends Any
 concept Error extends Any
 	String message	
 abstract concept Collection extends Any
-concept Array<T> extends Collection
-	def Integer count()
 concept OrderedMap<K,V> extends Collection
 	def add(V value)
 	def rmv(K key)
-	def Boolean contains(K key)
+	def contains(K key)
 	def V get(Integer t)
 	def Integer count()
 def ensure(Boolean c, String m)

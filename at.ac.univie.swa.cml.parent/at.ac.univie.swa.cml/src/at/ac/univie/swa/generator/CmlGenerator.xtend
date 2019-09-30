@@ -29,7 +29,6 @@ import at.ac.univie.swa.cml.EqualityExpression
 import at.ac.univie.swa.cml.EventQuery
 import at.ac.univie.swa.cml.Expression
 import at.ac.univie.swa.cml.FeatureSelectionExpression
-import at.ac.univie.swa.cml.ForStatement
 import at.ac.univie.swa.cml.GenericArrayTypeReference
 import at.ac.univie.swa.cml.IfStatement
 import at.ac.univie.swa.cml.Import
@@ -83,6 +82,8 @@ import static extension org.eclipse.emf.ecore.util.EcoreUtil.*
 import static extension org.eclipse.xtext.EcoreUtil2.*
 import at.ac.univie.swa.cml.CmlFactory
 import at.ac.univie.swa.cml.NullLiteral
+import at.ac.univie.swa.cml.ForBasicStatement
+import at.ac.univie.swa.cml.ForLoopStatement
 
 /**
  * Generates code from your model files on save.
@@ -765,10 +766,14 @@ class CmlGenerator extends AbstractGenerator2 {
 				while («s.condition.compile»)
 				«s.block.compileBlock»
 			'''
-			ForStatement: '''
+			ForBasicStatement: '''
 				for («s.declaration.compileStatement» «s.condition.compile»; «s.progression.compile»)
 				«s.block.compileBlock»
 			'''
+			/*ForLoopStatement: '''
+				for («s.declaration.compile» «s.condition.compile»; «s.progression.compile»)
+				«s.block.compileBlock»
+			'''*/
 			ThrowStatement: '''revert(«s.expression?.compile»);'''
 			default: {
 				val statement = (s as Expression).compile

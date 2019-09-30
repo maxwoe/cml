@@ -249,61 +249,6 @@ class CmlValidator extends AbstractCmlValidator {
 	}	
 
 	@Check
-	def void checkClosureConstructorArguments(Expression exp) {
-		if (exp.eContainer instanceof Block && exp.eContainer.eContainer instanceof Closure &&
-			exp.eContainer.eContainer.eContainer instanceof OtherOperatorExpression) {
-			val otherOpExp = exp.getContainerOfType(OtherOperatorExpression)
-			if (otherOpExp.op == "=>") {
-				val left = otherOpExp.left
-				if (left instanceof ReferenceExpression) {
-					val type = left.reference.inferType
-					if (type instanceof CmlClass) {
-						if (exp instanceof AssignmentExpression) {
-							val expLeft = exp.left
-							if (expLeft instanceof ReferenceExpression) {
-								val expRef = expLeft.reference
-								if (expRef instanceof Attribute) {
-									if (!type.classHierarchyAttributes.values.exists[it == expRef]) {
-										error("Couldn't resolve reference to attribute '" + expRef.name + "'", null,
-											OPPOSITE_INCONSISTENCY)
-									}
-								} else
-									error("Is not a valid reference", null, INVALID_ARGS)
-							} else
-								error("Is not a valid reference", null, INVALID_ARGS)
-						} else
-							error("Is not a valid assignment declaration", null, INVALID_ARGS)
-					}
-				}
-			}
-		}
-	}
-
-	@Check
-	def void checkClosureConstructorArguments(OtherOperatorExpression exp) {
-		val left = exp.left
-		val right = exp.right
-		if (exp.op == "=>") {
-			if (right instanceof Closure) {
-				if (left instanceof ReferenceExpression) {
-					val type = left.reference.inferType
-					if (type instanceof CmlClass) {
-						if (type.abstract)
-							error("Cannot instantiate the type '" + type.name + "'",
-								CmlPackage.eINSTANCE.otherOperatorExpression_Op, INVALID_INSTANTIATION)
-						if ((right.expression as Block).expressions.size != type.classHierarchyAttributes.size) {
-							error(
-								"Invalid number of arguments: expected " + type.classHierarchyAttributes.size +
-									" but was " + (right.expression as Block).expressions.size,
-								CmlPackage.eINSTANCE.otherOperatorExpression_Op, INVALID_ARGS)
-						}
-					}
-				}
-			}
-		}
-	}
-
-	@Check
 	def void checkAttributeDeclaration(Attribute a) {
 		if (a.containingClass === null && !a.constant &&
 			!(a.eContainer instanceof Operation || a.eContainer instanceof AnnotationDeclaration) ||
@@ -319,15 +264,6 @@ class CmlValidator extends AbstractCmlValidator {
 				MISSING_INITZIALIZATION)
 	}
 	
-	
-//	@Check
-//	def void checkContractMethodArguments(Attribute a) {
-//		val allActions = a.eContainer.containingClass.clauses.flatMap[action.compoundAction.eAllOfType(AtomicAction).map[operation]].toSet
-//		if (allActions.contains(a.eContainer) && a.eContainer.containingClass !== null && !a.inferType.subclassOfTransaction)
-//			error("The attribute '" + a.name + "' is not a transaction", null,
-//				INVALID_ARGS)
-//	}
-
 	@Check
 	def void checkMethodInvocationArguments(FeatureSelectionExpression fse) {
 		val operation = fse.feature
