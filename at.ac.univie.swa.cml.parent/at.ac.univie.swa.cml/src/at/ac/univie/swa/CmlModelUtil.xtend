@@ -31,6 +31,7 @@ import org.eclipse.xtext.naming.IQualifiedNameProvider
 import org.eclipse.xtext.nodemodel.util.NodeModelUtils
 
 import static extension org.eclipse.xtext.EcoreUtil2.*
+import at.ac.univie.swa.cml.ForLoopStatement
 
 class CmlModelUtil {
 
@@ -162,6 +163,10 @@ class CmlModelUtil {
 		e.getContainerOfType(Clause)
 	}
 	
+	def containingForLoopStatement(EObject e) {
+		e.getContainerOfType(ForLoopStatement)
+	}
+	
 	def references(Operation o) {
 		o.eAllOfType(ReferenceExpression).map[reference]
 	}
@@ -244,7 +249,7 @@ class CmlModelUtil {
 		}
 	}
 	
-	def retrieveType(FeatureSelectionExpression exp, TypeVariable t) {
+	def CmlClass retrieveType(FeatureSelectionExpression exp, TypeVariable t) {
 		val receiver = exp.receiver
 		if (receiver instanceof ReferenceExpression) {
 			val reference = receiver.reference
@@ -253,7 +258,7 @@ class CmlModelUtil {
 
 				if (type instanceof GenericArrayTypeReference) {
 					if (t.name.equals("K"))
-						return type.componentType.inferType(exp).resolveIdType
+						return type.componentType.inferType(exp).resolveIdentifierType
 					if (t.name.equals("V"))
 						return type.componentType.inferType(exp)
 				}
@@ -271,13 +276,14 @@ class CmlModelUtil {
 		ne.inferType(null)
 	}
 	
-	def inferType(NamedElement ne, Expression e) {
+	def CmlClass inferType(NamedElement ne, Expression e) {
 		switch (ne) {
 			Attribute: ne.type.inferType(e)
 			Operation: ne.type !== null ? ne.type.inferType(e) : CmlTypeProvider.VOID_TYPE
 			EnumerationElement: ne.containingClass
 			VariableDeclaration: ne.type.inferType(e)
 			CmlClass: ne
+			//TypeVariable:
 			default:  CmlTypeProvider.UNDEFINED_TYPE//throw new Exception(NodeModelUtils.getTokenText(NodeModelUtils.getNode(ne)) + "type resolving error")
 		}
 	}
@@ -341,19 +347,26 @@ class CmlModelUtil {
 		t instanceof CmlClass && (t as CmlClass).eResource === null
 	}
 	
-	def resolveIdType(CmlClass c) {
+	def resolveIdentifier(CmlClass c) {
 		val hierarchy = newLinkedHashSet()
 		hierarchy.add(c)
 		hierarchy.addAll(c.classHierarchy)
-		val type = hierarchy.findFirst[identifier !== null]?.identifier?.inferType
+		val identifier = hierarchy.findFirst[identifier !== null]?.identifier
+		identifier ?: null
+	}
+	
+	def CmlClass resolveIdentifierType(CmlClass c) {
+		val type = c.resolveIdentifier.inferType
 		type ?:	CmlTypeProvider.INTEGER_TYPE
 	}
 	
+	def resolveIdentifierName(CmlClass c) {
+		val name = c.resolveIdentifier.name
+		name ?:	"?"
+	}
+	
 	def isIdentifiable(CmlClass c) {
-		val hierarchy = newLinkedHashSet()
-		hierarchy.add(c)
-		hierarchy.addAll(c.classHierarchy)
-		hierarchy.findFirst[identifier !== null] !== null
+		c.resolveIdentifier !== null
 	}
 	
 	def resolveArrayRefAttrType(EObject e) {

@@ -2,15 +2,14 @@ namespace cml.lang
 
 concept Any
 concept Asset extends Any
-	def Boolean exists()
-concept Token extends Asset
+concept Token extends Asset identified by id
 	String id
 	Number quantity
-concept Participant extends Any 
-	def Boolean exists()
+concept Participant extends Any
 concept Account extends Participant identified by id
 	String id
 	Token token
+	def Boolean isSet()
 concept Party extends Account
 	def deposit(Number n)
 	def withdraw(Number n)
@@ -22,6 +21,9 @@ concept Contract extends Account
 	DateTime contractEnd
 	def transfer(Account a, Number n)
 concept Transaction extends Any
+	Party sender
+concept TokenTransaction extends Transaction
+	Number amount
 concept Event extends Any
 concept Enum extends Any
 concept String extends Any
@@ -63,13 +65,14 @@ concept Error extends Any
 	String message	
 abstract concept Collection extends Any
 concept Array<T> extends Collection
-	def Integer count()
+	def Integer size()
 concept OrderedMap<K,V> extends Collection
 	def add(V value)
 	def rmv(K key)
 	def Boolean contains(K key)
-	def V get(Integer t)
-	def Integer count()
+	def V get(K key)
+	def V getEntry(Integer i)
+	def Integer size()
 def ensure(Boolean c, String m)
 	if(!c)
 		throw new Error(m)

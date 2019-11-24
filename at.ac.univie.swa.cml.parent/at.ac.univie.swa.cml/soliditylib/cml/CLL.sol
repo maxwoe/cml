@@ -45,6 +45,19 @@ library $LIB_NAME$ {
         }
     }
     
+    function nodeAt(CLL storage self, uint index) 
+        internal view returns ($TYPE$) {
+        require(index < sizeOf(self), "Invalid index value.");
+        
+        $TYPE$ i = step(self, HEAD, PREV);
+        uint j = 0;
+        
+        while(j++ != index) {
+            i = step(self, i, PREV);
+        }
+        return i;
+    }
+    
     function keys(CLL storage self) 
         internal view returns ($TYPE$[] memory)
     {
@@ -103,7 +116,7 @@ library $LIB_NAME$ {
     }
 
     // Insert node `b` beside existing node `a` in direction `d`.
-    function insert (CLL storage self, $TYPE$ a, $TYPE$ b, bool d) internal {
+    function insert(CLL storage self, $TYPE$ a, $TYPE$ b, bool d) internal {
         require(b != NULL, "Illegal key value.");
         $TYPE$ c = self.cll[a][d];
         stitch (self, a, b, d);

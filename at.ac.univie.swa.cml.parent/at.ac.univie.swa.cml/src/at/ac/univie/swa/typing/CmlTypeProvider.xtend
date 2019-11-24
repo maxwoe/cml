@@ -238,7 +238,12 @@ class CmlTypeProvider {
 			}
 			ArrayAccessExpression case f == ep.arrayAccessExpression_Indexes: {
 				try {
-					(c.typeFor as CmlClass).resolveIdType
+					val type = (c.typeFor as CmlClass)
+					if (type.identifiable) {
+						type.resolveIdentifierType
+					} else {
+						INTEGER_TYPE
+					}
 				} catch (Throwable t) {
 					null // otherwise there is no specific expected type
 				}

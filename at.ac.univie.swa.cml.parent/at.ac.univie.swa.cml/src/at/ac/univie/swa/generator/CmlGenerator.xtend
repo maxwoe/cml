@@ -84,6 +84,21 @@ import at.ac.univie.swa.cml.CmlFactory
 import at.ac.univie.swa.cml.NullLiteral
 import at.ac.univie.swa.cml.ForBasicStatement
 import at.ac.univie.swa.cml.ForLoopStatement
+import at.ac.univie.swa.typing.CmlTypeProvider
+import java.lang.reflect.GenericArrayType
+import at.ac.univie.swa.cml.ArrayAccessExpression
+import at.ac.univie.swa.cml.TypeVariable
+import org.eclipse.emf.ecore.util.EcoreUtil
+import java.util.Iterator
+import at.ac.univie.swa.cml.CmlPackage
+import org.eclipse.xtext.resource.impl.ResourceDescriptionsProvider
+import org.eclipse.xtext.resource.IContainer
+import org.eclipse.emf.ecore.EClass
+import org.eclipse.xtext.EcoreUtil2
+import at.ac.univie.swa.scoping.CmlIndex
+import org.eclipse.xtext.naming.IQualifiedNameProvider
+import org.eclipse.xtext.naming.IQualifiedNameConverter
+import java.util.function.Consumer
 
 /**
  * Generates code from your model files on save.
@@ -101,14 +116,17 @@ class CmlGenerator extends AbstractGenerator2 {
 	boolean pullPayment
 	boolean ownable
 	boolean detachModel
+	@Inject extension CmlIndex
 	@Inject extension CmlModelUtil
 	@Inject extension CmlTypeConformance
+	@Inject extension CmlTypeProvider
 	Iterable<CmlProgram> allResources
 	IFileSystemAccess2 fsa
 	
 	override doGenerate(Resource resource, ResourceSet input, IFileSystemAccess2 fsa, IGeneratorContext context) {
 		LOG.info("resource: " + resource)
-		
+		println("resource: " + resource.URI)
+				
 		allResources = input.resources.map(r|r.allContents.toIterable.filter(CmlProgram)).flatten
 		this.fsa = fsa
 		
@@ -118,7 +136,7 @@ class CmlGenerator extends AbstractGenerator2 {
 			}
 		}
 	}
-
+	
 	def addLibFromResources(String resourceName) {
 		fsa.generateFile("/lib/" + resourceName, getResource(resourceName))
 	}
@@ -219,8 +237,10 @@ class CmlGenerator extends AbstractGenerator2 {
 		}
 		
 		for (a : c.attributes.filter[inferType.conformsToMap]) {
-			var key = (a.type as ParameterizedTypeReference).typeArgs.get(0).inferType
-			val value = (a.type as ParameterizedTypeReference).typeArgs.get(1).inferType
+			//var key = (a.type as ParameterizedTypeReference).typeArgs.get(0).inferType
+			//val value = (a.type as ParameterizedTypeReference).typeArgs.get(1).inferType
+			val value = (a.type as GenericArrayTypeReference).componentType.inferType
+			var key = value.resolveIdentifierType
 			if (value.conformsToParty || value.subclassOfParty)
 				key = GLOBAL_ID_TYPE
 			val mapImplName = a.compileMapImplName
@@ -233,11 +253,17 @@ class CmlGenerator extends AbstractGenerator2 {
 	}
 	
 	def compileMapImplName(Attribute a) {
-		var key = (a.type as ParameterizedTypeReference).typeArgs.get(0).inferType
-		val value = (a.type as ParameterizedTypeReference).typeArgs.get(1).inferType
-		if (value.conformsToParty || value.subclassOfParty)
+		val value = (a.type as GenericArrayTypeReference).componentType.inferType
+		var key = value.resolveIdentifierType
+			if (value.conformsToParty || value.subclassOfParty)
 				key = GLOBAL_ID_TYPE
 		compileMapImplName(key, value)
+	}
+	
+	def resolveIdName(CmlClass c) {
+		if (c.conformsToParty || c.subclassOfParty)
+			GLOBAL_ID_TYPE
+		else c.identifier.name
 	}
 			
 	def compileMapImplName(Type key, Type value) {
@@ -415,7 +441,7 @@ class CmlGenerator extends AbstractGenerator2 {
 		val gc = c.constraint.general
 		if (party.name != "anyone") {
 			if(party.inferType.conformsToMap)
-				constraints.add(party.name + ".containsKey(msg.sender)" -> "Caller not authorized")
+				constraints.add(party.name + ".contains(msg.sender)" -> "Caller not authorized")
 			else
 			constraints.add(callerCheck(party.name) -> "Caller not authorized")
 		}
@@ -509,80 +535,93 @@ class CmlGenerator extends AbstractGenerator2 {
 	'''
 	
 	def Set<CmlClass> gatherEnums(CmlClass c) {
-		var set = newLinkedHashSet
-		set.addAll(c.referencedNamedElements.map[inferType].filter[mapsToEnum])
-		for(entry : c.referencedNamedElements.map[inferType].filter[mapsToStruct])
+		var set = new LinkedHashSet<CmlClass>
+		set.addAll(c.traverseForNamedElements.map[inferType].filter[mapsToEnum])
+		for (entry : c.traverseForNamedElements.map[inferType].filter[mapsToStruct])
 			set.addAll(entry.traverseForEnums)
 		set
 	}
-	
+
 	def Set<CmlClass> traverseForEnums(CmlClass c) {
-		var set = newLinkedHashSet
-		for(class : c.attributes.map[inferType]) {
+		var set = new LinkedHashSet<CmlClass>
+		for (class : c.attributes.map[inferType]) {
 			if (class.mapsToEnum)
 				set.add(class)
-			if(!class.equals(c))
+			if (!class.equals(c))
 				set.addAll(traverseForEnums(class))
 		}
 		set
 	}
 
 	def Set<CmlClass> gatherStructs(CmlClass c) {
-		var set = newLinkedHashSet
-		set.addAll(c.referencedNamedElements.map[inferType].filter[!conformsToVoid].filter[mapsToStruct])
-		for(entry : c.referencedNamedElements.map[inferType].filter[mapsToStruct])
+		var set = new LinkedHashSet<CmlClass>
+		val elements = c.traverseForNamedElements.map[inferType].filter[!conformsToVoid].filter[mapsToStruct]
+		set.addAll(elements)
+		for (entry : elements)
 			set.addAll(entry.traverseForStructs)
 		set
 	}
-	
+
 	def Set<CmlClass> traverseForStructs(CmlClass c) {
-		var set = newLinkedHashSet
-		for(class : c.attributes.filter[inferType.mapsToStruct].map[inferType]) {
+		var set = new LinkedHashSet<CmlClass>
+		for (class : c.attributes.filter[inferType.mapsToStruct].map[inferType]) {
 			set.add(class)
-			if(!class.equals(c))
+			if (!class.equals(c))
 				set.addAll(traverseForStructs(class))
 		}
 		set
 	}
-	
-	def Set<NamedElement> referencedNamedElements(CmlClass c) {
+
+	def Set<NamedElement> traverseForNamedElements(Operation o) {
+		var set = new LinkedHashSet<NamedElement>
+		set.addAll(o.references)
+		set.addAll(o.variableDeclarations)
+		for (op : o.referencedOperations) {
+			if (op !== o)
+				set.addAll(op.traverseForNamedElements)
+		}
+		set
+	}
+
+	def Set<NamedElement> traverseForNamedElements(CmlClass c) {
 		var set = new LinkedHashSet<NamedElement>
 		set.addAll(c.attributes)
 		set.addAll(c.operations)
 		set.addAll(c.operations.map[params].flatten)
-		for(o : c.operations) {
-			set.addAll(o.traverseForTypes)
+		for (o : c.operations) {
+			set.addAll(o.traverseForNamedElements)
 		}
 		set
 	}
-	
-	def Set<NamedElement> traverseForTypes(Operation o) {
-		var set = new LinkedHashSet<NamedElement>
-		set.addAll(o.references)
-		set.addAll(o.variableDeclarations)
-		for(op : o.referencedOperations) {
-			if (op !== o)
-				set.addAll(traverseForTypes(op))
+
+	def <T extends EObject> getAllContentsOfType(CmlProgram c, Class<T> type) {
+		val Set<T> result = new LinkedHashSet<T>
+		val sources = newLinkedList
+		sources.add(c)
+		sources.addAll(c.gatherImports)
+
+		for (s : sources) {
+			result.addAll(EcoreUtil2.getAllContentsOfType(s, type))
 		}
-		set
+		result
 	}
-	
+
 	def Set<Operation> staticOperations(CmlClass c) {
-		c.referencedNamedElements.filter(Operation).filter[static && !containedInMainLib].toSet
+		c.getAllContentsOfType(Operation).filter[static && !containedInMainLib].toSet
 	}
-	
+
 	def Set<Attribute> staticAttributes(CmlClass c) {
-		c.referencedNamedElements.filter(Attribute).filter[static].toSet
+		c.getAllContentsOfType(Attribute).filter[static].toSet
 	}
-	
+
 	def mapsToStruct(CmlClass c) {
-		!c.conformsToLibraryType && !c.conformsToToken && !c.mapsToEnum && !c.conformsToTokenTransaction && !c.conformsToMap
+		!c.conformsToLibraryType && !c.conformsToToken && !c.mapsToEnum && !c.conformsToTokenTransaction // && !c.conformsToMap && !c.conformsToArray
 	}
-	
+
 	def mapsToEnum(CmlClass c) {
 		c.conformsToEnum || c.subclassOfEnum
 	}
-	
+
 	def mapsToEvent(CmlClass c) {
 		c.conformsToEvent || c.subclassOfEvent
 	}
@@ -733,10 +772,10 @@ class CmlGenerator extends AbstractGenerator2 {
 			«ENDFOR»
 		}
 	'''
-	
+		
 	def String compileStatement(Statement s) {
 		switch (s) {
-			VariableDeclaration: '''«s.type.compile»«IF s.type.inferType.requiresDataLocation» memory«ENDIF» «s.name» = «s.expression.compile»;'''
+			VariableDeclaration: '''«s.type.compile»«IF s.type.inferType.requiresDataLocation» «s.expression.deriveDataLocation»«ENDIF» «s.name» = «s.expression.compile»;'''
 			ReturnStatement:
 				"return (" + s.expression.compile + ");"
 			IfStatement: '''
@@ -770,11 +809,16 @@ class CmlGenerator extends AbstractGenerator2 {
 				for («s.declaration.compileStatement» «s.condition.compile»; «s.progression.compile»)
 				«s.block.compileBlock»
 			'''
-			/*ForLoopStatement: '''
-				for («s.declaration.compile» «s.condition.compile»; «s.progression.compile»)
-				«s.block.compileBlock»
-			'''*/
-			ThrowStatement: '''revert(«s.expression?.compile»);'''
+			ForLoopStatement: '''
+				for (uint i = 0; i < «s.forExpression.compile».size(); i++)
+				{
+					«val type = (((s.forExpression as ReferenceExpression).reference as Attribute).type as GenericArrayTypeReference).componentType»
+					«type.compile»«IF type.inferType.requiresDataLocation» storage«ENDIF» «s.declaration.name» = «s.forExpression.compile».getEntry(i);
+					«FOR bs : s.block.statements»
+						«bs.compileStatement»
+					«ENDFOR»
+				}
+			'''
 			default: {
 				val statement = (s as Expression).compile
 				if (!statement.nullOrEmpty) (statement + ";") else ""
@@ -840,7 +884,7 @@ class CmlGenerator extends AbstractGenerator2 {
 			
 			using CLL«key.toFirstUpper» for CLL«key.toFirstUpper».CLL;
 		    
-		    function getSize(Data storage self) public view returns (uint) {
+		    function size(Data storage self) public view returns (uint) {
 		        return self.mapIdList.sizeOf();
 		    }
 		
@@ -856,12 +900,16 @@ class CmlGenerator extends AbstractGenerator2 {
 		        }
 		    }
 		
-		    function containsKey(Data storage self, «key» _key) public view returns (bool) {
+		    function contains(Data storage self, «key» _key) public view returns (bool) {
 		        return self.mapIdList.nodeExists(_key);
 		    }
 		    
-		    function get(Data storage self, «key» _key) public view returns («value»«IF valueType.requiresDataLocation» memory«ENDIF») {
+		    function get(Data storage self, «key» _key) public view returns («value»«IF valueType.requiresDataLocation» storage«ENDIF») {
 		        return self.map[_key];
+		    }
+		    
+		    function getEntry(Data storage self, uint _index) public view returns («value»«IF valueType.requiresDataLocation» storage«ENDIF») {
+		        return self.map[self.mapIdList.nodeAt(_index)];
 		    }
 		    
 		    function isEmpty(Data storage self) public view returns (bool) {
@@ -890,15 +938,21 @@ class CmlGenerator extends AbstractGenerator2 {
 		false
 	}
 	
+	def deriveDataLocation(Expression e) {
+		if(e instanceof ArrayAccessExpression)
+			return "storage"
+		return "memory"
+	}
+	
 	def compileCLLLib(String libName, Type type) '''
-		«getResource("cml/CLL.sol").replace("$LIB_NAME$", libName).replace("$TYPE$", type.compile)»'''
+		«getResource("cml/CLL.sol").replace("$LIB_NAME$", libName).replace("$TYPE$", type.compile)/*.replace("$NULL$", type.inferType.conformsToInteger ? "2^256-1" : "")*/»'''
 
 	def retrieveImport(Iterable<CmlProgram> resources, Import i) {
 		if (i.importedNamespace !== CmlLib::LIB_PACKAGE)
 			resources.findFirst[name == i.copy.importedNamespace.replace(".*", "")]
 	}
 
-	def gatherImportedResources(CmlProgram program) {
+	def gatherImports(CmlProgram program) {
 		var list = newArrayList
 		for (import : program.imports) {
 			list += this.allResources.retrieveImport(import)
@@ -1017,6 +1071,16 @@ class CmlGenerator extends AbstractGenerator2 {
 			FeatureSelectionExpression: '''«exp.compile»'''
 			NewExpression: '''«exp.compile»'''
 			NullLiteral: '''?'''
+			ArrayAccessExpression: '''«exp.compile»'''
+		}
+	}
+	
+	def compile(ArrayAccessExpression aae) {
+		val type = aae.array.typeFor
+		if ((type as CmlClass).conformsToMap) {
+			aae.array.compile + ".get(" + aae.indexes.get(0).compile + ")"
+		} else {
+			aae.array.compile + "[" + aae.indexes.get(0).compile + "]"
 		}
 	}
 	
@@ -1125,8 +1189,9 @@ class CmlGenerator extends AbstractGenerator2 {
 					case "contractStart": "_contractStart"
 					case "caller": caller
 				}
-			} else if (c.conformsToParticipant) {
+			} else if (c.conformsToAccount) {
 				switch (a.name) {
+					case "token": ""
 					case "id": if (ref === null) "address payable id"
 				}
 			} else if (c.conformsToAsset) {
@@ -1136,10 +1201,6 @@ class CmlGenerator extends AbstractGenerator2 {
 			} else if (c.conformsToTransaction) {
 				switch (a.name) {
 					case "sender": if (ref === null) "" else caller
-				}
-			} else if (c.conformsToTokenHolder) {
-				switch (a.name) {
-					case "token": ""
 				}
 			} else if (c.conformsToTokenTransaction) {
 				switch (a.name) {
@@ -1158,7 +1219,11 @@ class CmlGenerator extends AbstractGenerator2 {
 			val c = o.containingClass
 			val path = ref.resolvePath
 			
-			if (c.conformsToParty) {
+			if (c.conformsToAccount) {
+				switch (o.name) {
+					case "isSet": ref.compile + ".id != address(0)"
+				}
+			} else if (c.conformsToParty) {
 				switch (o.name) {
 					case "deposit": ""
 					case "withdraw": {
@@ -1237,15 +1302,20 @@ class CmlGenerator extends AbstractGenerator2 {
 					case "subtractDuration": "DateTime.subtractDuration(" + ref.compile + ", " +
 						args.get(0).compile + ")"
 				}
+			} else if (c.conformsToArray) {
+				switch (o.name) {
+					case "size": ref.compile + ".length"
+				}
 			} else if (c.conformsToMap) {
 				switch (o.name) {
-					case "size": ref.compile + ".getSize()"
+					case "size": ref.compile + ".size()"
 					case "isEmpty": ref.compile + ".isEmpty()"
-					case "containsKey": ref.compile + ".containsKey(" + args.get(0).compile + ")"
+					case "contains": ref.compile + ".contains(" + args.get(0).compile + ")"
 					case "clear": ref.compile + ".clear()"
-					case "add": ref.compile + ".add(" + args.get(0).compile + ", " + args.get(1).compile + ")"
+					case "add": ref.compile + ".add(" + args.get(0).compile + "." + (args.get(0).typeFor as CmlClass).resolveIdentifierName + ", " + args.get(0).compile + ")"
 					case "rmv": ref.compile + ".remove(" + args.get(0).compile + ")"
 					case "get": ref.compile + ".get(" + args.get(0).compile + ")"
+					case "getEntry": ref.compile + ".getEntry(" + args.get(0).compile + ")"
 				}
 			}	
 		} else {
@@ -1257,4 +1327,5 @@ class CmlGenerator extends AbstractGenerator2 {
 			}
 		}
 	}
+		
 }

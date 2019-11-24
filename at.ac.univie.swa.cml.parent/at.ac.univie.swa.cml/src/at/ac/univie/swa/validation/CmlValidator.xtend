@@ -223,6 +223,7 @@ class CmlValidator extends AbstractCmlValidator {
 		println("Expression:" + NodeModelUtils.getTokenText(NodeModelUtils.getNode(exp)) + 
 			" expected: " + expectedType.fullyQualifiedName +
 			" actual: " + actualType.fullyQualifiedName)
+		println("expectedType: " + exp);
 		if (expectedType === null || actualType === null)
 			return; // nothing to check
 		if (!actualType.isConformant(expectedType)) {
@@ -304,7 +305,7 @@ class CmlValidator extends AbstractCmlValidator {
 			if (class.abstract)
 				error("Cannot instantiate the type '" + ne.type.inferType.name + "'",
 					CmlPackage.eINSTANCE.newExpression_Type, INVALID_INSTANTIATION)
-			if (class.classHierarchyAttributes.size != ne.args.size) {
+			if (ne.args.size > 0 && class.classHierarchyAttributes.size != ne.args.size) {
 				error("Invalid number of arguments: expected " + class.classHierarchyAttributes.size + " but was " +
 					ne.args.size, CmlPackage.eINSTANCE.newExpression_Type, INVALID_ARGS)
 			}
