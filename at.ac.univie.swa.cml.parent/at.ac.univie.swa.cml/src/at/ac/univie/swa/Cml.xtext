@@ -61,7 +61,7 @@ TypeReference:
 	ParameterizedTypeReference => ({GenericArrayTypeReference.componentType=current} '[' ']')*;
 
 ParameterizedTypeReference:
-	type=[DeclaredType] (=> '<' typeArgs+=TypeReference (',' typeArgs+=TypeReference)* '>')?;
+	type=[DeclaredType|QualifiedName] (=> '<' typeArgs+=TypeReference (',' typeArgs+=TypeReference)* '>')?;
 
 DeclaredType:
 	TypeTypeRef | TypeVarRef;

@@ -225,12 +225,9 @@ class CmlGenerator extends AbstractGenerator2 {
 		}
 		
 		for (a : c.attributes.filter[inferType.conformsToMap]) {
-			//var key = (a.type as ParameterizedTypeReference).typeArgs.get(0).inferType
-			//val value = (a.type as ParameterizedTypeReference).typeArgs.get(1).inferType
-			val value = (a.type as GenericArrayTypeReference).componentType.inferType
-			var key = value.resolveIdentifierType
-			if (value.conformsToParty || value.subclassOfParty)
-				key = GLOBAL_ID_TYPE
+			val rslt = a.type.resolveKeyValue.keyValueTransformation
+			var key = rslt.key
+			val value = rslt.value
 			val mapImplName = a.compileMapImplName
 			fsa.generateFile("/lib/cml/" + mapImplName + ".sol", compileMapLib(mapImplName, key, value))
 			fsa.generateFile("/lib/cml/" + "CLL" + (key as Type).compile.toFirstUpper + ".sol",	compileCLLLib("CLL" + (key as Type).compile.toFirstUpper, key))
@@ -240,20 +237,33 @@ class CmlGenerator extends AbstractGenerator2 {
 		imports
 	}
 	
-	def compileMapImplName(Attribute a) {
-		val value = (a.type as GenericArrayTypeReference).componentType.inferType
-		var key = value.resolveIdentifierType
-			if (value.conformsToParty || value.subclassOfParty)
-				key = GLOBAL_ID_TYPE
-		compileMapImplName(key, value)
+	def keyValueTransformation(Pair<CmlClass,CmlClass> pair) {
+		var key = pair.key
+		val value = pair.value
+		if (value.conformsToParty || value.subclassOfParty)
+			key = GLOBAL_ID_TYPE
+		new Pair(key, value)
 	}
 	
-	def resolveIdName(CmlClass c) {
-		if (c.conformsToParty || c.subclassOfParty)
-			GLOBAL_ID_TYPE
-		else c.identifier.name
+	def resolveKeyValue(TypeReference tr) {
+		var CmlClass key = null
+		var CmlClass value = null
+		if(tr instanceof GenericArrayTypeReference) {
+			value = tr.componentType.inferType
+			key = value.resolveIdentifierType		
+		}
+		if(tr instanceof ParameterizedTypeReference) {
+			key = (tr as ParameterizedTypeReference).typeArgs.get(0).inferType
+			value = (tr as ParameterizedTypeReference).typeArgs.get(1).inferType
+		}
+		return new Pair(key, value)
 	}
-			
+	
+	def compileMapImplName(Attribute a) {
+		val rslt = a.type.resolveKeyValue.keyValueTransformation
+		compileMapImplName(rslt.key, rslt.value)
+	}
+				
 	def compileMapImplName(Type key, Type value) {
 		("Map" + key.compile.toFirstUpper + value.compile.toFirstUpper).replace(MODEL_NAME + ".", "")
 	}
@@ -543,11 +553,24 @@ class CmlGenerator extends AbstractGenerator2 {
 
 	def Set<CmlClass> gatherStructs(CmlClass c) {
 		val set = new LinkedHashSet<CmlClass>
-		//val elements = c.traverseForNamedElements.map[inferType].filter[!conformsToVoid].filter[mapsToStruct]
-		println("AAA: " + c.traverseForNamedElements.map[inferType].filter[!conformsToVoid].filter[mapsToStruct])
-		val program = c.eContainer as CmlProgram
-		val elements = program.getAllContentsOfType(TypeReference).filter(ParameterizedTypeReference).map[type].toSet.filter(CmlClass).filter[mapsToStruct]
+		val elements = c.traverseForNamedElements.map[inferType].filter[mapsToStruct]
 		set.addAll(elements)
+		for (ne : c.traverseForNamedElements) {
+			if (ne.inferType.conformsToArray || ne.inferType.conformsToMap) {
+				var Pair<CmlClass, CmlClass> rslt = null
+				if (ne instanceof Attribute)
+					rslt = ne.type.resolveKeyValue
+				if (ne instanceof Operation)
+					rslt = ne.type.resolveKeyValue
+				if (ne instanceof VariableDeclaration)
+					rslt = ne.type.resolveKeyValue
+
+				if (rslt.key !== null && rslt.key.mapsToStruct)
+					set.add(rslt.key)
+				if (rslt.value !== null && rslt.value.mapsToStruct)
+					set.add(rslt.value)
+			}
+		}
 		for (entry : elements)
 			set.addAll(entry.traverseForStructs)
 		set
@@ -606,7 +629,7 @@ class CmlGenerator extends AbstractGenerator2 {
 	}
 
 	def mapsToStruct(CmlClass c) {
-		!c.conformsToLibraryType && !c.conformsToToken && !c.mapsToEnum && !c.conformsToTokenTransaction // && !c.conformsToMap && !c.conformsToArray
+		!c.conformsToLibraryType && !c.conformsToToken && !c.mapsToEnum && !c.conformsToTokenTransaction && !c.conformsToMap && !c.conformsToArray && !c.conformsToVoid && !c.conformsToUndefined
 	}
 
 	def mapsToEnum(CmlClass c) {
@@ -699,7 +722,6 @@ class CmlGenerator extends AbstractGenerator2 {
 
 		for(val iter = attributesCopy.iterator; iter.hasNext();) {
 			val attribute = iter.next()
-			println("T: " + attribute)
 			if(attribute.inferType.conformsToTokenTransaction)
 				iter.remove()
 		}
