@@ -11,7 +11,6 @@ import at.ac.univie.swa.cml.Attribute
 import at.ac.univie.swa.cml.Block
 import at.ac.univie.swa.cml.Clause
 import at.ac.univie.swa.cml.ClauseQuery
-import at.ac.univie.swa.cml.Closure
 import at.ac.univie.swa.cml.CmlClass
 import at.ac.univie.swa.cml.CmlPackage
 import at.ac.univie.swa.cml.CmlProgram
@@ -21,7 +20,6 @@ import at.ac.univie.swa.cml.FeatureSelectionExpression
 import at.ac.univie.swa.cml.NamedElement
 import at.ac.univie.swa.cml.NewExpression
 import at.ac.univie.swa.cml.Operation
-import at.ac.univie.swa.cml.OtherOperatorExpression
 import at.ac.univie.swa.cml.ReferenceExpression
 import at.ac.univie.swa.cml.ReturnStatement
 import at.ac.univie.swa.cml.SuperExpression
@@ -220,10 +218,9 @@ class CmlValidator extends AbstractCmlValidator {
 	def void checkConformance(Expression exp) {
 		val actualType = exp.typeFor
 		val expectedType = exp.expectedType
-		println("Expression:" + NodeModelUtils.getTokenText(NodeModelUtils.getNode(exp)) + 
+		LOG.debug("Expression:" + NodeModelUtils.getTokenText(NodeModelUtils.getNode(exp)) + 
 			" expected: " + expectedType.fullyQualifiedName +
 			" actual: " + actualType.fullyQualifiedName)
-		println("expectedType: " + exp);
 		if (expectedType === null || actualType === null)
 			return; // nothing to check
 		if (!actualType.isConformant(expectedType)) {

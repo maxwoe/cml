@@ -10,7 +10,6 @@ import at.ac.univie.swa.cml.AnnotationElement
 import at.ac.univie.swa.cml.ArrayAccessExpression
 import at.ac.univie.swa.cml.AssignmentExpression
 import at.ac.univie.swa.cml.Attribute
-import at.ac.univie.swa.cml.Block
 import at.ac.univie.swa.cml.BooleanLiteral
 import at.ac.univie.swa.cml.CasePart
 import at.ac.univie.swa.cml.CastedExpression
@@ -25,7 +24,6 @@ import at.ac.univie.swa.cml.Expression
 import at.ac.univie.swa.cml.FeatureSelectionExpression
 import at.ac.univie.swa.cml.ForLoopStatement
 import at.ac.univie.swa.cml.GeneralConstraint
-import at.ac.univie.swa.cml.GenericArrayTypeReference
 import at.ac.univie.swa.cml.IntegerLiteral
 import at.ac.univie.swa.cml.MultiplicativeExpression
 import at.ac.univie.swa.cml.NestedExpression
@@ -252,8 +250,8 @@ class CmlTypeProvider {
 				c.array.typeFor
 			NestedExpression:
 				c.child.typeFor
-			//ForLoopStatement case f == ep.forLoopStatement_ForExpression:
-			//	c.
+			ForLoopStatement case f == ep.forLoopStatement_ForExpression:
+				c.cmlCollectionClass
 		}
 	}
 

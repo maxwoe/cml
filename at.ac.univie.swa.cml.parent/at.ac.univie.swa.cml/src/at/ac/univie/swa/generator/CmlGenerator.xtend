@@ -9,6 +9,7 @@ import at.ac.univie.swa.cml.ActionQuery
 import at.ac.univie.swa.cml.AdditiveExpression
 import at.ac.univie.swa.cml.AndCompoundAction
 import at.ac.univie.swa.cml.AndExpression
+import at.ac.univie.swa.cml.ArrayAccessExpression
 import at.ac.univie.swa.cml.AssignmentExpression
 import at.ac.univie.swa.cml.AtomicAction
 import at.ac.univie.swa.cml.Attribute
@@ -19,6 +20,7 @@ import at.ac.univie.swa.cml.Clause
 import at.ac.univie.swa.cml.ClauseQuery
 import at.ac.univie.swa.cml.ClauseStatus
 import at.ac.univie.swa.cml.CmlClass
+import at.ac.univie.swa.cml.CmlFactory
 import at.ac.univie.swa.cml.CmlProgram
 import at.ac.univie.swa.cml.CompoundAction
 import at.ac.univie.swa.cml.DateTimeLiteral
@@ -29,6 +31,8 @@ import at.ac.univie.swa.cml.EqualityExpression
 import at.ac.univie.swa.cml.EventQuery
 import at.ac.univie.swa.cml.Expression
 import at.ac.univie.swa.cml.FeatureSelectionExpression
+import at.ac.univie.swa.cml.ForBasicStatement
+import at.ac.univie.swa.cml.ForLoopStatement
 import at.ac.univie.swa.cml.GenericArrayTypeReference
 import at.ac.univie.swa.cml.IfStatement
 import at.ac.univie.swa.cml.Import
@@ -38,6 +42,7 @@ import at.ac.univie.swa.cml.NamedElement
 import at.ac.univie.swa.cml.NestedCompoundAction
 import at.ac.univie.swa.cml.NestedExpression
 import at.ac.univie.swa.cml.NewExpression
+import at.ac.univie.swa.cml.NullLiteral
 import at.ac.univie.swa.cml.Operation
 import at.ac.univie.swa.cml.OrCompoundAction
 import at.ac.univie.swa.cml.OrExpression
@@ -54,7 +59,6 @@ import at.ac.univie.swa.cml.SwitchStatement
 import at.ac.univie.swa.cml.TemporalConstraint
 import at.ac.univie.swa.cml.TemporalPrecedence
 import at.ac.univie.swa.cml.ThisExpression
-import at.ac.univie.swa.cml.ThrowStatement
 import at.ac.univie.swa.cml.Type
 import at.ac.univie.swa.cml.TypeReference
 import at.ac.univie.swa.cml.UnaryExpression
@@ -62,12 +66,14 @@ import at.ac.univie.swa.cml.VariableDeclaration
 import at.ac.univie.swa.cml.WhileStatement
 import at.ac.univie.swa.cml.XorCompoundAction
 import at.ac.univie.swa.typing.CmlTypeConformance
+import at.ac.univie.swa.typing.CmlTypeProvider
 import com.google.inject.Inject
 import java.io.InputStream
 import java.math.BigDecimal
 import java.time.Instant
 import java.util.LinkedHashMap
 import java.util.LinkedHashSet
+import java.util.LinkedList
 import java.util.List
 import java.util.Scanner
 import java.util.Set
@@ -75,30 +81,12 @@ import org.apache.log4j.Logger
 import org.eclipse.emf.ecore.EObject
 import org.eclipse.emf.ecore.resource.Resource
 import org.eclipse.emf.ecore.resource.ResourceSet
+import org.eclipse.xtext.EcoreUtil2
 import org.eclipse.xtext.generator.IFileSystemAccess2
 import org.eclipse.xtext.generator.IGeneratorContext
 
 import static extension org.eclipse.emf.ecore.util.EcoreUtil.*
 import static extension org.eclipse.xtext.EcoreUtil2.*
-import at.ac.univie.swa.cml.CmlFactory
-import at.ac.univie.swa.cml.NullLiteral
-import at.ac.univie.swa.cml.ForBasicStatement
-import at.ac.univie.swa.cml.ForLoopStatement
-import at.ac.univie.swa.typing.CmlTypeProvider
-import java.lang.reflect.GenericArrayType
-import at.ac.univie.swa.cml.ArrayAccessExpression
-import at.ac.univie.swa.cml.TypeVariable
-import org.eclipse.emf.ecore.util.EcoreUtil
-import java.util.Iterator
-import at.ac.univie.swa.cml.CmlPackage
-import org.eclipse.xtext.resource.impl.ResourceDescriptionsProvider
-import org.eclipse.xtext.resource.IContainer
-import org.eclipse.emf.ecore.EClass
-import org.eclipse.xtext.EcoreUtil2
-import at.ac.univie.swa.scoping.CmlIndex
-import org.eclipse.xtext.naming.IQualifiedNameProvider
-import org.eclipse.xtext.naming.IQualifiedNameConverter
-import java.util.function.Consumer
 
 /**
  * Generates code from your model files on save.
@@ -116,7 +104,6 @@ class CmlGenerator extends AbstractGenerator2 {
 	boolean pullPayment
 	boolean ownable
 	boolean detachModel
-	@Inject extension CmlIndex
 	@Inject extension CmlModelUtil
 	@Inject extension CmlTypeConformance
 	@Inject extension CmlTypeProvider
@@ -198,7 +185,7 @@ class CmlGenerator extends AbstractGenerator2 {
 		}
 	}
 	
-	def gatherImports(CmlClass c) {
+	def buildImports(CmlClass c) {
 		val imports = new LinkedHashSet<String>()
 		addLibFromResources("cml/ConditionalContract.sol")
 		imports.add("./lib/cml/ConditionalContract.sol")
@@ -218,6 +205,7 @@ class CmlGenerator extends AbstractGenerator2 {
 			addLibFromResources("openzeppelin/Escrow.sol")
 			addLibFromResources("openzeppelin/Secondary.sol")
 			addLibFromResources("openzeppelin/PullPayment.sol")
+			addLibFromResources("openzeppelin/SafeMath.sol")
 			imports.add("./lib/openzeppelin/PullPayment.sol")
 		}
 		
@@ -280,7 +268,7 @@ class CmlGenerator extends AbstractGenerator2 {
 	'''
 	
 	def compileImports(CmlClass c) '''
-		«FOR i : gatherImports(c)»
+		«FOR i : buildImports(c)»
 			import "«i»";
 		«ENDFOR»
 	'''
@@ -535,7 +523,7 @@ class CmlGenerator extends AbstractGenerator2 {
 	'''
 	
 	def Set<CmlClass> gatherEnums(CmlClass c) {
-		var set = new LinkedHashSet<CmlClass>
+		val set = new LinkedHashSet<CmlClass>
 		set.addAll(c.traverseForNamedElements.map[inferType].filter[mapsToEnum])
 		for (entry : c.traverseForNamedElements.map[inferType].filter[mapsToStruct])
 			set.addAll(entry.traverseForEnums)
@@ -543,7 +531,7 @@ class CmlGenerator extends AbstractGenerator2 {
 	}
 
 	def Set<CmlClass> traverseForEnums(CmlClass c) {
-		var set = new LinkedHashSet<CmlClass>
+		val set = new LinkedHashSet<CmlClass>
 		for (class : c.attributes.map[inferType]) {
 			if (class.mapsToEnum)
 				set.add(class)
@@ -554,8 +542,11 @@ class CmlGenerator extends AbstractGenerator2 {
 	}
 
 	def Set<CmlClass> gatherStructs(CmlClass c) {
-		var set = new LinkedHashSet<CmlClass>
-		val elements = c.traverseForNamedElements.map[inferType].filter[!conformsToVoid].filter[mapsToStruct]
+		val set = new LinkedHashSet<CmlClass>
+		//val elements = c.traverseForNamedElements.map[inferType].filter[!conformsToVoid].filter[mapsToStruct]
+		println("AAA: " + c.traverseForNamedElements.map[inferType].filter[!conformsToVoid].filter[mapsToStruct])
+		val program = c.eContainer as CmlProgram
+		val elements = program.getAllContentsOfType(TypeReference).filter(ParameterizedTypeReference).map[type].toSet.filter(CmlClass).filter[mapsToStruct]
 		set.addAll(elements)
 		for (entry : elements)
 			set.addAll(entry.traverseForStructs)
@@ -563,7 +554,7 @@ class CmlGenerator extends AbstractGenerator2 {
 	}
 
 	def Set<CmlClass> traverseForStructs(CmlClass c) {
-		var set = new LinkedHashSet<CmlClass>
+		val set = new LinkedHashSet<CmlClass>
 		for (class : c.attributes.filter[inferType.mapsToStruct].map[inferType]) {
 			set.add(class)
 			if (!class.equals(c))
@@ -573,7 +564,7 @@ class CmlGenerator extends AbstractGenerator2 {
 	}
 
 	def Set<NamedElement> traverseForNamedElements(Operation o) {
-		var set = new LinkedHashSet<NamedElement>
+		val set = new LinkedHashSet<NamedElement>
 		set.addAll(o.references)
 		set.addAll(o.variableDeclarations)
 		for (op : o.referencedOperations) {
@@ -584,7 +575,7 @@ class CmlGenerator extends AbstractGenerator2 {
 	}
 
 	def Set<NamedElement> traverseForNamedElements(CmlClass c) {
-		var set = new LinkedHashSet<NamedElement>
+		val set = new LinkedHashSet<NamedElement>
 		set.addAll(c.attributes)
 		set.addAll(c.operations)
 		set.addAll(c.operations.map[params].flatten)
@@ -607,11 +598,11 @@ class CmlGenerator extends AbstractGenerator2 {
 	}
 
 	def Set<Operation> staticOperations(CmlClass c) {
-		c.getAllContentsOfType(Operation).filter[static && !containedInMainLib].toSet
+		c.traverseForNamedElements.filter(Operation).filter[static && !containedInMainLib].toSet
 	}
 
 	def Set<Attribute> staticAttributes(CmlClass c) {
-		c.getAllContentsOfType(Attribute).filter[static].toSet
+		c.traverseForNamedElements.filter(Attribute).filter[static].toSet
 	}
 
 	def mapsToStruct(CmlClass c) {
@@ -703,8 +694,20 @@ class CmlGenerator extends AbstractGenerator2 {
 		}
 	}
 	
+	def transformOpPArams(List<Attribute> attributes) {
+		val attributesCopy = attributes.copyAll
+
+		for(val iter = attributesCopy.iterator; iter.hasNext();) {
+			val attribute = iter.next()
+			println("T: " + attribute)
+			if(attribute.inferType.conformsToTokenTransaction)
+				iter.remove()
+		}
+		attributesCopy
+	}
+	
 	def compileOpParams(List<Attribute> attributes) '''
-		«FOR a : attributes SEPARATOR ', '»«IF !a.inferType.conformsToTokenTransaction»«a.compileOpParam»«ENDIF»«ENDFOR»'''
+		«FOR a : attributes.transformOpPArams SEPARATOR ', '»«a.compileOpParam»«ENDFOR»'''
 
 	def compileOpParam(Attribute a) {
 		interceptAttribute(a, null) ?: '''«a.type.compile»«IF a.inferType.requiresDataLocation» memory«ENDIF» «a.name»'''
@@ -772,10 +775,19 @@ class CmlGenerator extends AbstractGenerator2 {
 			«ENDFOR»
 		}
 	'''
-		
+	
+	def compileVarAssignment(Expression exp) {
+		if (exp instanceof NewExpression) {
+			if (exp.args.size == 0) {
+				return false
+			}
+		}
+		return true
+	}
+	
 	def String compileStatement(Statement s) {
 		switch (s) {
-			VariableDeclaration: '''«s.type.compile»«IF s.type.inferType.requiresDataLocation» «s.expression.deriveDataLocation»«ENDIF» «s.name» = «s.expression.compile»;'''
+			VariableDeclaration: '''«s.type.compile»«IF s.type.inferType.requiresDataLocation» «s.expression.deriveDataLocation»«ENDIF» «s.name»«IF compileVarAssignment(s.expression)» = «s.expression.compile»«ENDIF»;'''
 			ReturnStatement:
 				"return (" + s.expression.compile + ");"
 			IfStatement: '''
@@ -810,14 +822,7 @@ class CmlGenerator extends AbstractGenerator2 {
 				«s.block.compileBlock»
 			'''
 			ForLoopStatement: '''
-				for (uint i = 0; i < «s.forExpression.compile».size(); i++)
-				{
-					«val type = (((s.forExpression as ReferenceExpression).reference as Attribute).type as GenericArrayTypeReference).componentType»
-					«type.compile»«IF type.inferType.requiresDataLocation» storage«ENDIF» «s.declaration.name» = «s.forExpression.compile».getEntry(i);
-					«FOR bs : s.block.statements»
-						«bs.compileStatement»
-					«ENDFOR»
-				}
+				«IF (s.forExpression.typeFor as CmlClass).conformsToArray»«s.compileForLoopForArray»«ELSE»«s.compileForLoopForMap»«ENDIF»
 			'''
 			default: {
 				val statement = (s as Expression).compile
@@ -825,6 +830,28 @@ class CmlGenerator extends AbstractGenerator2 {
 			}
 		}
 	}
+	
+	def compileForLoopForArray(ForLoopStatement s) '''
+		for (uint i = 0; i < «s.forExpression.compile».length; i++)
+		{
+			«val type = (((s.forExpression as ReferenceExpression).reference as Attribute).type as GenericArrayTypeReference).componentType»
+			«type.compile» «s.declaration.name» = «s.forExpression.compile»[i];
+			«FOR bs : s.block.statements»
+				«bs.compileStatement»
+			«ENDFOR»
+		}
+	'''
+	
+	def compileForLoopForMap(ForLoopStatement s) '''
+		for (uint i = 0; i < «s.forExpression.compile».size(); i++)
+		{
+			«val type = (((s.forExpression as ReferenceExpression).reference as Attribute).type as GenericArrayTypeReference).componentType»
+			«type.compile»«IF type.inferType.requiresDataLocation» storage«ENDIF» «s.declaration.name» = «s.forExpression.compile».getEntry(i);
+			«FOR bs : s.block.statements»
+				«bs.compileStatement»
+			«ENDFOR»
+		}
+	'''
 
 	def compileEventAsFunction(Attribute a) '''
 		// @notice trigger event «a.inferType.name»
@@ -945,17 +972,19 @@ class CmlGenerator extends AbstractGenerator2 {
 	}
 	
 	def compileCLLLib(String libName, Type type) '''
-		«getResource("cml/CLL.sol").replace("$LIB_NAME$", libName).replace("$TYPE$", type.compile)/*.replace("$NULL$", type.inferType.conformsToInteger ? "2^256-1" : "")*/»'''
+		«getResource("cml/CLL.sol").replace("$LIB_NAME$", libName).replace("$TYPE$", type.compile)»'''
 
 	def retrieveImport(Iterable<CmlProgram> resources, Import i) {
 		if (i.importedNamespace !== CmlLib::LIB_PACKAGE)
 			resources.findFirst[name == i.copy.importedNamespace.replace(".*", "")]
 	}
 
-	def gatherImports(CmlProgram program) {
-		var list = newArrayList
-		for (import : program.imports) {
-			list += this.allResources.retrieveImport(import)
+	def List<CmlProgram> gatherImports(CmlProgram program) {
+		var list = new LinkedList<CmlProgram>
+		for (i : program.imports) {
+			val import = this.allResources.retrieveImport(i)
+			list.add(import)
+			list.addAll(gatherImports(import))	// recursive
 		}
 		list
 	}
@@ -1194,7 +1223,7 @@ class CmlGenerator extends AbstractGenerator2 {
 					case "token": ""
 					case "id": if (ref === null) "address payable id"
 				}
-			} else if (c.conformsToAsset) {
+			} else if (c.conformsToToken) {
 				switch (a.name) {
 					case "quantity": if (ref !== null) "address(this).balance"
 				}

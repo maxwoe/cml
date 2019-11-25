@@ -19,7 +19,6 @@ import at.ac.univie.swa.cml.Operation
 import at.ac.univie.swa.cml.OtherOperatorExpression
 import at.ac.univie.swa.cml.Type
 import at.ac.univie.swa.cml.VariableDeclaration
-import at.ac.univie.swa.typing.CmlTypeConformance
 import at.ac.univie.swa.typing.CmlTypeProvider
 import com.google.common.base.Predicate
 import javax.inject.Inject
@@ -41,7 +40,7 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 
 	@Inject extension CmlTypeProvider
 	@Inject extension CmlModelUtil
-	@Inject extension CmlTypeConformance
+	//@Inject extension CmlTypeConformance
 
 	override getScope(EObject context, EReference reference) {
 		if (reference == CmlPackage.Literals.REFERENCE_EXPRESSION__REFERENCE) {

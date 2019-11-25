@@ -36,6 +36,7 @@ class CmlLib {
 	public val static LIB_PARTICIPANT = LIB_PACKAGE + ".Participant"
 	public val static LIB_TOKEN_TRANSACTION = LIB_PACKAGE + ".TokenTransaction"
 	
+	public val static LIB_COLLECTION = LIB_PACKAGE + ".Collection"
 	public val static LIB_ARRAY = LIB_PACKAGE + ".Array"
 	public val static LIB_MAP = LIB_PACKAGE + ".OrderedMap"
 
@@ -100,6 +101,10 @@ class CmlLib {
 	
 	def getCmlMapClass(EObject context) {
 		getCmlClass(context, LIB_MAP)
+	}
+	
+	def getCmlCollectionClass(EObject context) {
+		getCmlClass(context, LIB_COLLECTION)
 	}
 	
 	def getCmlClass(EObject context, String qn) {

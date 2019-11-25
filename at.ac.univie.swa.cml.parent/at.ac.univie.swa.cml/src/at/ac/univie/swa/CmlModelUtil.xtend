@@ -11,6 +11,7 @@ import at.ac.univie.swa.cml.EnumerationElement
 import at.ac.univie.swa.cml.Expression
 import at.ac.univie.swa.cml.Feature
 import at.ac.univie.swa.cml.FeatureSelectionExpression
+import at.ac.univie.swa.cml.ForLoopStatement
 import at.ac.univie.swa.cml.GenericArrayTypeReference
 import at.ac.univie.swa.cml.NamedElement
 import at.ac.univie.swa.cml.Operation
@@ -22,7 +23,6 @@ import at.ac.univie.swa.cml.Type
 import at.ac.univie.swa.cml.TypeReference
 import at.ac.univie.swa.cml.TypeVariable
 import at.ac.univie.swa.cml.VariableDeclaration
-import at.ac.univie.swa.typing.CmlTypeConformance
 import at.ac.univie.swa.typing.CmlTypeProvider
 import com.google.inject.Inject
 import org.eclipse.emf.ecore.EObject
@@ -31,13 +31,12 @@ import org.eclipse.xtext.naming.IQualifiedNameProvider
 import org.eclipse.xtext.nodemodel.util.NodeModelUtils
 
 import static extension org.eclipse.xtext.EcoreUtil2.*
-import at.ac.univie.swa.cml.ForLoopStatement
 
 class CmlModelUtil {
 
-	@Inject extension CmlLib
-	@Inject extension CmlTypeConformance
 	@Inject extension IQualifiedNameProvider
+	@Inject extension CmlLib
+	//@Inject extension CmlTypeConformance
 
 	def returnStatement(Operation o) {
 		o.body.returnStatement
@@ -220,8 +219,8 @@ class CmlModelUtil {
 			GenericArrayTypeReference : {
 				val c = tr.componentType.inferType(e)
 				if(c.isIdentifiable)
-					tr.cmlMapClass
-				else tr.cmlArrayClass
+					c.cmlMapClass
+				else c.cmlArrayClass
 			}
 		}
 	}
