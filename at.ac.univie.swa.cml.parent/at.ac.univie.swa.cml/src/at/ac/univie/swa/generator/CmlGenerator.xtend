@@ -110,18 +110,30 @@ class CmlGenerator extends AbstractGenerator2 {
 	Iterable<CmlProgram> allResources
 	IFileSystemAccess2 fsa
 	
+	
 	override doGenerate(Resource resource, ResourceSet input, IFileSystemAccess2 fsa, IGeneratorContext context) {
 		LOG.info("resource: " + resource)
 		println("resource: " + resource.URI)
-				
+
 		allResources = input.resources.map(r|r.allContents.toIterable.filter(CmlProgram)).flatten
 		this.fsa = fsa
 		
 		for (p : resource.allContents.toIterable.filter(CmlProgram)) {
 			if (!p.contracts.empty) {
 				fsa.generateFile("/" + resource.URI.trimFileExtension.segmentsList.last + ".sol", p.compile)
-			}
+				println("Count: " + p.eAllContents().size())
+			}			
 		}
+	}
+	
+	def countContents(EObject obj) {
+		var count = 0
+		val allContents = obj.eAllContents()
+		while (allContents.hasNext()) {
+			//val eObject = allContents.next()
+			count++
+		}
+		count
 	}
 	
 	def addLibFromResources(String resourceName) {
@@ -177,7 +189,7 @@ class CmlGenerator extends AbstractGenerator2 {
 							fixedPointDecimals = integerLiteral.value
 					}
 				}
-				case "Ownable":
+				case "Ownership":
 					ownable = true
 				case "PullPayment":
 					pullPayment = true
@@ -644,7 +656,7 @@ class CmlGenerator extends AbstractGenerator2 {
 		«FOR a : c.staticAttributes»
 			«a.compile»;
 		«ENDFOR»
-		«FOR a : c.attributes.filter[!inferType.mapsToEnum]»
+		«FOR a : c.attributes»
 			«IF a.inferType.conformsToMap»
 				«val name = a.compileMapImplName »
 				using «name» for «name».Data;
@@ -885,7 +897,7 @@ class CmlGenerator extends AbstractGenerator2 {
 	'''
 
 	def compileEnum(CmlClass c) '''
-		enum «c.name.toFirstUpper» { «FOR e : c.enumElements SEPARATOR ', '»«e.name»«ENDFOR» } «c.name.toFirstUpper» «c.name.toFirstLower»;
+		enum «c.name.toFirstUpper» { «FOR e : c.enumElements SEPARATOR ', '»«e.name»«ENDFOR» }
 	'''
 
 	def String compile(TypeReference tr) {
@@ -927,55 +939,55 @@ class CmlGenerator extends AbstractGenerator2 {
 		library «libName» {
 		
 			struct Data {
-			    mapping(«key» => «value») map;
-		        CLL«key.toFirstUpper».CLL mapIdList;
+				mapping(«key» => «value») map;
+				CLL«key.toFirstUpper».CLL mapIdList;
 			}
 			
 			using CLL«key.toFirstUpper» for CLL«key.toFirstUpper».CLL;
 		    
-		    function size(Data storage self) public view returns (uint) {
-		        return self.mapIdList.sizeOf();
-		    }
-		
-		    function add(Data storage self, «key» _key, «value»«IF valueType.requiresDataLocation» memory«ENDIF» _value) public {
-		        self.map[_key] = _value;
-		        self.mapIdList.push(_key, true);
-		    }
-		
-		    function remove(Data storage self, «key» _key) public {
-		        if(self.mapIdList.nodeExists(_key)) {
-		            delete self.map[_key];
-		            self.mapIdList.remove(_key);
-		        }
-		    }
-		
-		    function contains(Data storage self, «key» _key) public view returns (bool) {
-		        return self.mapIdList.nodeExists(_key);
-		    }
+			function size(Data storage self) public view returns (uint) {
+				return self.mapIdList.sizeOf();
+			}
+			
+			function add(Data storage self, «key» _key, «value»«IF valueType.requiresDataLocation» memory«ENDIF» _value) public {
+				self.map[_key] = _value;
+				self.mapIdList.push(_key, true);
+			}
+			
+			function remove(Data storage self, «key» _key) public {
+				if(self.mapIdList.nodeExists(_key)) {
+					delete self.map[_key];
+					self.mapIdList.remove(_key);
+				}
+			}
+			
+			function contains(Data storage self, «key» _key) public view returns (bool) {
+				return self.mapIdList.nodeExists(_key);
+			}
+			
+			function get(Data storage self, «key» _key) public view returns («value»«IF valueType.requiresDataLocation» storage«ENDIF») {
+				return self.map[_key];
+			}
+			
+			function getEntry(Data storage self, uint _index) public view returns («value»«IF valueType.requiresDataLocation» storage«ENDIF») {
+				return self.map[self.mapIdList.nodeAt(_index)];
+			}
 		    
-		    function get(Data storage self, «key» _key) public view returns («value»«IF valueType.requiresDataLocation» storage«ENDIF») {
-		        return self.map[_key];
-		    }
+			function isEmpty(Data storage self) public view returns (bool) {
+				return !self.mapIdList.exists();
+			}
+			
+			function getKeys(Data storage self) public view returns («key»[] memory) {
+				return self.mapIdList.keys();
+			}
 		    
-		    function getEntry(Data storage self, uint _index) public view returns («value»«IF valueType.requiresDataLocation» storage«ENDIF») {
-		        return self.map[self.mapIdList.nodeAt(_index)];
-		    }
-		    
-		    function isEmpty(Data storage self) public view returns (bool) {
-		        return !self.mapIdList.exists();
-		    }
-		    
-		    function getKeys(Data storage self) public view returns («key»[] memory) {
-		        return self.mapIdList.keys();
-		    }
-		    
-		    function clear(Data storage self) public {
-		        «key»[] memory arr = getKeys(self);
-		        for (uint i = 0; i < arr.length; i++) {
-		            delete self.map[arr[i]];
-		            remove(self, arr[i]);
-		        }
-		    }
+			function clear(Data storage self) public {
+				«key»[] memory arr = getKeys(self);
+				for (uint i = 0; i < arr.length; i++) {
+					delete self.map[arr[i]];
+					remove(self, arr[i]);
+				}
+			}
 		}
 	'''
 	}
@@ -1209,9 +1221,9 @@ class CmlGenerator extends AbstractGenerator2 {
 			rslt = interceptClass(re.reference as CmlClass, re.args, re)
 
 		rslt ?: {
-			val sb = new StringBuilder()
-			if(detachModel && re.reference.inferType.mapsToEnum)
-				sb.append(MODEL_NAME + ".")
+			val sb = new StringBuilder()			
+			if(detachModel && re.reference instanceof CmlClass && re.reference.inferType.mapsToEnum)
+				sb.append(MODEL_NAME + ".")				
 			sb.append(re.reference.name)
 			if (re.opCall)
 				sb.append("(" + re.args.map[compile].join(", ") + ")")

@@ -4,7 +4,7 @@ concept Any
 concept Asset extends Any
 concept Token extends Asset identified by id
 	String id
-	Number quantity
+	Integer quantity
 concept Participant extends Any
 concept Account extends Participant identified by id
 	String id
@@ -23,7 +23,7 @@ concept Contract extends Account
 concept Transaction extends Any
 	Party sender
 concept TokenTransaction extends Transaction
-	Number amount
+	Integer amount
 concept Event extends Any
 concept Enum extends Any
 concept String extends Any

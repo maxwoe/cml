@@ -302,7 +302,7 @@ class CmlValidator extends AbstractCmlValidator {
 			if (class.abstract)
 				error("Cannot instantiate the type '" + ne.type.inferType.name + "'",
 					CmlPackage.eINSTANCE.newExpression_Type, INVALID_INSTANTIATION)
-			if (ne.args.size > 0 && class.classHierarchyAttributes.size != ne.args.size) {
+			if (ne.args.size > 1 && class.classHierarchyAttributes.size != ne.args.size) {
 				error("Invalid number of arguments: expected " + class.classHierarchyAttributes.size + " but was " +
 					ne.args.size, CmlPackage.eINSTANCE.newExpression_Type, INVALID_ARGS)
 			}
