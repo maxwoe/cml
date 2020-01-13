@@ -14,8 +14,7 @@ standardized natural-language-like way. They specify the context under
 which the actions (functions) are to be called, meaning they combine
 different aspects that influence action execution. In its most
 simplistic form a clause specifies the obligation, or permission of a
-party to execute a specific action (function). A more elaborated
-description of a clause is given later on.
+party to execute a specific action (function).
 
 Type System
 -----------
@@ -41,8 +40,7 @@ Clause Structure
 ----------------
 
 As mentioned before, CML introduces clauses as syntactical elements. A
-simplified illustration of the clause syntax is given in Figure
-\[fig:clause\]. Each clause has an unique identifier for referencing and
+simplified illustration of the clause syntax is given below. Each clause has an unique identifier for referencing and
 must contain at least an actor, an action (referring to a function
 name), and the modality of this action (“may” or “must”). Optional
 elements include temporal or general constraints. Temporal constrains
