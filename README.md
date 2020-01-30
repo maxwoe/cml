@@ -141,3 +141,124 @@ contract TimeLock
 		transfer(vaultUser, value)
 		value = 0
 ```
+
+Further Example Contracts
+--------------------
+```
+namespace cml.examples
+
+import cml.generator.annotation.solidity.*
+
+@PullPayment
+contract SimpleAuction
+	Integer reservePrice
+	Integer highestBid
+	Party highestBidder
+	Party beneficiary
+	Party auctioneer
+	Duration biddingTime
+	Boolean aborted
+	Boolean ended
+	
+	clause Bid
+		due within biddingTime after contractStart
+		given !aborted
+		party anyone
+		may bid
+		
+	clause AuctionEndAccept
+		due after contractStart.addDuration(biddingTime)
+		given !ended
+		party beneficiary
+		may acceptAuction
+	
+	clause AuctionEndReject
+		due within 48 hours after contractStart.addDuration(biddingTime)
+		given !ended and highestBid < reservePrice
+		party beneficiary
+		may rejectAuction
+		
+	clause AuctionAbort
+		due within biddingTime after contractStart
+		given !aborted
+		party auctioneer
+		may abortAuction
+		
+	action init(Duration _time, Integer _reservePrice, Party _beneficiary)
+		auctioneer = caller
+		reservePrice = _reservePrice
+		biddingTime = _time
+		beneficiary = _beneficiary
+
+	action bid(TokenTransaction t)
+		ensure(t.amount > highestBid, "There already is a higher bid.")
+		caller.deposit(t.amount)
+		if (highestBid != 0)
+			transfer(highestBidder, highestBid)
+		highestBidder = caller
+		highestBid = t.amount
+
+	action acceptAuction()
+		ended = true
+		transfer(beneficiary, highestBid)
+	
+	action rejectAuction()
+		ended = true
+		transfer(highestBidder, highestBid)
+	
+	action abortAuction()
+		aborted = true
+		transfer(highestBidder, highestBid)
+```
+
+```
+namespace cml.examples
+
+import cml.generator.annotation.solidity.*
+
+@PullPayment
+contract Purchase
+	Integer value
+	Party seller
+	Party buyer
+		
+	clause Abort
+		due before buyer did confirmPurchase
+		party seller
+		may abort
+		
+	clause ConfirmPurchase
+		due within 7 days after contractStart
+		party anyone
+		may confirmPurchase
+
+	clause ConfirmReceived
+		due after buyer did confirmPurchase
+		party buyer
+		may confirmReceived
+	
+	clause RefundSeller
+		due after buyer did confirmReceived
+		party seller
+		may fetchRefund
+	
+	action init(TokenTransaction t)
+		ensure(t.amount % 2 == 0, "Value has to be even.")
+		caller.deposit(t.amount)
+		seller = caller
+		value = t.amount / 2
+		
+	action abort()
+		transfer(seller, token.quantity)
+		
+	action confirmPurchase(TokenTransaction t)
+		ensure(t.amount == 2 * value, "Invalid amount submitted.")
+		caller.deposit(t.amount)
+		buyer = caller
+
+	action confirmReceived()
+		transfer(buyer, value)
+
+	action fetchRefund()
+		transfer(seller, 3 * value)
+```
