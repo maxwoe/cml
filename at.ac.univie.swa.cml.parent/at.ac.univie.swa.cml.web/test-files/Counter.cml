@@ -10,8 +10,8 @@ contract Counter
 		party anyone
 		may increaseCounter or decreaseCounter 
 		
-	increaseCounter()
+	action increaseCounter()
 		counter = counter + 1
 	
-	decreaseCounter()
+	action decreaseCounter()
 		counter = counter - 1

@@ -1,31 +1,42 @@
 package at.ac.univie.swa
 
+import at.ac.univie.swa.cml.Annotation
+import at.ac.univie.swa.cml.AnnotationDeclaration
 import at.ac.univie.swa.cml.Attribute
 import at.ac.univie.swa.cml.Block
-import at.ac.univie.swa.cml.CmlClass
 import at.ac.univie.swa.cml.Clause
+import at.ac.univie.swa.cml.CmlClass
 import at.ac.univie.swa.cml.CmlProgram
 import at.ac.univie.swa.cml.EnumerationElement
+import at.ac.univie.swa.cml.Expression
 import at.ac.univie.swa.cml.Feature
+import at.ac.univie.swa.cml.FeatureSelectionExpression
+import at.ac.univie.swa.cml.ForLoopStatement
+import at.ac.univie.swa.cml.GenericArrayTypeReference
 import at.ac.univie.swa.cml.NamedElement
 import at.ac.univie.swa.cml.Operation
+import at.ac.univie.swa.cml.ParameterizedTypeReference
+import at.ac.univie.swa.cml.ReferenceExpression
 import at.ac.univie.swa.cml.ReturnStatement
 import at.ac.univie.swa.cml.SwitchStatement
-import at.ac.univie.swa.cml.SymbolReference
+import at.ac.univie.swa.cml.Type
+import at.ac.univie.swa.cml.TypeReference
+import at.ac.univie.swa.cml.TypeVariable
 import at.ac.univie.swa.cml.VariableDeclaration
 import at.ac.univie.swa.typing.CmlTypeProvider
 import com.google.inject.Inject
 import org.eclipse.emf.ecore.EObject
+import org.eclipse.xtext.EcoreUtil2
 import org.eclipse.xtext.naming.IQualifiedNameProvider
+import org.eclipse.xtext.nodemodel.util.NodeModelUtils
 
 import static extension org.eclipse.xtext.EcoreUtil2.*
-import at.ac.univie.swa.cml.Annotation
-import at.ac.univie.swa.cml.AnnotationDeclaration
 
 class CmlModelUtil {
 
-	@Inject extension CmlLib
 	@Inject extension IQualifiedNameProvider
+	@Inject extension CmlLib
+	//@Inject extension CmlTypeConformance
 
 	def returnStatement(Operation o) {
 		o.body.returnStatement
@@ -151,20 +162,24 @@ class CmlModelUtil {
 		e.getContainerOfType(Clause)
 	}
 	
-	def referencedSymbols(Operation o) {
-		o.eAllOfType(SymbolReference).map[symbol]
+	def containingForLoopStatement(EObject e) {
+		e.getContainerOfType(ForLoopStatement)
+	}
+	
+	def references(Operation o) {
+		o.eAllOfType(ReferenceExpression).map[reference]
 	}
 	
 	def referencedOperations(Operation o) {
-		o.referencedSymbols.filter(Operation).toSet
+		o.references.filter(Operation).toSet
 	}
 	
 	def referencedAttributes(Operation o) {
-		o.referencedSymbols.filter(Attribute).toSet
+		o.references.filter(Attribute).toSet
 	}
 	
 	def referencedClasses(Operation o) {
-		o.referencedSymbols.filter(CmlClass).toSet
+		o.references.filter(CmlClass).toSet
 	}
 	
 	def variableDeclarations(Operation o) {
@@ -185,26 +200,94 @@ class CmlModelUtil {
 
 	def featureAsString(Feature f) {
 		f.name + if (f instanceof Operation)
-			"(" + f.params.map[type.name].join(", ") + ")"
+			"(" + f.params.map[NodeModelUtils.getTokenText(NodeModelUtils.getNode(it))].join(", ") + ")"
 		else
 			""
 	}
 
 	def featureAsStringWithType(Feature f) {
-		f.featureAsString + " : " + f.inferType.name
+		f.featureAsString + " : " //+ f.inferType.name
 	}
-
-	def CmlClass inferType(NamedElement ne) {
-		switch (ne) {
-			Attribute: ne.type
-			Operation: ne.type ?: CmlTypeProvider.VOID_TYPE
-			EnumerationElement: ne.containingClass
-			VariableDeclaration: ne.type
-			CmlClass: ne
+	
+	def CmlClass inferType(TypeReference tr) {
+		tr.inferType(null)
+	}
+	
+	def CmlClass inferType(TypeReference tr, Expression e) {
+		switch(tr) {
+			ParameterizedTypeReference : tr.type.inferType(e)
+			GenericArrayTypeReference : {
+				val c = tr.componentType.inferType(e)
+				if(c.isIdentifiable)
+					c.cmlMapClass
+				else c.cmlArrayClass
+			}
 		}
 	}
 	
-	def type(CmlClass c) {
+	def CmlClass inferType(EObject obj) {
+		obj.inferType(null)
+	}
+
+	def CmlClass inferType(EObject obj, Expression exp) {
+		switch (obj) {
+			Type: obj as CmlClass
+			TypeVariable: {
+				val eContainer = EcoreUtil2.getContainerOfType(exp, FeatureSelectionExpression)
+				if (eContainer !== null) {
+					val operation = EcoreUtil2.getContainerOfType(exp, Operation)
+					if(operation !== null)
+						return retrieveType(eContainer, obj)
+				}
+				if (exp instanceof FeatureSelectionExpression) {
+					return retrieveType(exp, obj)
+				}
+				CmlTypeProvider.UNDEFINED_TYPE
+			}
+			default: CmlTypeProvider.UNDEFINED_TYPE//throw new Exception("type resolving error")
+		}
+	}
+	
+	def CmlClass retrieveType(FeatureSelectionExpression exp, TypeVariable t) {
+		val receiver = exp.receiver
+		if (receiver instanceof ReferenceExpression) {
+			val reference = receiver.reference
+			if (reference instanceof Attribute) {
+				val type = reference.type
+
+				if (type instanceof GenericArrayTypeReference) {
+					if (t.name.equals("K"))
+						return type.componentType.inferType(exp).resolveIdentifierType
+					if (t.name.equals("V"))
+						return type.componentType.inferType(exp)
+				}
+
+				if (type instanceof ParameterizedTypeReference) {
+					val typeVar = (type.type as CmlClass).typeVars.findFirst[name.equals(t.name)]
+					val index = (type.type as CmlClass).typeVars.indexOf(typeVar)
+					type.typeArgs.get(index).inferType(exp)
+				}
+			}
+		}
+	}
+	
+	def inferType(NamedElement ne) {
+		ne.inferType(null)
+	}
+	
+	def CmlClass inferType(NamedElement ne, Expression e) {
+		switch (ne) {
+			Attribute: ne.type.inferType(e)
+			Operation: ne.type !== null ? ne.type.inferType(e) : CmlTypeProvider.VOID_TYPE
+			EnumerationElement: ne.containingClass
+			VariableDeclaration: ne.type.inferType(e)
+			CmlClass: ne
+			//TypeVariable:
+			default:  CmlTypeProvider.UNDEFINED_TYPE//throw new Exception(NodeModelUtils.getTokenText(NodeModelUtils.getNode(ne)) + "type resolving error")
+		}
+	}
+	
+	def resolveImplClass(CmlClass c) {
 		switch (c) {
 			case c.isParty: c.cmlPartyClass
 			case c.isAsset: c.cmlAssetClass
@@ -218,18 +301,18 @@ class CmlModelUtil {
 	def classHierarchy(CmlClass c) {
 		val visited = newLinkedHashSet()
 		
-		var current = c.superclass
+		var current = c.superclass.inferType
 		
 		while (current !== null && !visited.contains(current)) {
 			visited.add(current)
-			current = current.superclass
+			current = current.superclass.inferType
 		}
 		
-		current = c.type
+		current = c.inferType.resolveImplClass
 		
 		while (current !== null && !visited.contains(current)) {
 			visited.add(current)
-			current = current.superclass
+			current = current.superclass.inferType
 		}
 		
 		visited
@@ -259,20 +342,42 @@ class CmlModelUtil {
 		hierarchy.toList.reverseView.map[attributes].flatten.toMap[name]
 	}
 	
-	def signature(NamedElement ne) {
-		val sb = new StringBuilder();
-		if (ne instanceof Operation) {
-			sb.append(ne.name)
-			if (!ne.params.empty)
-				sb.append("(")
-			for (param : ne.params) {
-				sb.append(param.type.fullyQualifiedName)
-				sb.append(";")
+	def isPrimitive(Type t) {
+		t instanceof CmlClass && (t as CmlClass).eResource === null
+	}
+	
+	def resolveIdentifier(CmlClass c) {
+		val hierarchy = newLinkedHashSet()
+		hierarchy.add(c)
+		hierarchy.addAll(c.classHierarchy)
+		val identifier = hierarchy.findFirst[identifier !== null]?.identifier
+		identifier ?: null
+	}
+	
+	def CmlClass resolveIdentifierType(CmlClass c) {
+		val type = c.resolveIdentifier.inferType
+		type ?:	CmlTypeProvider.INTEGER_TYPE
+	}
+	
+	def resolveIdentifierName(CmlClass c) {
+		val name = c.resolveIdentifier.name
+		name ?:	"?"
+	}
+	
+	def isIdentifiable(CmlClass c) {
+		c.resolveIdentifier !== null
+	}
+	
+	def resolveArrayRefAttrType(EObject e) {
+		if (e instanceof ReferenceExpression) {
+			val reference = e.reference
+			if (reference instanceof Attribute) {
+				val type = reference.type
+				if (type instanceof GenericArrayTypeReference) {
+					return type.componentType.inferType
+				}
 			}
-			if (!ne.params.empty)
-				sb.append(")")
-			sb.append(ne.inferType.fullyQualifiedName)
 		}
-		sb.toString
+		CmlTypeProvider.UNDEFINED_TYPE
 	}
 }

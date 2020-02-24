@@ -2,48 +2,48 @@ namespace cml.examples
 
 import cml.generator.annotation.solidity.*
 
-enum State
-	CREATED LOCKED INACTIVE
-
 @PullPayment
 contract Purchase
 	Integer value
 	Party seller
 	Party buyer
-	State state
-
+		
 	clause Abort
-		given state == State::CREATED
+		due before buyer did confirmPurchase
 		party seller
 		may abort
-
+		
 	clause ConfirmPurchase
-		given state == State::CREATED
+		due within 7 days after contractStart
 		party anyone
 		may confirmPurchase
 
 	clause ConfirmReceived
-		given state == State::LOCKED
+		due after buyer did confirmPurchase
 		party buyer
 		may confirmReceived
 	
-	init(TokenTransaction t)
+	clause RefundSeller
+		due after buyer did confirmReceived
+		party seller
+		may fetchRefund
+	
+	action init(TokenTransaction t)
+		ensure(t.amount % 2 == 0, "Value has to be even.")
 		caller.deposit(t.amount)
 		seller = caller
-		value = t.amount.toInteger() / 2
-		ensure(2 * value == t.amount.toInteger(), "Value has to be even.")
-
-	abort()
-		state = State::INACTIVE
-		seller.withdraw(token.quantity)
+		value = t.amount / 2
 		
-	confirmPurchase(TokenTransaction t)
-		ensure(t.amount == 2 * value, "Value has to be even.")
+	action abort()
+		transfer(seller, token.quantity)
+		
+	action confirmPurchase(TokenTransaction t)
+		ensure(t.amount == 2 * value, "Invalid amount submitted.")
 		caller.deposit(t.amount)
 		buyer = caller
-		state = State::LOCKED
 
-	confirmReceived()
-		state = State::INACTIVE
+	action confirmReceived()
 		transfer(buyer, value)
-		transfer(seller, token.quantity)
+
+	action fetchRefund()
+		transfer(seller, 3 * value)

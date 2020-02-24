@@ -27,9 +27,13 @@ class CmlRuntimeModule extends AbstractCmlRuntimeModule {
 			CmlImportedNamespaceAwareLocalScopeProvider);
 	}
 
-//	override bindILinkingService() {
-//		return CmlLinkerService
-//	}
+	/*override bindILinkingService() {
+		return CmlLinkerService
+	}
+	
+	override bindILinker() {
+		return CmlLinker
+	}*/
 
 	def Class<? extends IGenerator3> bindIGenerator3() {
 		return CmlGenerator

@@ -11,13 +11,14 @@ import at.ac.univie.swa.cml.Closure
 import at.ac.univie.swa.cml.CmlClass
 import at.ac.univie.swa.cml.CmlPackage
 import at.ac.univie.swa.cml.CmlProgram
-import at.ac.univie.swa.cml.FeatureSelection
-import at.ac.univie.swa.cml.ForStatement
+import at.ac.univie.swa.cml.FeatureSelectionExpression
+import at.ac.univie.swa.cml.ForBasicStatement
+import at.ac.univie.swa.cml.ForLoopStatement
+import at.ac.univie.swa.cml.NewExpression
 import at.ac.univie.swa.cml.Operation
 import at.ac.univie.swa.cml.OtherOperatorExpression
-import at.ac.univie.swa.cml.SymbolReference
+import at.ac.univie.swa.cml.Type
 import at.ac.univie.swa.cml.VariableDeclaration
-import at.ac.univie.swa.typing.CmlTypeConformance
 import at.ac.univie.swa.typing.CmlTypeProvider
 import com.google.common.base.Predicate
 import javax.inject.Inject
@@ -39,24 +40,24 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 
 	@Inject extension CmlTypeProvider
 	@Inject extension CmlModelUtil
-	@Inject extension CmlTypeConformance
+	//@Inject extension CmlTypeConformance
 
 	override getScope(EObject context, EReference reference) {
-		if (reference == CmlPackage.Literals.SYMBOL_REFERENCE__SYMBOL) {
-			return scopeForSymbolRef(context, reference)
-		} else if (context instanceof FeatureSelection) {
+		if (reference == CmlPackage.Literals.REFERENCE_EXPRESSION__REFERENCE) {
+			return scopeForReference(context, reference)
+		} else if (context instanceof FeatureSelectionExpression) {
 			return scopeForFeatureSelection(context)
 		} else if (reference == CmlPackage.Literals.ACTOR__PARTY || reference == CmlPackage.Literals.ACTION_QUERY__PARTY) {
-			return scopeForAttributeRef(context, [Attribute a | !a.type.eIsProxy && (a.type.conformsToParty || a.type.subclassOfParty)])
+			return scopeForAttributeRef(context, [Attribute a | a.type !== null /*/&& (a.inferType.conformsToParty || a.inferType.subclassOfParty)*/])
 		} else if (reference == CmlPackage.Literals.EVENT_QUERY__EVENT) {
-			return scopeForAttributeRef(context, [Attribute a | !a.type.eIsProxy && (a.type.conformsToEvent || a.type.subclassOfEvent)])
+			return scopeForAttributeRef(context, [Attribute a | a.type !== null /*&& (a.inferType.conformsToEvent || a.inferType.subclassOfEvent)*/])
 		} else if (reference == CmlPackage.Literals.ANNOTATION_ELEMENT__PARAM) {
 			return scopeForAnnotationParamRef(context, reference)
 		}
 		super.getScope(context, reference)
 	}
 
-	def protected IScope scopeForSymbolRef(EObject context, EReference reference) {
+	def protected IScope scopeForReference(EObject context, EReference reference) {
 		var container = context.eContainer
 
 		return switch (container) {
@@ -66,59 +67,63 @@ class CmlScopeProvider extends AbstractCmlScopeProvider {
 				switch (eContainer) {
 					OtherOperatorExpression case eContainer.op == "=>": {
 						var left = eContainer.left
-						if (left instanceof SymbolReference)
-							if (left.symbol instanceof CmlClass) {
-								for (c : (left.symbol as CmlClass).classHierarchyWithRoot.toList.reverseView) {
+						if (left instanceof NewExpression)
+							if (left.type.inferType instanceof CmlClass) {
+								for (c : left.type.inferType.classHierarchyWithRoot.toList.reverseView) {
 									scope = Scopes::scopeFor(c.attributes, scope)
 								}
-								scope = Scopes.scopeFor((left.symbol as CmlClass).attributes, scope)
+								scope = Scopes.scopeFor(left.type.inferType.attributes, scope)
 							}
 					}
 				}
-				new SimpleScope(scopeForSymbolRef(container, reference), scope.allElements)
+				new SimpleScope(scopeForReference(container, reference), scope.allElements)
 			}
 			Operation:
-				Scopes.scopeFor(container.params, scopeForSymbolRef(container, reference))
+				Scopes.scopeFor(container.params, scopeForReference(container, reference))
 			Block:
 				Scopes.scopeFor(container.statements.takeWhile[it != context].filter(VariableDeclaration),
-					scopeForSymbolRef(container, reference))
+					scopeForReference(container, reference))
 			CmlClass: {
 				var parentScope = IScope::NULLSCOPE
 				for (c : container.classHierarchyWithRoot.toList.reverseView) {
 					parentScope = Scopes::scopeFor(c.attributes + c.operations, parentScope)
 				}
 				parentScope = Scopes::scopeFor(container.attributes + container.operations, parentScope)
-				new SimpleScope(scopeForSymbolRef(container, reference), parentScope.allElements)
+				new SimpleScope(scopeForReference(container, reference), parentScope.allElements)
 			}
-			ForStatement:
-				Scopes.scopeFor(#[container.declaration], scopeForSymbolRef(container, reference))
+			ForLoopStatement:
+				Scopes.scopeFor(#[container.declaration], scopeForReference(container, reference))
+			ForBasicStatement:
+				Scopes.scopeFor(#[container.declaration], scopeForReference(container, reference))
 			CmlProgram:
 				allClasses(container, reference)
 			default:
-				scopeForSymbolRef(container, reference)
+				scopeForReference(container, reference)
 		}
 	}
 
-	def protected IScope scopeForFeatureSelection(FeatureSelection fs) {
-		var type = fs.receiver.typeFor
-
+	def protected IScope scopeForFeatureSelection(FeatureSelectionExpression fs) {
+		return fs.receiver.typeFor.scopeForType(fs.opCall, fs.explicitStatic)
+	}
+	
+	def protected IScope scopeForType(Type type, Boolean opCall, Boolean explicitStatic) {
 		if (type === null || type.isPrimitive)
 			return IScope.NULLSCOPE
 
 		if (type instanceof CmlClass) {
-			if (fs.explicitStatic)
+			if (explicitStatic)
 				return Scopes::scopeFor(type.enumElements)
 
 			var parentScope = IScope::NULLSCOPE
 			for (c : type.classHierarchyWithRoot.toList.reverseView) {
-				parentScope = Scopes::scopeFor(c.selectedFeatures(fs), parentScope)
+				parentScope = Scopes::scopeFor(c.selectedFeatures(opCall), parentScope)
 			}
-			return Scopes::scopeFor(type.selectedFeatures(fs), parentScope)
+			return Scopes::scopeFor(type.selectedFeatures(opCall), parentScope)
 		}
 	}
 
-	def selectedFeatures(CmlClass type, FeatureSelection fs) {
-		if (fs.opCall)
+	def selectedFeatures(CmlClass type, Boolean opCall) {
+		if (opCall)
 			type.operations + type.attributes
 		else
 			type.attributes + type.operations

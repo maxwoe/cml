@@ -12,60 +12,40 @@ Import:
 	'import' importedNamespace=QualifiedNameWithWildcard;
 
 Declaration:
-	CmlClass | Party | Asset | Transaction | Event | Contract | Enumeration | Attribute | Operation |
+	CmlClass | Party | Asset | Event | Contract | Enumeration | Attribute | Operation |
 	AnnotationDeclaration;
 
 CmlClass:
-	(abstract?='abstract')? kind='concept' name=ID ('extends' superclass=[CmlClass|QualifiedName])?
-	(BEGIN
-	features+=FeatureAttributeAndOperation*
-	END)?;
+	isAbstract? kind='concept' name=ID typeVariables? extends? identifiedBy?
+	(BEGIN features+=FeatureAttributeAndOperation* END)?;
 
 Contract returns CmlClass:
 	annotations+=Annotation*
-	(abstract?='abstract')? kind='contract' name=ID ('extends' superclass=[CmlClass|QualifiedName])?
-	(BEGIN
-	features+=FeatureAttributeAndOperationAndClause*
-	END)?;
+	kind='contract' name=ID extends?
+	(BEGIN features+=FeatureAttributeAndOperationAndClause* END)?;
 
 Party returns CmlClass:
-	(abstract?='abstract')? kind='party' name=ID ('extends' superclass=[CmlClass|QualifiedName])?
-	(BEGIN
-	features+=FeatureAttribute+
-	END)?;
+	external?='external'? kind='party' name=ID extends? identifiedBy?
+	(BEGIN features+=FeatureAttribute+ END)?;
 
 Asset returns CmlClass:
-	(abstract?='abstract')? kind='asset' name=ID ('extends' superclass=[CmlClass|QualifiedName])?
-	(BEGIN
-	features+=FeatureAttribute+
-	END)?;
-
-Transaction returns CmlClass:
-	(abstract?='abstract')? kind='transaction' name=ID ('extends' superclass=[CmlClass|QualifiedName])?
-	(BEGIN
-	features+=FeatureAttribute+
-	END)?;
+	kind='asset' name=ID extends? identifiedBy?
+	(BEGIN features+=FeatureAttribute+ END)?;
 
 Event returns CmlClass:
 	kind='event' name=ID
-	(BEGIN
-	features+=FeatureAttribute+
-	END)?;
+	(BEGIN features+=FeatureAttribute+ END)?;
 
 Enumeration returns CmlClass:
 	kind='enum' name=ID
-	BEGIN
-	features+=FeatureEnumeration+
-	END;
+	BEGIN features+=FeatureEnumeration+ END;
 
 EnumerationElement:
 	name=ID;
 
 AnnotationDeclaration:
 	'@' 'interface' name=ID
-	(BEGIN
-	features+=Attribute+
-	END)?;
+	(BEGIN features+=Attribute+ END)?;
 
 Annotation:
 	'@' declaration=[AnnotationDeclaration|QualifiedName] ('(' (args+=(AnnotationElement) (',' args+=AnnotationElement)*)?
@@ -77,8 +57,26 @@ AnnotationElement:
 Type:
 	CmlClass;
 
+TypeReference:
+	ParameterizedTypeReference => ({GenericArrayTypeReference.componentType=current} '[' ']')*;
+
+ParameterizedTypeReference:
+	type=[DeclaredType|QualifiedName] (=> '<' typeArgs+=TypeReference (',' typeArgs+=TypeReference)* '>')?;
+
+DeclaredType:
+	TypeTypeRef | TypeVarRef;
+
+TypeVarRef returns ParameterizedTypeReference:
+	type=[TypeVariable];
+
+TypeTypeRef returns ParameterizedTypeReference:
+	type=[Type|QualifiedName];
+
+TypeVariable:
+	name=ID;
+
 NamedElement:
-	CmlProgram | CmlClass | Feature | VariableDeclaration | AnnotationDeclaration;
+	CmlProgram | CmlClass | Feature | VariableDeclaration | AnnotationDeclaration | TypeVariable;
 
 Feature:
 	Attribute | Operation | Clause | EnumerationElement;
@@ -95,40 +93,32 @@ FeatureAttributeAndOperationAndClause returns Feature:
 FeatureEnumeration returns Feature:
 	EnumerationElement;
 
-fragment TypedDeclaration *:
-	type=[CmlClass|QualifiedName] name=ID;
-
 Attribute:
-	(constant?='constant')? TypedDeclaration ('=' expression=Expression)?;
+	(constant?='constant')? type=TypeReference name=ID ('=' expression=Expression)?;
 
 Operation:
-	(type=[CmlClass|QualifiedName])? name=ID
+	('def' | 'action') (type=TypeReference)? name=ID
 	'(' (params+=Attribute (',' params+=Attribute)*)? ')'
 	(body=Block)?;
 
 Clause:
 	'clause' name=ID
-	BEGIN
-	constraint=Constraint
-	actor=Actor
-	action=DeonticAction
-	END;
+	BEGIN constraint=Constraint actor=Actor action=DeonticAction END;
 
 Constraint:
 	{Constraint} temporal=TemporalConstraint? general=GeneralConstraint?;
 
 TemporalConstraint:
-	'due' timeframe=Timeframe? period=PeriodicTime? precedence=TemporalPrecedence reference=(TimeQuery
-	| Expression);
+	'due' timeframe=Timeframe? period=PeriodicTime? precedence=TemporalPrecedence reference=(TimeQuery | Expression);
 
 Timeframe:
 	'within' window=Expression;
-	
+
 GeneralConstraint:
 	'given' expression=Expression;
 
 Actor:
-	'party' party=[Attribute];
+	'party' party=Expression;
 
 enum Deontic:
 	MUST='must' | MAY='may' /* | MUST_NOT='must_not'*/;
@@ -168,7 +158,7 @@ ClauseQuery:
 enum ClauseStatus:
 	FULFILLED='fulfilled' |
 	FAILED='failed';
-	
+
 EventQuery:
 	'event' event=[Attribute];
 
@@ -189,11 +179,12 @@ Statement:
 	SwitchStatement |
 	WhileStatement |
 	DoWhileStatement |
-	ForStatement |
+	ForLoopStatement |
+	ForBasicStatement |
 	Expression;
 
 VariableDeclaration:
-	'var' TypedDeclaration '=' expression=Expression;
+	'var' type=TypeReference name=ID '=' expression=Expression;
 
 ReturnStatement:
 	{ReturnStatement} 'return' (=> expression=Expression)?;
@@ -203,8 +194,7 @@ IfStatement:
 	(=> 'else' elseBlock=ConditionalBlock)?;
 
 ConditionalBlock returns Block:
-	statements+=Statement |
-	Block;
+	statements+=Statement | Block;
 
 ThrowStatement:
 	'throw' expression=Expression;
@@ -225,14 +215,17 @@ WhileStatement:
 DoWhileStatement:
 	'do' block=ConditionalBlock 'while' ('(' condition=Expression ')' | => condition=Expression);
 
-ForStatement:
+ForLoopStatement:
+	'for' '(' declaration=TypeVariable 'in' forExpression=Expression ')' block=Block;
+	
+ForBasicStatement:
 	'for' '(' declaration=VariableDeclaration ';' condition=Expression ';' progression=Expression ')' block=Block;
 
 Expression:
 	AssignmentExpression;
 
 AssignmentExpression returns Expression:
-	OrExpression ({AssignmentExpression.left=current} '=' right=Expression)?;
+	OrExpression (=> ({AssignmentExpression.left=current} op=('=' | '+=' | '-=') right=Expression))?;
 
 OrExpression returns Expression:
 	AndExpression (=> ({OrExpression.left=current} op='or') right=AndExpression)*;
@@ -245,7 +238,7 @@ EqualityExpression returns Expression:
 
 RelationalExpression returns Expression:
 	OtherOperatorExpression
-	(=> ({InstanceOfExpression.expression=current} 'is') type=[CmlClass|QualifiedName] |
+	(=> ({InstanceOfExpression.expression=current} 'is') type=TypeReference |
 	=> ({RelationalExpression.left=current} op=('>' | '<' | '>=' | '<=')) right=OtherOperatorExpression)*;
 
 OtherOperatorExpression returns Expression:
@@ -261,24 +254,26 @@ UnaryExpression returns Expression:
 	{UnaryExpression} op=('not' | '!' | '-' | '+') operand=UnaryExpression | CastedExpression;
 
 CastedExpression returns Expression:
-	PostfixExpression (=> ({CastedExpression.target=current} 'as') type=[CmlClass|QualifiedName])*;
+	PostfixExpression (=> ({CastedExpression.target=current} 'as') type=TypeReference)*;
 
 PostfixExpression returns Expression:
-	SelectionExpression
+	FeatureSelectionExpression
 	(=> ({PostfixExpression.operand=current} op=("++" | "--" | "@pre")) |
 	=> ({ArrayAccessExpression.array=current}
 	'[' indexes+=Expression ']' (=> '[' indexes+=Expression ']')*))?;
 
-SelectionExpression returns Expression:
+FeatureSelectionExpression returns Expression:
 	PrimaryExpression
-	(=> ({FeatureSelection.receiver=current} ("." | explicitStatic?="::")) feature=[Feature]
+	(=> ({FeatureSelectionExpression.receiver=current} ("." | explicitStatic?="::")) feature=[Feature]
 	(=> opCall?='(' (args+=Expression (',' args+=Expression)*)? ')')?)*;
 
 PrimaryExpression returns Expression:
 	LiteralExpression |
 	{ThisExpression} 'this' |
 	{SuperExpression} 'super' |
-	{SymbolReference} symbol=[NamedElement] (=> opCall?='(' (args+=Expression (',' args+=Expression)*)? ')')? |
+	{ReferenceExpression} reference=[NamedElement] (=> opCall?='(' (args+=Expression (',' args+=Expression)*)? ')')?
+	(=> ({ArrayAccessExpression.array=current} '[' indexes+=Expression ']' (=> '[' indexes+=Expression ']')*))? |
+	{NewExpression} 'new' type=[Type|QualifiedName] '(' (args+=Expression (',' args+=Expression)*)? ')' |
 	{NestedExpression} '(' child=Expression ')';
 
 LiteralExpression returns Expression:
@@ -289,6 +284,7 @@ LiteralExpression returns Expression:
 	{DurationLiteral} value=INT unit=TimeUnit |
 	{DateTimeLiteral} value=DATE |
 	{NullLiteral} 'null' |
+	{ArrayLiteral} '{' (elements+=Expression (',' elements+=Expression)*)? '}' |
 	{Closure} '[' expression=ExpressionInClosure ']';
 
 ExpressionInClosure returns Expression:
@@ -307,6 +303,18 @@ QualifiedName:
 QualifiedNameWithWildcard:
 	QualifiedName '.*'?;
 
+fragment typeVariables *:
+	'<' typeVars+=TypeVariable (',' typeVars+=TypeVariable)* '>';
+
+fragment identifiedBy *:
+	'identified' 'by' identifier=[Feature];
+
+fragment isAbstract *:
+	abstract?='abstract';
+
+fragment extends *:
+	'extends' superclass=TypeReference;
+
 terminal DATE:
 	'0'..'9' '0'..'9' '0'..'9' '0'..'9' '-' '0'..'9' '0'..'9' '-' '0'..'9' '0'..'9';
 
@@ -319,6 +327,6 @@ terminal BEGIN:
 terminal END:
 	'synthetic:END';
 
-//@Override
+	//@Override
 //terminal SL_COMMENT:
 //	(' ' | '\t' | '\r' | '\n')* '//' !('\n' | '\r')*;

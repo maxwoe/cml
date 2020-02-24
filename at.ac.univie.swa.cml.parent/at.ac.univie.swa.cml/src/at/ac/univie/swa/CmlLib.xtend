@@ -20,6 +20,7 @@ class CmlLib {
 	public val static LIB_REAL = LIB_PACKAGE + ".Real"
 	public val static LIB_DURATION = LIB_PACKAGE + ".Duration"
 	public val static LIB_DATETIME = LIB_PACKAGE + ".DateTime"
+	public val static LIB_ACCOUNT = LIB_PACKAGE + ".Account"
 	public val static LIB_PARTY = LIB_PACKAGE + ".Party"
 	public val static LIB_ASSET = LIB_PACKAGE + ".Asset"
 	public val static LIB_TRANSACTION = LIB_PACKAGE + ".Transaction"
@@ -33,9 +34,11 @@ class CmlLib {
 	
 	public val static LIB_TOKEN = LIB_PACKAGE + ".Token"
 	public val static LIB_PARTICIPANT = LIB_PACKAGE + ".Participant"
-	public val static LIB_TOKEN_HOLDER = LIB_PACKAGE + ".TokenHolder"
 	public val static LIB_TOKEN_TRANSACTION = LIB_PACKAGE + ".TokenTransaction"
 	
+	public val static LIB_COLLECTION = LIB_PACKAGE + ".Collection"
+	public val static LIB_ARRAY = LIB_PACKAGE + ".Array"
+	public val static LIB_MAP = LIB_PACKAGE + ".OrderedMap"
 
 	static final Logger LOG = Logger.getLogger(CmlLib);
 	
@@ -90,6 +93,18 @@ class CmlLib {
 	
 	def getCmlEnumClass(EObject context) {
 		getCmlClass(context, LIB_ENUM)
+	}
+	
+	def getCmlArrayClass(EObject context) {
+		getCmlClass(context, LIB_ARRAY)
+	}
+	
+	def getCmlMapClass(EObject context) {
+		getCmlClass(context, LIB_MAP)
+	}
+	
+	def getCmlCollectionClass(EObject context) {
+		getCmlClass(context, LIB_COLLECTION)
 	}
 	
 	def getCmlClass(EObject context, String qn) {

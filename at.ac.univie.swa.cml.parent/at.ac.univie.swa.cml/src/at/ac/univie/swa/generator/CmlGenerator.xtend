@@ -9,6 +9,7 @@ import at.ac.univie.swa.cml.ActionQuery
 import at.ac.univie.swa.cml.AdditiveExpression
 import at.ac.univie.swa.cml.AndCompoundAction
 import at.ac.univie.swa.cml.AndExpression
+import at.ac.univie.swa.cml.ArrayAccessExpression
 import at.ac.univie.swa.cml.AssignmentExpression
 import at.ac.univie.swa.cml.AtomicAction
 import at.ac.univie.swa.cml.Attribute
@@ -19,6 +20,7 @@ import at.ac.univie.swa.cml.Clause
 import at.ac.univie.swa.cml.ClauseQuery
 import at.ac.univie.swa.cml.ClauseStatus
 import at.ac.univie.swa.cml.CmlClass
+import at.ac.univie.swa.cml.CmlFactory
 import at.ac.univie.swa.cml.CmlProgram
 import at.ac.univie.swa.cml.CompoundAction
 import at.ac.univie.swa.cml.DateTimeLiteral
@@ -28,8 +30,10 @@ import at.ac.univie.swa.cml.DurationLiteral
 import at.ac.univie.swa.cml.EqualityExpression
 import at.ac.univie.swa.cml.EventQuery
 import at.ac.univie.swa.cml.Expression
-import at.ac.univie.swa.cml.FeatureSelection
-import at.ac.univie.swa.cml.ForStatement
+import at.ac.univie.swa.cml.FeatureSelectionExpression
+import at.ac.univie.swa.cml.ForBasicStatement
+import at.ac.univie.swa.cml.ForLoopStatement
+import at.ac.univie.swa.cml.GenericArrayTypeReference
 import at.ac.univie.swa.cml.IfStatement
 import at.ac.univie.swa.cml.Import
 import at.ac.univie.swa.cml.IntegerLiteral
@@ -37,34 +41,39 @@ import at.ac.univie.swa.cml.MultiplicativeExpression
 import at.ac.univie.swa.cml.NamedElement
 import at.ac.univie.swa.cml.NestedCompoundAction
 import at.ac.univie.swa.cml.NestedExpression
+import at.ac.univie.swa.cml.NewExpression
+import at.ac.univie.swa.cml.NullLiteral
 import at.ac.univie.swa.cml.Operation
 import at.ac.univie.swa.cml.OrCompoundAction
 import at.ac.univie.swa.cml.OrExpression
+import at.ac.univie.swa.cml.ParameterizedTypeReference
 import at.ac.univie.swa.cml.PostfixExpression
 import at.ac.univie.swa.cml.RealLiteral
+import at.ac.univie.swa.cml.ReferenceExpression
 import at.ac.univie.swa.cml.RelationalExpression
 import at.ac.univie.swa.cml.ReturnStatement
 import at.ac.univie.swa.cml.Statement
 import at.ac.univie.swa.cml.StringLiteral
 import at.ac.univie.swa.cml.SuperExpression
 import at.ac.univie.swa.cml.SwitchStatement
-import at.ac.univie.swa.cml.SymbolReference
 import at.ac.univie.swa.cml.TemporalConstraint
 import at.ac.univie.swa.cml.TemporalPrecedence
 import at.ac.univie.swa.cml.ThisExpression
-import at.ac.univie.swa.cml.ThrowStatement
 import at.ac.univie.swa.cml.Type
+import at.ac.univie.swa.cml.TypeReference
 import at.ac.univie.swa.cml.UnaryExpression
 import at.ac.univie.swa.cml.VariableDeclaration
 import at.ac.univie.swa.cml.WhileStatement
 import at.ac.univie.swa.cml.XorCompoundAction
 import at.ac.univie.swa.typing.CmlTypeConformance
+import at.ac.univie.swa.typing.CmlTypeProvider
 import com.google.inject.Inject
 import java.io.InputStream
 import java.math.BigDecimal
 import java.time.Instant
 import java.util.LinkedHashMap
 import java.util.LinkedHashSet
+import java.util.LinkedList
 import java.util.List
 import java.util.Scanner
 import java.util.Set
@@ -72,11 +81,13 @@ import org.apache.log4j.Logger
 import org.eclipse.emf.ecore.EObject
 import org.eclipse.emf.ecore.resource.Resource
 import org.eclipse.emf.ecore.resource.ResourceSet
+import org.eclipse.xtext.EcoreUtil2
 import org.eclipse.xtext.generator.IFileSystemAccess2
 import org.eclipse.xtext.generator.IGeneratorContext
 
 import static extension org.eclipse.emf.ecore.util.EcoreUtil.*
 import static extension org.eclipse.xtext.EcoreUtil2.*
+import at.ac.univie.swa.cml.ThrowStatement
 
 /**
  * Generates code from your model files on save.
@@ -86,43 +97,55 @@ import static extension org.eclipse.xtext.EcoreUtil2.*
 class CmlGenerator extends AbstractGenerator2 {
 
 	static final Logger LOG = Logger.getLogger(CmlGenerator)
+	static final String MODEL_NAME = "Model"
+	static val GLOBAL_ID_TYPE = CmlFactory::eINSTANCE.createCmlClass => [name = "address"]
 	int fixedPointDecimals
 	boolean fixedPointArithmetic
 	boolean safeMath
 	boolean pullPayment
 	boolean ownable
+	boolean detachModel
 	@Inject extension CmlModelUtil
 	@Inject extension CmlTypeConformance
+	@Inject extension CmlTypeProvider
 	Iterable<CmlProgram> allResources
+	IFileSystemAccess2 fsa
+	
 	
 	override doGenerate(Resource resource, ResourceSet input, IFileSystemAccess2 fsa, IGeneratorContext context) {
 		LOG.info("resource: " + resource)
-		
-		allResources = input.resources.map(r|r.allContents.toIterable.filter(CmlProgram)).flatten
+		println("resource: " + resource.URI)
 
-		copyResource("openzeppelin/Escrow.sol", fsa)
-		copyResource("openzeppelin/Ownable.sol", fsa)
-		copyResource("openzeppelin/PullPayment.sol", fsa)
-		copyResource("openzeppelin/SafeMath.sol", fsa)
-		copyResource("openzeppelin/Secondary.sol", fsa)
-		copyResource("cml/FPMath.sol", fsa)
-		copyResource("cml/DateTime.sol", fsa)
-		copyResource("cml/IntLib.sol", fsa)
-		copyResource("cml/RealLib.sol", fsa)
-		copyResource("cml/ConditionalContract.sol", fsa)
+		allResources = input.resources.map(r|r.allContents.toIterable.filter(CmlProgram)).flatten
+		this.fsa = fsa
 		
 		for (p : resource.allContents.toIterable.filter(CmlProgram)) {
 			if (!p.contracts.empty) {
 				fsa.generateFile("/" + resource.URI.trimFileExtension.segmentsList.last + ".sol", p.compile)
-			}
+				println("Count: " + p.eAllContents().size())
+			}			
 		}
 	}
-
-	def copyResource(String resourceName, IFileSystemAccess2 fsa) {
+	
+	def countContents(EObject obj) {
+		var count = 0
+		val allContents = obj.eAllContents()
+		while (allContents.hasNext()) {
+			//val eObject = allContents.next()
+			count++
+		}
+		count
+	}
+	
+	def addLibFromResources(String resourceName) {
+		fsa.generateFile("/lib/" + resourceName, getResource(resourceName))
+	}
+	
+	def getResource(String resourceName) {
 		val url = class.classLoader.getResource(resourceName)
 		val inputStream = url.openStream
 		try {
-			fsa.generateFile("/lib/" + resourceName, inputStream.convertToString)
+			inputStream.convertToString
 		} finally {
 			inputStream.close()
 		}
@@ -149,6 +172,7 @@ class CmlGenerator extends AbstractGenerator2 {
 		safeMath = false
 		pullPayment = false
 		ownable = false
+		detachModel = true
 	}
 	
 	def deriveGeneratorSettings(CmlClass c) {
@@ -166,7 +190,7 @@ class CmlGenerator extends AbstractGenerator2 {
 							fixedPointDecimals = integerLiteral.value
 					}
 				}
-				case "Ownable":
+				case "Ownership":
 					ownable = true
 				case "PullPayment":
 					pullPayment = true
@@ -174,24 +198,115 @@ class CmlGenerator extends AbstractGenerator2 {
 		}
 	}
 	
+	def buildImports(CmlClass c) {
+		val imports = new LinkedHashSet<String>()
+		addLibFromResources("cml/ConditionalContract.sol")
+		imports.add("./lib/cml/ConditionalContract.sol")
+		addLibFromResources("cml/DateTime.sol")
+		imports.add("./lib/cml/DateTime.sol")
+		addLibFromResources("cml/IntLib.sol")
+		imports.add("./lib/cml/IntLib.sol")
+		addLibFromResources("cml/RealLib.sol")
+		imports.add("./lib/cml/RealLib.sol")
+
+		if(ownable) {
+			addLibFromResources("openzeppelin/Ownable.sol")
+			imports.add("./lib/openzeppelin/Ownable.sol")
+		}
+		
+		if(pullPayment) {
+			addLibFromResources("openzeppelin/Escrow.sol")
+			addLibFromResources("openzeppelin/Secondary.sol")
+			addLibFromResources("openzeppelin/PullPayment.sol")
+			addLibFromResources("openzeppelin/SafeMath.sol")
+			imports.add("./lib/openzeppelin/PullPayment.sol")
+		}
+		
+		if(safeMath) {
+			addLibFromResources("openzeppelin/SafeMath.sol")
+			imports.add("./lib/openzeppelin/SafeMath.sol")
+		}
+		
+		if(fixedPointArithmetic) {
+			addLibFromResources("cml/FPMath.sol")
+			imports.add("./lib/cml/FPMath.sol")
+		}
+		
+		if(detachModel && !c.gatherStructs.isEmpty) {
+			fsa.generateFile("/lib/cml/" + MODEL_NAME + ".sol", compileModelLibrary(c))
+			imports.add("./lib/cml/" + MODEL_NAME + ".sol")
+		}
+		
+		for (a : c.attributes.filter[inferType.conformsToMap]) {
+			val rslt = a.type.resolveKeyValue.keyValueTransformation
+			var key = rslt.key
+			val value = rslt.value
+			val mapImplName = a.compileMapImplName
+			fsa.generateFile("/lib/cml/" + mapImplName + ".sol", compileMapLib(mapImplName, key, value))
+			fsa.generateFile("/lib/cml/" + "CLL" + (key as Type).compile.toFirstUpper + ".sol",	compileCLLLib("CLL" + (key as Type).compile.toFirstUpper, key))
+			imports.add("./lib/cml/" + mapImplName + ".sol")
+		}
+		
+		imports
+	}
+	
+	def keyValueTransformation(Pair<CmlClass,CmlClass> pair) {
+		var key = pair.key
+		val value = pair.value
+		if (value.conformsToParty || value.subclassOfParty)
+			key = GLOBAL_ID_TYPE
+		new Pair(key, value)
+	}
+	
+	def resolveKeyValue(TypeReference tr) {
+		var CmlClass key = null
+		var CmlClass value = null
+		if(tr instanceof GenericArrayTypeReference) {
+			value = tr.componentType.inferType
+			key = value.resolveIdentifierType		
+		}
+		if(tr instanceof ParameterizedTypeReference) {
+			key = (tr as ParameterizedTypeReference).typeArgs.get(0).inferType
+			value = (tr as ParameterizedTypeReference).typeArgs.get(1).inferType
+		}
+		return new Pair(key, value)
+	}
+	
+	def compileMapImplName(Attribute a) {
+		val rslt = a.type.resolveKeyValue.keyValueTransformation
+		compileMapImplName(rslt.key, rslt.value)
+	}
+				
+	def compileMapImplName(Type key, Type value) {
+		("Map" + key.compile.toFirstUpper + value.compile.toFirstUpper).replace(MODEL_NAME + ".", "")
+	}
+	
+	def compileModelLibrary(CmlClass c) '''
+		pragma solidity >=0.4.22 <0.7.0;
+		
+		library «MODEL_NAME» {
+			«c.compileEnums»
+			«c.compileStructs»
+		}
+	'''
+	
+	def compileImports(CmlClass c) '''
+		«FOR i : buildImports(c)»
+			import "«i»";
+		«ENDFOR»
+	'''
+	
 	def compile(CmlProgram program) '''
 		pragma solidity >=0.4.22 <0.7.0;
 		pragma experimental ABIEncoderV2;
 		«FOR contract : program.contracts»
 			«contract.deriveGeneratorSettings»
-			«IF ownable»import "./lib/openzeppelin/Ownable.sol";«ENDIF»
-			«IF pullPayment»import "./lib/openzeppelin/PullPayment.sol";«ENDIF»
-			«IF safeMath»import "./lib/openzeppelin/SafeMath.sol";«ENDIF»
-			«IF fixedPointArithmetic»import "./lib/cml/FPMath.sol";«ENDIF»
-			import "./lib/cml/ConditionalContract.sol";
-			import "./lib/cml/DateTime.sol";
-			import "./lib/cml/IntLib.sol";
-			import "./lib/cml/RealLib.sol";
+			«contract.compileImports»
 			
 			contract «contract.name»«FOR a : contract.deriveInheritance BEFORE " is " SEPARATOR ", "»«a»«ENDFOR» {
 			
-				«contract.compileEnums»
-				«contract.compileStructs»
+				«IF !detachModel»«contract.compileEnums»«ENDIF»
+				«IF !detachModel»«contract.compileStructs»«ENDIF»
 				«contract.compileEvents»
 				«"/*\n * State variables\n */\n"»
 				«contract.compileAttributes»
@@ -285,7 +400,7 @@ class CmlGenerator extends AbstractGenerator2 {
 		else if(reference instanceof ActionQuery)
 			callTime(reference.action.name)
 	}
-		
+	
 	def temporalCheckReason(TemporalConstraint tc) {
 		if (tc.precedence.equals(TemporalPrecedence.AFTER) && !tc.hasTimeFrame)
 			"Function called too early"
@@ -303,7 +418,7 @@ class CmlGenerator extends AbstractGenerator2 {
 	}
 	
 	def callerCheck(String account) {
-		"onlyBy(" + account + ".id" + ")"
+		"onlyBy(" + account +  ".id" + ")"
 	}
 	
 	def callSuccess(String signature) {
@@ -335,8 +450,40 @@ class CmlGenerator extends AbstractGenerator2 {
 		val party = c.actor.party
 		val tc = c.constraint.temporal
 		val gc = c.constraint.general
-		if (party.name != "anyone")
-			constraints.add(callerCheck(party.name) -> "Caller not authorized")
+		println("party " + party)
+		
+		switch (party) {
+			FeatureSelectionExpression:
+				constraints.add(callerCheck(party.compile) -> "Caller not authorized")
+			ReferenceExpression: {
+				val p = party.reference
+				if (p.name != "anyone") {
+					if (p.inferType.conformsToMap)
+						constraints.add(p.name + ".contains(msg.sender)" -> "Caller not authorized")
+					else
+						constraints.add(callerCheck(p.name) -> "Caller not authorized")
+				}
+			}
+		}
+	
+		/*switch (party) {
+			FeatureSelectionExpression: println("fs")
+			ReferenceExpression: { println("refexp") 
+				if (party.name != "anyone") {
+			if(party.inferType.conformsToMap)
+				constraints.add(party.name + ".contains(msg.sender)" -> "Caller not authorized")
+			else 
+				constraints.add(callerCheck(party.name) -> "Caller not authorized")
+		}
+			} 
+		}*/
+		/*if (party.name != "anyone") {
+			if(party.inferType.conformsToMap)
+				constraints.add(party.name + ".contains(msg.sender)" -> "Caller not authorized")
+			else 
+				constraints.add(callerCheck(party.name) -> "Caller not authorized")
+		}*/
+			
 		if (tc !== null) {
 			val ref = tc.reference
 			if (ref instanceof Expression) {
@@ -370,15 +517,15 @@ class CmlGenerator extends AbstractGenerator2 {
 			}
 			else if (ref instanceof ActionQuery) {
 				val actionParty = interceptAttribute(ref.party, null) ?: ref.party.name
-				if (tc.precedence.equals(TemporalPrecedence.AFTER)) {
-					if (ref.party.name != "anyone")
-						constraints.add(conditionalCheck(callCaller(ref.action.name) + " == " + actionParty + ".id") -> ref.party.type.name + " " + ref.party.name + " did not " + ref.action.name)
+				if (tc.precedence.equals(TemporalPrecedence.AFTER)) {	
 					constraints.add(conditionalCheck(callSuccess(ref.action.name)) -> "Action " + ref.action.name + " did not occur")
+					if (ref.party.name != "anyone")
+						constraints.add(conditionalCheck(callCaller(ref.action.name) + " == " + actionParty + ".id") -> ref.party.inferType.name + " " + ref.party.name + " did not " + ref.action.name)
 				}
 				if (tc.precedence.equals(TemporalPrecedence.BEFORE)) {
-					if (ref.party.name != "anyone")
-						constraints.add(conditionalCheck(callCaller(ref.action.name) + " != " + actionParty + ".id") -> ref.party.type.name + " " + ref.party.name + " did " + ref.action.name)
 					constraints.add(conditionalCheck("!" + callSuccess(ref.action.name)) -> "Action " + ref.action.name + " already occurred")
+					if (ref.party.name != "anyone")
+						constraints.add(conditionalCheck(callCaller(ref.action.name) + " != " + actionParty + ".id") -> ref.party.inferType.name + " " + ref.party.name + " did " + ref.action.name)
 				}
 				
 				if (tc.timeframe === null)
@@ -393,7 +540,7 @@ class CmlGenerator extends AbstractGenerator2 {
 	}
 
 	def compileEventFunctions(CmlClass c) '''
-		«FOR e : c.attributes.filter[type.mapsToEvent] SEPARATOR "\n" AFTER "\n"»
+		«FOR e : c.attributes.filter[inferType.mapsToEvent] SEPARATOR "\n" AFTER "\n"»
 			«e.compileEventAsFunction»
 		«ENDFOR»
 	'''
@@ -426,78 +573,109 @@ class CmlGenerator extends AbstractGenerator2 {
 	'''
 	
 	def Set<CmlClass> gatherEnums(CmlClass c) {
-		var set = newLinkedHashSet
-		set.addAll(c.referencedNamedElements.map[inferType].filter[mapsToEnum])
-		for(entry : c.referencedNamedElements.map[inferType].filter[mapsToStruct])
+		val set = new LinkedHashSet<CmlClass>
+		set.addAll(c.traverseForNamedElements.map[inferType].filter[mapsToEnum])
+		for (entry : c.traverseForNamedElements.map[inferType].filter[mapsToStruct])
 			set.addAll(entry.traverseForEnums)
 		set
 	}
-	
+
 	def Set<CmlClass> traverseForEnums(CmlClass c) {
-		var set = newLinkedHashSet
-		for(class : c.attributes.map[type]) {
+		val set = new LinkedHashSet<CmlClass>
+		for (class : c.attributes.map[inferType]) {
 			if (class.mapsToEnum)
 				set.add(class)
-			set.addAll(traverseForEnums(class))
+			if (!class.equals(c))
+				set.addAll(traverseForEnums(class))
 		}
 		set
 	}
 
 	def Set<CmlClass> gatherStructs(CmlClass c) {
-		var set = newLinkedHashSet
-		set.addAll(c.referencedNamedElements.map[inferType].filter[!conformsToVoid].filter[mapsToStruct])
-		for(entry : c.referencedNamedElements.map[inferType].filter[mapsToStruct])
+		val set = new LinkedHashSet<CmlClass>
+		val elements = c.traverseForNamedElements.map[inferType].filter[mapsToStruct]
+		set.addAll(elements)
+		for (ne : c.traverseForNamedElements) {
+			if (ne.inferType.conformsToArray || ne.inferType.conformsToMap) {
+				var Pair<CmlClass, CmlClass> rslt = null
+				if (ne instanceof Attribute)
+					rslt = ne.type.resolveKeyValue
+				if (ne instanceof Operation)
+					rslt = ne.type.resolveKeyValue
+				if (ne instanceof VariableDeclaration)
+					rslt = ne.type.resolveKeyValue
+
+				if (rslt.key !== null && rslt.key.mapsToStruct)
+					set.add(rslt.key)
+				if (rslt.value !== null && rslt.value.mapsToStruct)
+					set.add(rslt.value)
+			}
+		}
+		for (entry : elements)
 			set.addAll(entry.traverseForStructs)
 		set
 	}
-	
+
 	def Set<CmlClass> traverseForStructs(CmlClass c) {
-		var set = newLinkedHashSet
-		for(class : c.attributes.filter[type.mapsToStruct].map[type]) {
+		val set = new LinkedHashSet<CmlClass>
+		for (class : c.attributes.filter[inferType.mapsToStruct].map[inferType]) {
 			set.add(class)
-			set.addAll(traverseForStructs(class))
+			if (!class.equals(c))
+				set.addAll(traverseForStructs(class))
 		}
 		set
 	}
-	
-	def Set<NamedElement> referencedNamedElements(CmlClass c) {
-		var set = new LinkedHashSet<NamedElement>
+
+	def Set<NamedElement> traverseForNamedElements(Operation o) {
+		val set = new LinkedHashSet<NamedElement>
+		set.addAll(o.references)
+		set.addAll(o.variableDeclarations)
+		for (op : o.referencedOperations) {
+			if (op !== o)
+				set.addAll(op.traverseForNamedElements)
+		}
+		set
+	}
+
+	def Set<NamedElement> traverseForNamedElements(CmlClass c) {
+		val set = new LinkedHashSet<NamedElement>
 		set.addAll(c.attributes)
 		set.addAll(c.operations)
 		set.addAll(c.operations.map[params].flatten)
-		for(o : c.operations) {
-			set.addAll(o.traverseForTypes)
+		for (o : c.operations) {
+			set.addAll(o.traverseForNamedElements)
 		}
 		set
 	}
-	
-	def Set<NamedElement> traverseForTypes(Operation o) {
-		var set = new LinkedHashSet<NamedElement>
-		set.addAll(o.referencedSymbols)
-		set.addAll(o.variableDeclarations)
-		for(op : o.referencedOperations) {
-			if (op !== o)
-				set.addAll(traverseForTypes(op))
+
+	def <T extends EObject> getAllContentsOfType(CmlProgram c, Class<T> type) {
+		val Set<T> result = new LinkedHashSet<T>
+		val sources = newLinkedList
+		sources.add(c)
+		sources.addAll(c.gatherImports)
+
+		for (s : sources) {
+			result.addAll(EcoreUtil2.getAllContentsOfType(s, type))
 		}
-		set
+		result
 	}
-	
+
 	def Set<Operation> staticOperations(CmlClass c) {
-		c.referencedNamedElements.filter(Operation).filter[static && !containedInMainLib].toSet
+		c.traverseForNamedElements.filter(Operation).filter[static && !containedInMainLib].toSet
 	}
-	
+
 	def Set<Attribute> staticAttributes(CmlClass c) {
-		c.referencedNamedElements.filter(Attribute).filter[static].toSet
+		c.traverseForNamedElements.filter(Attribute).filter[static].toSet
 	}
-	
+
 	def mapsToStruct(CmlClass c) {
-		!c.conformsToLibraryType && !c.conformsToToken && !c.mapsToEnum && !c.conformsToTokenTransaction
+		!c.conformsToLibraryType && !c.conformsToToken && !c.mapsToEnum && !c.conformsToTokenTransaction && !c.conformsToMap && !c.conformsToArray && !c.conformsToVoid && !c.conformsToUndefined
 	}
-	
+
 	def mapsToEnum(CmlClass c) {
 		c.conformsToEnum || c.subclassOfEnum
 	}
-	
+
 	def mapsToEvent(CmlClass c) {
 		c.conformsToEvent || c.subclassOfEvent
 	}
@@ -506,14 +684,20 @@ class CmlGenerator extends AbstractGenerator2 {
 		«FOR a : c.staticAttributes»
 			«a.compile»;
 		«ENDFOR»
-		«FOR a : c.attributes.filter[!type.mapsToEnum]»
-			«a.compile»;
+		«FOR a : c.attributes»
+			«IF a.inferType.conformsToMap»
+				«val name = a.compileMapImplName »
+				using «name» for «name».Data;
+				«name».Data internal «a.name»;
+			«ELSE»
+				«a.compile»;
+			«ENDIF»
 		«ENDFOR»
 	'''
 
 	def compileEvents(CmlClass c) '''
-		«FOR e : c.attributes.filter[type.mapsToEvent] BEFORE "/*\n * Events\n */\n" AFTER "\n"»
-			event «e.name.toFirstUpper»Event(«e.type.name» «e.name»);
+		«FOR e : c.attributes.filter[inferType.mapsToEvent] BEFORE "/*\n * Events\n */\n" AFTER "\n"»
+			event «e.name.toFirstUpper»Event(«e.inferType.name» «e.name»);
 		«ENDFOR»
 	'''
 
@@ -526,7 +710,7 @@ class CmlGenerator extends AbstractGenerator2 {
 	}
 
 	def compileInitConstructor(Operation o) '''	
-		constructor(«o.params.compile») «FOR a : o.deriveAnnotations SEPARATOR ' '»«a»«ENDFOR» {
+		constructor(«o.params.compileOpParams») «FOR a : o.deriveAnnotations SEPARATOR ' '»«a»«ENDFOR» {
 			«FOR s : o.body?.statements ?: emptyList»
 				«compileStatement(s)»
 			«ENDFOR»
@@ -573,13 +757,28 @@ class CmlGenerator extends AbstractGenerator2 {
 		}
 	}
 	
-	def compile(List<Attribute> attributes) '''
-		«FOR a : attributes SEPARATOR ', '»«IF !a.type.conformsToTokenTransaction»«a.compile»«ENDIF»«ENDFOR»'''
+	def transformOpPArams(List<Attribute> attributes) {
+		val attributesCopy = attributes.copyAll
 
-	def compile(Attribute a) {
-		interceptAttribute(a, null) ?: '''«(a.type as Type).compile»«IF a.constant» constant«ENDIF»«IF a.type.mapsToStruct && a.containingOperation !== null» memory«ENDIF» «a.name»«IF a.expression !== null» = «a.expression.compile»«ENDIF»'''
+		for(val iter = attributesCopy.iterator; iter.hasNext();) {
+			val attribute = iter.next()
+			if(attribute.inferType.conformsToTokenTransaction)
+				iter.remove()
+		}
+		attributesCopy
 	}
+	
+	def compileOpParams(List<Attribute> attributes) '''
+		«FOR a : attributes.transformOpPArams SEPARATOR ', '»«a.compileOpParam»«ENDFOR»'''
 
+	def compileOpParam(Attribute a) {
+		interceptAttribute(a, null) ?: '''«a.type.compile»«IF a.inferType.requiresDataLocation» memory«ENDIF» «a.name»'''
+	}
+	
+	def compile(Attribute a) {
+		interceptAttribute(a, null) ?: '''«a.type.compile»«IF a.constant» constant«ENDIF» «a.name»«IF a.expression !== null» = «a.expression.compile»«ENDIF»'''
+	}
+		
 	def compile(CmlClass c) '''
 		struct «c.name.toFirstUpper» {
 			«FOR a : c.classHierarchyAttributes.values»
@@ -590,11 +789,11 @@ class CmlGenerator extends AbstractGenerator2 {
 	'''
 	
 	def compile(Operation o, List<String> annotations, LinkedHashMap<String, List<String>> modifiers) '''	
-		function «o.name»(«o.params.compile») «FOR a : annotations SEPARATOR ' '»«a»«ENDFOR»
+		function «o.name»(«o.params.compileOpParams») «FOR a : annotations SEPARATOR ' '»«a»«ENDFOR»
 			«FOR m : modifiers.entrySet SEPARATOR ' '»
 				«m.key»(«m.value.join(", ")»)
 			«ENDFOR»
-			«IF o.type !== null»returns («(o.type as Type).compile»«IF o.type.mapsToStruct» memory«ENDIF»)«ENDIF»
+			«IF o.type !== null»returns («o.type.compile»«IF o.inferType.requiresDataLocation» memory«ENDIF»)«ENDIF»
 		{
 			«FOR s : o.body?.statements ?: emptyList»
 				«compileStatement(s)»
@@ -602,19 +801,13 @@ class CmlGenerator extends AbstractGenerator2 {
 		}
 	'''
 	
-	def compileOperationParams(List<Attribute> attributes) '''
-		«FOR a : attributes SEPARATOR ', '»
-			«IF !a.type.mapsToStruct»«ENDIF»
-		«ENDFOR»
-	'''
-	
 	def payable(Operation o) {
-		o.eAllOfType(Statement).filter(FeatureSelection)?.filter[opCall && feature instanceof Operation]?.map[feature]?.
+		o.eAllOfType(Statement).filter(FeatureSelectionExpression)?.filter[opCall && feature instanceof Operation]?.map[feature]?.
 			findFirst[containingClass.conformsToParty && name == "deposit"] !== null
 	}
 	
 //	def modifiesStateAttributes(Operation o) {
-//		!o.eAllOfType(AssignmentExpression).map[left].filter(SymbolReference).map[symbol].filter(Attribute).filter[!static].empty
+//		!o.eAllOfType(AssignmentExpression).map[left].filter(ReferenceExpression).map[symbol].filter(Attribute).filter[!static].empty
 //	}
 	
 	def List<String> deriveAnnotations(Operation o) {
@@ -645,9 +838,18 @@ class CmlGenerator extends AbstractGenerator2 {
 		}
 	'''
 	
+	def compileVarAssignment(Expression exp) {
+		if (exp instanceof NewExpression) {
+			if (exp.args.size == 0) {
+				return false
+			}
+		}
+		return true
+	}
+	
 	def String compileStatement(Statement s) {
 		switch (s) {
-			VariableDeclaration: '''«(s.type as Type).compile» «s.name» = «s.expression.compile»;'''
+			VariableDeclaration: '''«s.type.compile»«IF s.type.inferType.requiresDataLocation» «s.expression.deriveDataLocation»«ENDIF» «s.name»«IF compileVarAssignment(s.expression)» = «s.expression.compile»«ENDIF»;'''
 			ReturnStatement:
 				"return (" + s.expression.compile + ");"
 			IfStatement: '''
@@ -677,21 +879,48 @@ class CmlGenerator extends AbstractGenerator2 {
 				while («s.condition.compile»)
 				«s.block.compileBlock»
 			'''
-			ForStatement: '''
+			ForBasicStatement: '''
 				for («s.declaration.compileStatement» «s.condition.compile»; «s.progression.compile»)
 				«s.block.compileBlock»
 			'''
-			ThrowStatement: '''revert(«s.expression?.compile»);'''
+			ForLoopStatement: '''
+				«IF (s.forExpression.typeFor as CmlClass).conformsToArray»«s.compileForLoopForArray»«ELSE»«s.compileForLoopForMap»«ENDIF»
+			'''
+			ThrowStatement: '''
+				revert(«s.expression.compile»)
+			'''
 			default: {
 				val statement = (s as Expression).compile
 				if (!statement.nullOrEmpty) (statement + ";") else ""
 			}
 		}
 	}
+	
+	def compileForLoopForArray(ForLoopStatement s) '''
+		for (uint i = 0; i < «s.forExpression.compile».length; i++)
+		{
+			«val type = (((s.forExpression as ReferenceExpression).reference as Attribute).type as GenericArrayTypeReference).componentType»
+			«type.compile» «s.declaration.name» = «s.forExpression.compile»[i];
+			«FOR bs : s.block.statements»
+				«bs.compileStatement»
+			«ENDFOR»
+		}
+	'''
+	
+	def compileForLoopForMap(ForLoopStatement s) '''
+		for (uint i = 0; i < «s.forExpression.compile».size(); i++)
+		{
+			«val type = (((s.forExpression as ReferenceExpression).reference as Attribute).type as GenericArrayTypeReference).componentType»
+			«type.compile»«IF type.inferType.requiresDataLocation» storage«ENDIF» «s.declaration.name» = «s.forExpression.compile».getEntry(i);
+			«FOR bs : s.block.statements»
+				«bs.compileStatement»
+			«ENDFOR»
+		}
+	'''
 
 	def compileEventAsFunction(Attribute a) '''
-		// @notice trigger event «a.type.name»
-		function «a.name.toFirstLower»Event(«a.type.name» memory _«a.name») public postCall
+		// @notice trigger event «a.inferType.name»
+		function «a.name.toFirstLower»Event(«a.inferType.name» memory _«a.name») public postCall
 		{
 			«a.name» = _«a.name»;
 			emit «a.name.toFirstUpper»Event(«a.name»);
@@ -699,13 +928,21 @@ class CmlGenerator extends AbstractGenerator2 {
 	'''
 
 	def compileEnum(CmlClass c) '''
-		enum «c.name.toFirstUpper» { «FOR e : c.enumElements SEPARATOR ', '»«e.name»«ENDFOR» } «c.name.toFirstUpper» «c.name.toFirstLower»;
+		enum «c.name.toFirstUpper» { «FOR e : c.enumElements SEPARATOR ', '»«e.name»«ENDFOR» }
 	'''
 
-	def compile(Type t) {
+	def String compile(TypeReference tr) {
+		switch(tr) {
+			ParameterizedTypeReference : (tr.type.inferType as Type).compile
+			GenericArrayTypeReference : tr.componentType.compile + "[]"
+		}
+	}
+	
+	def String compile(Type t) {
 		switch (t) {
 			CmlClass:
 				switch (t) {
+					case t == GLOBAL_ID_TYPE: "address"
 					case t.conformsToInteger: "uint" // "int"
 					case t.conformsToBoolean: "bool"
 					case t.conformsToString: "bytes32"
@@ -713,27 +950,122 @@ class CmlGenerator extends AbstractGenerator2 {
 					case t.conformsToDateTime: "uint"
 					case t.conformsToDuration: "uint"
 					case t.conformsToNumber: "uint"
+					case t.mapsToStruct,
+					case t.mapsToEnum: detachModel ? MODEL_NAME + "." + t.name : t.name
 					default: t.name
 				}
 		}
 	}
+		
+	def compileMapLib(String libName, Type keyType, Type valueType) {
+		var key = keyType.compile
+		val value = valueType.compile
+		'''
+		pragma solidity >=0.4.22 <0.7.0;
+		pragma experimental ABIEncoderV2;
+		
+		import "./CLL«key.toFirstUpper».sol";
+		«IF (valueType as CmlClass).mapsToStruct»import "./«MODEL_NAME».sol";«ENDIF»
+		
+		library «libName» {
+		
+			struct Data {
+				mapping(«key» => «value») map;
+				CLL«key.toFirstUpper».CLL mapIdList;
+			}
+			
+			using CLL«key.toFirstUpper» for CLL«key.toFirstUpper».CLL;
+		    
+			function size(Data storage self) public view returns (uint) {
+				return self.mapIdList.sizeOf();
+			}
+			
+			function add(Data storage self, «key» _key, «value»«IF valueType.requiresDataLocation» memory«ENDIF» _value) public {
+				self.map[_key] = _value;
+				self.mapIdList.push(_key, true);
+			}
+			
+			function remove(Data storage self, «key» _key) public {
+				if(self.mapIdList.nodeExists(_key)) {
+					delete self.map[_key];
+					self.mapIdList.remove(_key);
+				}
+			}
+			
+			function contains(Data storage self, «key» _key) public view returns (bool) {
+				return self.mapIdList.nodeExists(_key);
+			}
+			
+			function get(Data storage self, «key» _key) public view returns («value»«IF valueType.requiresDataLocation» storage«ENDIF») {
+				return self.map[_key];
+			}
+			
+			function getEntry(Data storage self, uint _index) public view returns («value»«IF valueType.requiresDataLocation» storage«ENDIF») {
+				return self.map[self.mapIdList.nodeAt(_index)];
+			}
+		    
+			function isEmpty(Data storage self) public view returns (bool) {
+				return !self.mapIdList.exists();
+			}
+			
+			function getKeys(Data storage self) public view returns («key»[] memory) {
+				return self.mapIdList.keys();
+			}
+		    
+			function clear(Data storage self) public {
+				«key»[] memory arr = getKeys(self);
+				for (uint i = 0; i < arr.length; i++) {
+					delete self.map[arr[i]];
+					remove(self, arr[i]);
+				}
+			}
+		}
+	'''
+	}
+	
+	def requiresDataLocation(Type t) {
+		if(t instanceof CmlClass)
+			if(t.mapsToStruct || t.conformsToArray) 
+				return true
+		false
+	}
+	
+	def deriveDataLocation(Expression e) {
+		if(e instanceof ArrayAccessExpression)
+			return "storage"
+		return "memory"
+	}
+	
+	def compileCLLLib(String libName, Type type) '''
+		«getResource("cml/CLL.sol").replace("$LIB_NAME$", libName).replace("$TYPE$", type.compile)»'''
 
 	def retrieveImport(Iterable<CmlProgram> resources, Import i) {
 		if (i.importedNamespace !== CmlLib::LIB_PACKAGE)
 			resources.findFirst[name == i.copy.importedNamespace.replace(".*", "")]
 	}
 
-	def gatherImportedResources(CmlProgram program) {
-		var list = newArrayList
-		for (import : program.imports) {
-			list += this.allResources.retrieveImport(import)
+	def List<CmlProgram> gatherImports(CmlProgram program) {
+		var list = new LinkedList<CmlProgram>
+		for (i : program.imports) {
+			val import = this.allResources.retrieveImport(i)
+			list.add(import)
+			list.addAll(gatherImports(import))	// recursive
 		}
 		list
 	}
 
 	def String compile(Expression exp) {
 		switch (exp) {
-			AssignmentExpression: '''«(exp.left.compile)» = «(exp.right.compile)»'''
+			AssignmentExpression: {
+				val left = exp.left.compile
+				val right = exp.right.compile
+				switch (exp.op) {
+					case '=': '''«left» = «right»'''
+					case '+=': '''«left» += «right»'''
+					case '-=': '''«left» -= «right»'''
+					default: ""
+				}
+			}
 			OrExpression: '''«(exp.left.compile)» || «(exp.right.compile)»'''
 			AndExpression: '''«(exp.left.compile)» && «(exp.right.compile)»'''
 			EqualityExpression: {
@@ -750,8 +1082,7 @@ class CmlGenerator extends AbstractGenerator2 {
 					case '>': '''«left» > «right»'''
 					case '>=': '''«left» >= «right»'''
 					case '<=': '''«left» <= «right»'''
-					default:
-						""
+					default: ""
 				}
 			}
 			AdditiveExpression: {
@@ -830,8 +1161,27 @@ class CmlGenerator extends AbstractGenerator2 {
 			ThisExpression: '''this''' // concept doesn't exist in the same manner in solidity
 			DateTimeLiteral: '''«exp.compile»'''
 			DurationLiteral: '''«exp.value» «exp.unit»'''
-			SymbolReference: '''«exp.compile»'''
-			FeatureSelection: '''«exp.compile»'''
+			ReferenceExpression: '''«exp.compile»'''
+			FeatureSelectionExpression: '''«exp.compile»'''
+			NewExpression: '''«exp.compile»'''
+			NullLiteral: '''?'''
+			ArrayAccessExpression: '''«exp.compile»'''
+		}
+	}
+	
+	def compile(ArrayAccessExpression aae) {
+		val type = aae.array.typeFor
+		if ((type as CmlClass).conformsToMap) {
+			aae.array.compile + ".get(" + aae.indexes.get(0).compile + ")"
+		} else {
+			aae.array.compile + "[" + aae.indexes.get(0).compile + "]"
+		}
+	}
+	
+	def compile(NewExpression ne) {
+		val type = ne.type.inferType
+		if (type.mapsToStruct) {
+			(detachModel ? MODEL_NAME + "." : "") + type.name + "(" + ne.args.map[compile].filterNull.filter[!it.empty].join(", ") + ")"
 		}
 	}
 	
@@ -843,16 +1193,16 @@ class CmlGenerator extends AbstractGenerator2 {
 		b.scaleByPowerOfTen(fixedPointDecimals).toString().replace("E+", "E")
 	}
 	
-	def resolvePath(FeatureSelection fs) {
+	def resolvePath(FeatureSelectionExpression fse) {
 		val list = newLinkedList
-		list.add(fs.feature)
-		var current = fs.receiver
+		list.add(fse.feature)
+		var current = fse.receiver
 		while (current !== null) {
-			if (current instanceof FeatureSelection) {
+			if (current instanceof FeatureSelectionExpression) {
 				list.add(current.feature)
 				current = current.receiver
-			} else if (current instanceof SymbolReference) {
-				list.add(current.symbol)
+			} else if (current instanceof ReferenceExpression) {
+				list.add(current.reference)
 				current = null
 			} else {
 				current = null
@@ -862,107 +1212,119 @@ class CmlGenerator extends AbstractGenerator2 {
 	}
 	
 	def resolvePath(Expression e) {
-		if (e instanceof FeatureSelection) {
+		if (e instanceof FeatureSelectionExpression) {
 			e.resolvePath
-		} else if (e instanceof SymbolReference) {
-			#[e.symbol]
+		} else if (e instanceof ReferenceExpression) {
+			#[e.reference]
 		}
 	}
  	
-	def compile(FeatureSelection fs) {
+	def compile(FeatureSelectionExpression fse) {
 		var String rslt
 
-		if (!fs.opCall && fs.feature instanceof Attribute)
-			rslt = interceptAttribute(fs.feature as Attribute, fs)
+		if (!fse.opCall && fse.feature instanceof Attribute)
+			rslt = interceptAttribute(fse.feature as Attribute, fse)
 
-		if (fs.opCall && fs.feature instanceof Operation)
-			rslt = interceptOperation(fs.feature as Operation, fs.args, fs.receiver)
+		if (fse.opCall && fse.feature instanceof Operation)
+			rslt = interceptOperation(fse.feature as Operation, fse.args, fse.receiver)
 
 		rslt ?: {
-			rslt = fs.receiver.compile + "." + fs.feature.name + if (fs.opCall) {
-				"(" + fs.args.map[compile].join(", ") + ")"
-			} else
-				""
+			val sb = new StringBuilder()
+			sb.append(fse.receiver.compile)
+			sb.append(".")
+			sb.append(fse.feature.name)
+			if (fse.opCall)
+				sb.append("(" + fse.args.map[compile].join(", ") + ")")
+			sb.toString
 		}
 	}
 
-	def compile(SymbolReference sr) {
+	def compile(ReferenceExpression re) {
 		var String rslt
 
-		if (!sr.opCall && sr.symbol instanceof Attribute)
-			rslt = interceptAttribute(sr.symbol as Attribute, sr)
+		if (!re.opCall && re.reference instanceof Attribute)
+			rslt = interceptAttribute(re.reference as Attribute, re)
 
-		if (sr.opCall && sr.symbol instanceof Operation)
-			rslt = interceptOperation(sr.symbol as Operation, sr.args, sr)
+		if (re.opCall && re.reference instanceof Operation)
+			rslt = interceptOperation(re.reference as Operation, re.args, re)
 
-		if (sr.opCall && sr.symbol instanceof CmlClass)
-			rslt = interceptClass(sr.symbol as CmlClass, sr.args, sr)
+		if (re.opCall && re.reference instanceof CmlClass)
+			rslt = interceptClass(re.reference as CmlClass, re.args, re)
 
 		rslt ?: {
-			sr.symbol.name + if (sr.opCall) {
-				"(" + sr.args.map[compile].join(", ") + ")"
-			} else
-				""
+			val sb = new StringBuilder()			
+			if(detachModel && re.reference instanceof CmlClass && re.reference.inferType.mapsToEnum)
+				sb.append(MODEL_NAME + ".")				
+			sb.append(re.reference.name)
+			if (re.opCall)
+				sb.append("(" + re.args.map[compile].join(", ") + ")")
+			sb.toString
 		}
 	}
 
-	def interceptClass(CmlClass c, List<Expression> args, SymbolReference reference) {
+	def interceptClass(CmlClass c, List<Expression> args, ReferenceExpression re) {
 		switch (c) {
 			case c.conformsToError: {
 				args.get(0).compile
 			}
-			case c.subclassOfParty: {
-				args.remove(1)
-				reference.symbol.name + "(" + args.map[compile].join(", ") + ")"
-			}
+			/*case c.subclassOfParty: {
+				val _args = args.copyAll
+				_args.remove(1)
+				re.reference.name + "(" + _args.map[compile].join(", ") + ")"
+			}*/
 		}
 	}
 
-	def interceptAttribute(Attribute a, Expression reference) {
+	def interceptAttribute(Attribute a, Expression ref) {
 		val c = a.containingClass
 		if (c !== null) {
 			if (c.conformsToContract) {
 				switch (a.name) {
 					case "contractStart": "_contractStart"
-					case "caller": "Party(msg.sender)"
+					case "caller": caller
 				}
-			} else if (c.conformsToParticipant) {
+			} else if (c.conformsToAccount) {
 				switch (a.name) {
-					case "id": if (reference === null) "address payable id"
+					case "token": ""
+					case "id": if (ref === null) "address payable id"
 				}
-			} else if (c.conformsToAsset) {
+			} else if (c.conformsToToken) {
 				switch (a.name) {
-					case "quantity": if (reference !== null) "address(this).balance"
+					case "quantity": if (ref !== null) "address(this).balance"
 				}
 			} else if (c.conformsToTransaction) {
 				switch (a.name) {
-					case "sender": if (reference === null) "" else "Party(msg.sender)"
-				}
-			} else if (c.conformsToTokenHolder) {
-				switch (a.name) {
-					case "token": ""
+					case "sender": if (ref === null) "" else caller
 				}
 			} else if (c.conformsToTokenTransaction) {
 				switch (a.name) {
-					case "amount": if (reference === null) "" else "msg.value"
+					case "amount": if (ref === null) "" else "msg.value"
 				}
 			}
 		}
 	}
 	
-	def interceptOperation(Operation o, List<Expression> args, Expression reference) {
+	def caller() {
+		(detachModel ? MODEL_NAME + "." : "") + "Party(msg.sender)"
+	}
+		
+	def interceptOperation(Operation o, List<Expression> args, Expression ref) {
 		if (!o.static) {
 			val c = o.containingClass
-			val path = reference.resolvePath
+			val path = ref.resolvePath
 			
-			if (c.conformsToParty) {
+			if (c.conformsToAccount) {
+				switch (o.name) {
+					case "isSet": ref.compile + ".id != address(0)"
+				}
+			} else if (c.conformsToParty) {
 				switch (o.name) {
 					case "deposit": ""
 					case "withdraw": {
 						if (pullPayment) {
-							"_asyncTransfer(" + reference.compile + ".id , " + args.get(0).compile + ")"
+							"_asyncTransfer(" + ref.compile + ".id , " + args.get(0).compile + ")"
 						} else {
-							reference.compile + ".id.transfer" + "(" + args.get(0).compile + ")"
+							ref.compile + ".id.transfer" + "(" + args.get(0).compile + ")"
 						}
 					}
 				}
@@ -980,61 +1342,76 @@ class CmlGenerator extends AbstractGenerator2 {
 				switch (o.name) {
 					case "toInteger": {
 						if (path.get(0).inferType.conformsToInteger || path.get(0).inferType.conformsToNumber)
-							reference.compile
+							ref.compile
 						else if (path.get(0).inferType.conformsToReal)
-							if(fixedPointArithmetic) "RealLib.toInteger(" + reference.compile + ", " +
+							if(fixedPointArithmetic) "RealLib.toInteger(" + ref.compile + ", " +
 								fixedPointDecimals + ")" else "??? Not yet implemented"
 					}
 					case "toReal": {
 						if (path.get(0).inferType.conformsToInteger)
-							if(fixedPointArithmetic) "IntLib.toReal(" + reference.compile +
+							if(fixedPointArithmetic) "IntLib.toReal(" + ref.compile +
 								")" else "??? Not yet implemented"
 						else if (path.get(0).inferType.conformsToReal || path.get(0).inferType.conformsToNumber)
-							reference.compile
+							ref.compile
 					}
 				}
 			} else if (c.conformsToInteger) {
 				switch (o.name) {
-					case "average": "IntLib.average(" + reference.compile + ", " + args.get(0).compile + ")"
-					case "max": "IntLib.max(" + reference.compile + ", " + args.get(0).compile + ")"
-					case "min": "IntLib.min(" + reference.compile + ", " + args.get(0).compile + ")"
+					case "average": "IntLib.average(" + ref.compile + ", " + args.get(0).compile + ")"
+					case "max": "IntLib.max(" + ref.compile + ", " + args.get(0).compile + ")"
+					case "min": "IntLib.min(" + ref.compile + ", " + args.get(0).compile + ")"
 				}
 			} else if (c.conformsToReal) {
 				switch (o.name) {
-					case "max": "RealLib.max(" + reference.compile + ", " + args.get(0).compile + ")"
-					case "min": "RealLib.min(" + reference.compile + ", " + args.get(0).compile + ")"
-					case "sqrt": "RealLib.sqrt(" + reference.compile + ")"
-					case "ceil": if (fixedPointArithmetic) "RealLib.ceil(" + reference.compile + ", " + fixedPointDecimals+ ")" else "??? Not yet implemented"
-					case "floor": if (fixedPointArithmetic) "RealLib.floor(" + reference.compile + ", " + fixedPointDecimals+ ")" else "??? Not yet implemented"
+					case "max": "RealLib.max(" + ref.compile + ", " + args.get(0).compile + ")"
+					case "min": "RealLib.min(" + ref.compile + ", " + args.get(0).compile + ")"
+					case "sqrt": "RealLib.sqrt(" + ref.compile + ")"
+					case "ceil": if (fixedPointArithmetic) "RealLib.ceil(" + ref.compile + ", " + fixedPointDecimals+ ")" else "??? Not yet implemented"
+					case "floor": if (fixedPointArithmetic) "RealLib.floor(" + ref.compile + ", " + fixedPointDecimals+ ")" else "??? Not yet implemented"
 				}
 			} else if (c.conformsToDateTime) {
 				switch (o.name) {
-					case "isBefore": "DateTime.isBefore(" + reference.compile + ", " + args.get(0).compile + ")"
-					case "isAfter": "DateTime.isAfter(" + reference.compile + ", " + args.get(0).compile + ")"
-					case "second": "DateTime.getSecond(" + reference.compile + ")"
-					case "minute": "DateTime.getMinute(" + reference.compile + ")"
-					case "hour": "DateTime.getHour(" + reference.compile + ")"
-					case "day": "DateTime.getDay(" + reference.compile + ")"
-					case "week": "DateTime.getWeek(" + reference.compile + ")"
-					case "equals": "DateTime.equals(" + reference.compile + ", " + args.get(0).compile + ")"
-					case "addDuration": "DateTime.addDuration(" + reference.compile + ", " + args.get(0).compile + ")"
-					case "subtractDuration": "DateTime.subtractDuration(" + reference.compile + ", " +
+					case "isBefore": "DateTime.isBefore(" + ref.compile + ", " + args.get(0).compile + ")"
+					case "isAfter": "DateTime.isAfter(" + ref.compile + ", " + args.get(0).compile + ")"
+					case "second": "DateTime.getSecond(" + ref.compile + ")"
+					case "minute": "DateTime.getMinute(" + ref.compile + ")"
+					case "hour": "DateTime.getHour(" + ref.compile + ")"
+					case "day": "DateTime.getDay(" + ref.compile + ")"
+					case "week": "DateTime.getWeek(" + ref.compile + ")"
+					case "equals": "DateTime.equals(" + ref.compile + ", " + args.get(0).compile + ")"
+					case "addDuration": "DateTime.addDuration(" + ref.compile + ", " + args.get(0).compile + ")"
+					case "subtractDuration": "DateTime.subtractDuration(" + ref.compile + ", " +
 						args.get(0).compile + ")"
-					case "durationBetween": "DateTime.durationBetween(" + reference.compile + ", " +
+					case "durationBetween": "DateTime.durationBetween(" + ref.compile + ", " +
 						args.get(0).compile + ")"
 				}
 			} else if (c.conformsToDuration) {
 				switch (o.name) {
-					case "toSeconds": reference.compile
-					case "toMinutes": "DateTime.toMinutes(" + reference.compile + ")"
-					case "toHours": "DateTime.toHours(" + reference.compile + ")"
-					case "toDays": "DateTime.toDays(" + reference.compile + ")"
-					case "toWeeks": "DateTime.toWeeks(" + reference.compile + ")"
-					case "addDuration": "DateTime.addDuration(" + reference.compile + ", " + args.get(0).compile + ")"
-					case "subtractDuration": "DateTime.subtractDuration(" + reference.compile + ", " +
+					case "toSeconds": ref.compile
+					case "toMinutes": "DateTime.toMinutes(" + ref.compile + ")"
+					case "toHours": "DateTime.toHours(" + ref.compile + ")"
+					case "toDays": "DateTime.toDays(" + ref.compile + ")"
+					case "toWeeks": "DateTime.toWeeks(" + ref.compile + ")"
+					case "addDuration": "DateTime.addDuration(" + ref.compile + ", " + args.get(0).compile + ")"
+					case "subtractDuration": "DateTime.subtractDuration(" + ref.compile + ", " +
 						args.get(0).compile + ")"
 				}
-			}
+			} else if (c.conformsToArray) {
+				switch (o.name) {
+					case "size": ref.compile + ".length"
+				}
+			} else if (c.conformsToMap) {
+				switch (o.name) {
+					case "size": ref.compile + ".size()"
+					case "isEmpty": ref.compile + ".isEmpty()"
+					case "contains": ref.compile + ".contains(" + args.get(0).compile + ")"
+					case "clear": ref.compile + ".clear()"
+					case "add": ref.compile + ".add(" + args.get(0).compile + "." + (args.get(0).typeFor as CmlClass).resolveIdentifierName + ", " + args.get(0).compile + ")"
+					case "rmv": ref.compile + ".remove(" + args.get(0).compile + ")"
+					case "get": ref.compile + ".get(" + args.get(0).compile + ")"
+					case "getEntry": ref.compile + ".getEntry(" + args.get(0).compile + ")"
+				}
+			}	
 		} else {
 			if (o.containedInMainLib) {
 				switch (o.name) {
@@ -1044,4 +1421,5 @@ class CmlGenerator extends AbstractGenerator2 {
 			}
 		}
 	}
+		
 }

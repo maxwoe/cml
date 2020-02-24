@@ -1,68 +1,78 @@
 namespace cml.lang
 
 concept Any
-	String toString()
-concept Participant extends Any
+concept Asset extends Any
+concept Token extends Asset identified by id
 	String id
-concept TokenHolder extends Participant
+	Integer quantity
+concept Participant extends Any
+concept Account extends Participant identified by id
+	String id
 	Token token
-concept Party extends TokenHolder
-	deposit(Number n)
-	withdraw(Number n)
-concept Contract extends TokenHolder
+	def Boolean isSet()
+concept Party extends Account
+	def deposit(Number n)
+	def withdraw(Number n)
+concept Contract extends Account
 	Party anyone
 	Party caller
 	DateTime now
 	DateTime contractStart
 	DateTime contractEnd
-	transfer(TokenHolder th, Number n)
-concept Asset extends Any
-	String id
-	Number quantity
-concept Token extends Asset
+	def transfer(Account a, Number n)
 concept Transaction extends Any
 	Party sender
 concept TokenTransaction extends Transaction
-	Number amount
+	Integer amount
 concept Event extends Any
 concept Enum extends Any
 concept String extends Any
 concept Boolean extends Any
 abstract concept Number extends Any
-	Real toReal()
-	Integer toInteger()
+	def Real toReal()
+	def Integer toInteger()
 concept Integer extends Number
-	Integer average(Integer i)
-	Integer max(Integer i)
-	Integer min(Integer i)
+	def Integer average(Integer i)
+	def Integer max(Integer i)
+	def Integer min(Integer i)
 concept Real extends Number
-	Real max(Real i)
-	Real min(Real i)
-	Real sqrt()
-	Real ceil()
-	Real floor()
+	def Real max(Real i)
+	def Real min(Real i)
+	def Real sqrt()
+	def Real ceil()
+	def Real floor()
 concept DateTime extends Any
-	Boolean isBefore(DateTime d)
-	Boolean isAfter(DateTime d)
-	Integer second()
-	Integer minute()
-	Integer hour()
-	Integer day()
-	Integer week()
-	Boolean equals(DateTime d)
-	DateTime addDuration(Duration d)
-	DateTime subtractDuration(Duration d)
-	Duration durationBetween(DateTime d)
+	def Boolean isBefore(DateTime d)
+	def Boolean isAfter(DateTime d)
+	def Integer second()
+	def Integer minute()
+	def Integer hour()
+	def Integer day()
+	def Integer week()
+	def Boolean equals(DateTime d)
+	def DateTime addDuration(Duration d)
+	def DateTime subtractDuration(Duration d)
+	def Duration durationBetween(DateTime d)
 concept Duration extends Any
-	Duration toSeconds()
-	Duration toMinutes()
-	Duration toHours()
-	Duration toDays()
-	Duration toWeeks()
-	Duration addDuration(Duration d)
-	Duration subtractDuration(Duration d)
+	def Duration toSeconds()
+	def Duration toMinutes()
+	def Duration toHours()
+	def Duration toDays()
+	def Duration toWeeks()
+	def Duration addDuration(Duration d)
+	def Duration subtractDuration(Duration d)
 concept Error extends Any
 	String message	
-ensure(Boolean c, String m)
+abstract concept Collection extends Any
+concept Array<T> extends Collection
+	def Integer size()
+concept OrderedMap<K,V> extends Collection
+	def add(V value)
+	def rmv(K key)
+	def Boolean contains(K key)
+	def V get(K key)
+	def V getEntry(Integer i)
+	def Integer size()
+def ensure(Boolean c, String m)
 	if(!c)
-		throw Error(m)
+		throw new Error(m)

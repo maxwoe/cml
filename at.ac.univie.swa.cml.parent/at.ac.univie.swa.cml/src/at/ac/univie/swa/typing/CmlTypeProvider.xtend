@@ -7,6 +7,7 @@ import at.ac.univie.swa.cml.AdditiveExpression
 import at.ac.univie.swa.cml.AndExpression
 import at.ac.univie.swa.cml.Annotation
 import at.ac.univie.swa.cml.AnnotationElement
+import at.ac.univie.swa.cml.ArrayAccessExpression
 import at.ac.univie.swa.cml.AssignmentExpression
 import at.ac.univie.swa.cml.Attribute
 import at.ac.univie.swa.cml.BooleanLiteral
@@ -20,29 +21,33 @@ import at.ac.univie.swa.cml.DateTimeLiteral
 import at.ac.univie.swa.cml.DurationLiteral
 import at.ac.univie.swa.cml.EqualityExpression
 import at.ac.univie.swa.cml.Expression
-import at.ac.univie.swa.cml.FeatureSelection
+import at.ac.univie.swa.cml.FeatureSelectionExpression
+import at.ac.univie.swa.cml.ForLoopStatement
 import at.ac.univie.swa.cml.GeneralConstraint
 import at.ac.univie.swa.cml.IntegerLiteral
 import at.ac.univie.swa.cml.MultiplicativeExpression
 import at.ac.univie.swa.cml.NestedExpression
+import at.ac.univie.swa.cml.NewExpression
 import at.ac.univie.swa.cml.NullLiteral
 import at.ac.univie.swa.cml.Operation
 import at.ac.univie.swa.cml.OrExpression
 import at.ac.univie.swa.cml.OtherOperatorExpression
 import at.ac.univie.swa.cml.PeriodicTime
 import at.ac.univie.swa.cml.RealLiteral
+import at.ac.univie.swa.cml.ReferenceExpression
 import at.ac.univie.swa.cml.RelationalExpression
 import at.ac.univie.swa.cml.ReturnStatement
 import at.ac.univie.swa.cml.StringLiteral
 import at.ac.univie.swa.cml.SuperExpression
-import at.ac.univie.swa.cml.SymbolReference
 import at.ac.univie.swa.cml.TemporalConstraint
 import at.ac.univie.swa.cml.ThisExpression
 import at.ac.univie.swa.cml.ThrowStatement
 import at.ac.univie.swa.cml.Type
+import at.ac.univie.swa.cml.TypeVariable
 import at.ac.univie.swa.cml.UnaryExpression
 import at.ac.univie.swa.cml.VariableDeclaration
 import com.google.inject.Inject
+import org.eclipse.xtext.EcoreUtil2
 
 class CmlTypeProvider {
 	@Inject extension CmlLib
@@ -68,9 +73,13 @@ class CmlTypeProvider {
 			ThisExpression:
 				e.containingClass
 			SuperExpression:
-				e.containingClass.superclassOrObject
-			SymbolReference:
-				e.symbol.inferType
+				e.containingClass.superclassOrObject.inferType
+			ReferenceExpression: {
+				if(e.reference instanceof TypeVariable) {
+					val forLoopStatement =  EcoreUtil2.getContainerOfType(e, ForLoopStatement)
+					forLoopStatement.forExpression.resolveArrayRefAttrType
+				} else e.reference.inferType(e)
+			}
 			NullLiteral:
 				NULL_TYPE
 			StringLiteral:
@@ -117,10 +126,10 @@ class CmlTypeProvider {
 				}
 			AssignmentExpression:
 				e.left.typeFor
-			FeatureSelection:
-				e.feature.inferType
+			FeatureSelectionExpression:
+				e.feature.inferType(e)
 			CastedExpression:
-				e.type
+				e.type.inferType
 			NestedExpression:
 				e.child.typeFor
 			OtherOperatorExpression: {
@@ -128,8 +137,8 @@ class CmlTypeProvider {
 				val right = e.right
 				if (e.op == "=>") {
 					if (right instanceof Closure) {
-						if (left instanceof SymbolReference) {
-							val symbol = left.symbol
+						if (left instanceof ReferenceExpression) {
+							val symbol = left.reference
 							if (symbol instanceof CmlClass) {
 								symbol
 							}
@@ -139,6 +148,12 @@ class CmlTypeProvider {
 			}
 			Attribute:
 				e.expression.typeFor
+			NewExpression:
+				e.type.inferType
+			ArrayAccessExpression: {
+				val array = e.array
+				array.resolveArrayRefAttrType
+			}
 			default:
 				UNDEFINED_TYPE
 		}
@@ -148,19 +163,23 @@ class CmlTypeProvider {
 		val c = e.eContainer
 		val f = e.eContainingFeature
 		switch (c) {
-			Actor case f == ep.actor_Party:
-				c.getCmlPartyClass
-			SymbolReference case f == ep.symbolReference_Args: {
-				val symbol = c.symbol
-				if (symbol instanceof Operation) {
+			//Actor case f == ep.actor_Party:
+			//	c.getCmlPartyClass
+			ReferenceExpression case f == ep.referenceExpression_Args: {
+				val reference = c.reference
+				if (reference instanceof Operation) {
 					try {
-						symbol.params.get(c.args.indexOf(e)).type
+						reference.params.get(c.args.indexOf(e)).inferType
 					} catch (Throwable t) {
 						null // otherwise there is no specific expected type
 					}
-				} else if (symbol instanceof CmlClass) {
+				}
+			}
+			NewExpression: {
+				val type = c.type
+				if (type instanceof CmlClass) {
 					try {
-						symbol.classHierarchyAttributes.values.get(c.args.indexOf(e)).type
+						type.classHierarchyAttributes.values.get(c.args.indexOf(e)).inferType
 					} catch (Throwable t) {
 						null // otherwise there is no specific expected type
 					}
@@ -171,7 +190,7 @@ class CmlTypeProvider {
 			AssignmentExpression case f == ep.assignmentExpression_Right:
 				c.left.typeFor
 			GeneralConstraint case f == ep.generalConstraint_Expression,
-			case f == ep.forStatement_Condition,
+			case f == ep.forBasicStatement_Condition,
 			case f == ep.doWhileStatement_Condition,
 			case f == ep.whileStatement_Condition,
 			case f == ep.ifStatement_Condition:
@@ -181,9 +200,9 @@ class CmlTypeProvider {
 			MultiplicativeExpression case f == ep.multiplicativeExpression_Right:
 				c.left.typeFor
 			VariableDeclaration:
-				c.type
+				c.inferType(e)
 			ReturnStatement:
-				c.containingOperation.type
+				c.containingOperation.inferType(e)
 			PeriodicTime case f == ep.periodicTime_Start,
 			PeriodicTime case f == ep.periodicTime_End,
 			TemporalConstraint case f == ep.temporalConstraint_Reference:
@@ -192,36 +211,48 @@ class CmlTypeProvider {
 			TemporalConstraint case f == ep.timeframe_Window:
 				DURATION_TYPE
 			Attribute case f == ep.attribute_Expression:
-				c.type.inferType
+				c.inferType(e)
 			CasePart case f == ep.casePart_Case:
 				c.containingSwitch.declaration.typeFor
 			RelationalExpression case f == ep.relationalExpression_Right:
 				c.left.typeFor
 			EqualityExpression case f == ep.equalityExpression_Right:
 				c.left.typeFor
-			FeatureSelection case f == ep.featureSelection_Args: {
+			FeatureSelectionExpression case f == ep.featureSelectionExpression_Args: {
 				// assume that it refers to a method and that there
 				// is a parameter corresponding to the argument
 				try {
-					(c.feature as Operation).params.get(c.args.indexOf(e)).type
+					(c.feature as Operation).params.get(c.args.indexOf(e)).inferType(e)
 				} catch (Throwable t) {
 					null // otherwise there is no specific expected type
 				}
 			}
 			AnnotationElement case f == ep.annotationElement_Value: {
 				try {
-					(c.eContainer as Annotation).declaration.features.findFirst[it.name == c.param.name].type
+					(c.eContainer as Annotation).declaration.features.findFirst[it.name == c.param.name].inferType(e)
 				} catch (Throwable t) {
 					null // otherwise there is no specific expected type
 				}
 			}
+			ArrayAccessExpression case f == ep.arrayAccessExpression_Indexes: {
+				try {
+					val type = (c.typeFor as CmlClass)
+					if (type.identifiable) {
+						type.resolveIdentifierType
+					} else {
+						INTEGER_TYPE
+					}
+				} catch (Throwable t) {
+					null // otherwise there is no specific expected type
+				}
+			}
+			ArrayAccessExpression:
+				c.array.typeFor
 			NestedExpression:
 				c.child.typeFor
+			ForLoopStatement case f == ep.forLoopStatement_ForExpression:
+				c.cmlCollectionClass
 		}
-	}
-
-	def isPrimitive(Type c) {
-		c instanceof CmlClass && (c as CmlClass).eResource === null
 	}
 
 	def getSuperclassOrObject(CmlClass c) {

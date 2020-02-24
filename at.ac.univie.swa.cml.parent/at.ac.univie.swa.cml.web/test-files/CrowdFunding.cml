@@ -1,0 +1,66 @@
+namespace cml.examples1
+
+import cml.generator.annotation.solidity.*
+
+party Funder
+	Integer amount
+
+asset Campaign identified by name
+	String name
+	Party owner
+	Integer fundingGoal
+	DateTime deadline		
+
+@PullPayment
+contract CrowdFunding
+	Funder[] funders
+	Campaign campaign
+	Boolean extended
+	Boolean fundingReached
+	
+	clause Fund
+		due before campaign.deadline
+		given !fundingReached
+		party anyone
+		may giveFunds
+	
+	clause CampaignExtension
+		due within 24 hours before campaign.deadline
+		given !fundingReached and !extended
+		party campaign.owner
+		may extendDeadline
+		
+	clause Payout
+		given fundingReached
+		party campaign.owner
+		may fetchPayout
+		
+	clause Refund
+		due after campaign.deadline
+		given !fundingReached
+		party funders
+		may fetchRefund
+
+	def init(String name, Party beneficiary, Integer fundingGoal, Duration duration)
+		campaign = new Campaign(name, beneficiary, fundingGoal, contractStart.addDuration(duration))
+
+	action giveFunds(TokenTransaction t)
+		caller.deposit(t.amount)
+		if(!funders.contains(caller.id))
+			funders.add(new Funder(caller.id, new Token("ETH", 0), t.amount))
+		else funders[caller.id].amount += t.amount
+		
+		if(token.quantity > campaign.fundingGoal)
+			fundingReached = true
+				
+	action fetchPayout()
+		transfer(campaign.owner, token.quantity)
+	
+	action fetchRefund()
+		var Integer refundAmount = funders[caller.id].amount
+		funders[caller.id].amount = 0
+		transfer(caller, refundAmount)
+	
+	action extendDeadline()
+		campaign.deadline = campaign.deadline.addDuration(7 days)
+		extended = true

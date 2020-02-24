@@ -2,33 +2,47 @@ namespace cml.examples
 
 import cml.generator.annotation.solidity.*
 
-transaction InitTransaction
-	Duration biddingTime
-	Party beneficiary
-
-@Ownership @PullPayment
+@PullPayment
 contract SimpleAuction
-	Number highestBid
+	Integer reservePrice
+	Integer highestBid
 	Party highestBidder
 	Party beneficiary
+	Party auctioneer
 	Duration biddingTime
-
+	Boolean aborted
+	Boolean ended
+	
 	clause Bid
 		due within biddingTime after contractStart
+		given !aborted
 		party anyone
 		may bid
-
-	clause AuctionEnd
-		due after clause Bid fulfilled
-		given contractStart.addDuration(biddingTime) > now
+		
+	clause AuctionEndAccept
+		due after contractStart.addDuration(biddingTime)
+		given !ended
 		party beneficiary
-		may withdrawPayment
+		may acceptAuction
+	
+	clause AuctionEndReject
+		due within 48 hours after contractStart.addDuration(biddingTime)
+		given !ended and highestBid < reservePrice
+		party beneficiary
+		may rejectAuction
+		
+	clause AuctionAbort
+		due within biddingTime after contractStart
+		given !aborted
+		party auctioneer
+		may abortAuction
+		
+	action init(Duration _time, Party _beneficiary)
+		auctioneer = caller
+		biddingTime = _time
+		beneficiary = _beneficiary
 
-	init(InitTransaction t)
-		biddingTime = t.biddingTime
-		beneficiary = t.beneficiary
-
-	bid(TokenTransaction t)
+	action bid(TokenTransaction t)
 		ensure(t.amount > highestBid, "There already is a higher bid.")
 		caller.deposit(t.amount)
 		if (highestBid != 0)
@@ -36,5 +50,14 @@ contract SimpleAuction
 		highestBidder = caller
 		highestBid = t.amount
 
-	withdrawPayment()
-		beneficiary.withdraw(highestBid)
+	action acceptAuction()
+		ended = true
+		transfer(beneficiary, highestBid)
+	
+	action rejectAuction()
+		ended = true
+		transfer(highestBidder, highestBid)
+		
+	action abortAuction()
+		aborted = true
+		transfer(highestBidder, highestBid)

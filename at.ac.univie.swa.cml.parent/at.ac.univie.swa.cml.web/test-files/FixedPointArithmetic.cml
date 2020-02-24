@@ -2,7 +2,7 @@ namespace cml.examples
 
 import cml.generator.annotation.solidity.*
 
-Integer equation()
+def Integer equation()
 	return 8 / 2 * (2 + 2)
 
 @FixedPointArithmetic(decimals=2)
@@ -12,8 +12,8 @@ contract FixedPointArithmetic
 		party anyone
 		may calc1 or calc2
 	
-	Integer calc1()
-		return equation().toInteger() / 2
+	action Integer calc1()
+		return equation() / 2
 		
-	Real calc2()
+	action Real calc2()
 		return equation().toReal() * 2.5

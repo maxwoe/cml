@@ -54,6 +54,10 @@ class CmlTypeConformance {
 		c == NULL_TYPE
 	}
 	
+	def conformsToUndefined(CmlClass c) {
+		c == UNDEFINED_TYPE
+	}
+	
 	def conformsToBoolean(CmlClass c) {
 		c == BOOLEAN_TYPE || 
 		c.fullyQualifiedName.toString == CmlLib::LIB_BOOLEAN
@@ -94,6 +98,10 @@ class CmlTypeConformance {
 		c.fullyQualifiedName.toString ==CmlLib::LIB_ERROR
 	}
 	
+	def conformsToAccount(CmlClass c) {
+		c.fullyQualifiedName.toString == CmlLib::LIB_ACCOUNT
+	}
+	
 	def conformsToParty(CmlClass c) {
 		c.fullyQualifiedName.toString == CmlLib::LIB_PARTY
 	}
@@ -129,11 +137,7 @@ class CmlTypeConformance {
 	def conformsToTokenTransaction(CmlClass c) {
 		c.fullyQualifiedName.toString == CmlLib::LIB_TOKEN_TRANSACTION
 	}
-	
-	def conformsToTokenHolder(CmlClass c) {
-		c.fullyQualifiedName.toString == CmlLib::LIB_TOKEN_HOLDER
-	}
-	
+		
 	def conformsToParticipant(CmlClass c) {
 		c.fullyQualifiedName.toString == CmlLib::LIB_PARTICIPANT
 	}
@@ -173,4 +177,13 @@ class CmlTypeConformance {
 	def isSubclassOf(CmlClass c1, CmlClass c2) {
 		c1.classHierarchy.contains(c2)
 	}
+	
+	def conformsToArray(CmlClass c) {
+		c.fullyQualifiedName.toString == CmlLib::LIB_ARRAY
+	}
+	
+	def conformsToMap(CmlClass c) {
+		c.fullyQualifiedName.toString == CmlLib::LIB_MAP
+	}
+	
 }

@@ -2,17 +2,14 @@ namespace cml.examples
 
 import cml.generator.annotation.solidity.*
 
-transaction LockTimeTransaction
-	Duration duration
-
 @PullPayment
 contract TimeLock
 	Party vaultUser
 	DateTime unlockDate
-	Number value
+	Integer value
 	
 	clause Deposit
-		party anyone
+		party vaultUser
 		may deposit
 		
 	clause IncreaseLockTime
@@ -26,15 +23,19 @@ contract TimeLock
 		party vaultUser
 		may withdraw
 
-	deposit(TokenTransaction t)
+	action init()
+		vaultUser = caller
+		
+	action deposit(TokenTransaction t)
 		ensure(t.amount > 0, "Sent amount is invalid.")
-		value = t.amount
-		vaultUser = t.sender
+		ensure(value == 0, "Deposit already exists.")
 		vaultUser.deposit(value)
-		unlockDate = now.addDuration(2 minutes)
+		value = t.amount
+		unlockDate = now.addDuration(24 hours)
 		
-	increaseLockTime(LockTimeTransaction t)
-		unlockDate = unlockDate.addDuration(t.duration)
+	action increaseLockTime(Duration duration)
+		unlockDate = unlockDate.addDuration(duration)
 		
-	withdraw()
-		vaultUser.withdraw(value)
+	action withdraw()
+		transfer(vaultUser, value)
+		value = 0

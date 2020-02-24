@@ -2,20 +2,20 @@ namespace cml.examples
 
 import cml.generator.annotation.solidity.*
 
-@PullPayment
+@Ownership @PullPayment
 contract BecomeRichest
 	Party richest
-	Number mostSent
+	Integer mostSent
 
 	clause BecomeRichest
 		party anyone
 		may becomeRichest
 
-	Boolean becomeRichest(TokenTransaction tx)
-		if(tx.amount > mostSent)
-			caller.deposit(tx.amount)
+	action Boolean becomeRichest(TokenTransaction t)
+		caller.deposit(t.amount)
+		if(t.amount > mostSent)
 			transfer(richest, token.quantity)
 			richest = caller
-			mostSent = tx.amount
+			mostSent = t.amount
 			return true
 		return false
