@@ -5,7 +5,7 @@ This is the accompanying code repository for the following research paper:<br/>
 CML (Contract Modeling Language) 
 ============
 
-CML is a high-level DSL using a declarative and imperative formalization as well as object-oriented abstractions to specify smart contracts. The language is developed in Xtext, a frameworkfor the development of programming languages and DSLs. For demonstration purposes a [CML Web Editor](https://cml.swa.univie.ac.at/) exists.
+CML is a high-level DSL using a declarative and imperative formalization as well as object-oriented abstractions to specify smart contracts. The language is developed in Xtext, a frameworkfor the development of programming languages and DSLs. A [CML Web Editor](https://cml.swa.univie.ac.at/) is available for demonstration purposes.
 
 ### Characteristics ###
 
