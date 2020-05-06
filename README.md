@@ -1,10 +1,15 @@
 This is the accompanying code repository for the following research paper:<br/>
 [Domain Specific Language for Smart Contract Development](https://swa.cs.univie.ac.at/research/publications/publication/6341/)<br/>
 
-CML Language
+
+CML (Contract Modeling Language) 
 ============
 
-CML provides a simple expression language to describe contract
+CML is a high-level DSL using a declarative and imperative formalization as well as object-oriented abstractions to specify smart contracts. The language is developed in Xtext, a frameworkfor the development of programming languages and DSLs. For demonstration purposes a [CML Web Editor](https://swa.cs.univie.ac.at/research/publications/publication/6341/) exists.
+
+### Characteristics ###
+
+CML is a smart contract DSL providing a simple expression language to describe contract
 computation and is designed according to principles of object oriented
 programming. Being a high-level domain specific language it can be used
 to generate platform specific smart contract code whilst including
@@ -19,8 +24,7 @@ different aspects that influence action execution. In its most
 simplistic form a clause specifies the obligation, or permission of a
 party to execute a specific action (function).
 
-Type System
------------
+### Type System ###
 
 The simplest of types are primitive types which describe the various
 kinds of atomic values allowed in CML. These include *Boolean*,
@@ -39,8 +43,7 @@ important or unusual. In addition, a few special variables (*caller*,
 *anyone*, *now*, *contractStart*, *contractEnd*) are defined which are
 always present and often needed during contract definition.
 
-Clause Structure
-----------------
+### Clause Structure ###
 
 As mentioned before, CML introduces clauses as syntactical elements. A
 simplified illustration of the clause syntax is given below. Each clause has an unique identifier for referencing and
@@ -59,21 +62,20 @@ by multiple linked conditions that evaluate to true or false.
 
 **clause** ID\
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;\[**due** \[**within** RT\] \[**every** RT **from** AT **to** AT\] (**afterbefore**) TRIGGER\]\
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;\[**given** CONDITION\]\
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;\[**given** CONDITION\] \
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;**party** ACTOR\
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(**maymust**) ACTION {(**and | or | xor**) ACTION} \
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(**maymust**) ACTION {(**and | or | xor**) ACTION}
 
 --
 
 Trigger:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;AT | ClauseTrigger | EventTrigger |  ActionTrigger \
 ClauseTrigger:&nbsp;&nbsp;**clause** ID (**fulfilledfailed**) \
 ActionTrigger:&nbsp;&nbsp;ACTOR **did** ACTION \
-EventTrigger:&nbsp;&nbsp;&nbsp;&nbsp;**event** ID\
+EventTrigger:&nbsp;&nbsp;&nbsp;&nbsp;**event** ID
 
 RT...Relative Time, AT...Absolute Time 
 
-CML Example Contract
---------------------
+### CML Example Contract ###
 
 Given this short feature description, we can analyze a
 code example. First, the namespace (line 1) and a design pattern
@@ -145,8 +147,8 @@ contract TimeLock
 		value = 0
 ```
 
-Further Example Contracts
---------------------
+### Further Example Contracts ###
+
 ```
 namespace cml.examples
 
