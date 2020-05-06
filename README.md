@@ -1,5 +1,5 @@
 This is the accompanying code repository for the following research paper:<br/>
-[Domain Specific Language for Smart Contract Development](https://swa.cs.univie.ac.at/research/publications/publication/6341/])<br/>
+[Domain Specific Language for Smart Contract Development](https://swa.cs.univie.ac.at/research/publications/publication/6341/)<br/>
 
 CML Language
 ============
